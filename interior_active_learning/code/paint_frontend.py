@@ -1,277 +1,177 @@
-INDEX_HTML = r"""<!doctype html>
-<html>
+INDEX_HTML = r"""<!DOCTYPE html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Crack Detector</title>
+<title>SEM Crack Detection</title>
 <style>
   /* ============================================================
-     Layout: fixed sidebar + main column.
-     The previous version put all 17 controls in one flat toolbar row, which
-     read as a control panel rather than a tool. This groups them by WHEN you
-     reach for them and demotes the fine-tuning (brush size, zoom slider, SAM
-     toggle) behind a disclosure row, so the default view shows only what a
-     first-time user needs: pick an image, mark, save.
+     Visual language deliberately matched to the sibling TXM app
+     (app/static/index.html) so the two tools feel like one family: same
+     palette, type scale, 330px sidebar, full-width image rows with a blue
+     left-edge marker on the selection, 10px letter-spaced group labels, and a
+     3px progress strip rather than a boxed progress panel.
+
+     What is NOT copied is TXM's control density. It puts brush, zoom,
+     threshold and post-processing inline, which is the clutter this app was
+     just asked to remove -- so brush size and the SAM toggle stay behind
+     Options, and downloads stay in one menu.
      ============================================================ */
-  :root {
-    --bg:        #0f1216;
-    --bg-panel:  #151a21;
-    --bg-raised: #1c232c;
-    --bg-hover:  #232c37;
-    --line:      #262f3a;
-    --line-soft: #1e252e;
-    --text:      #e6edf5;
-    --text-dim:  #8b9bad;
-    --text-faint:#5f6e7f;
-    --accent:    #4a9eff;
-    --accent-dim:#2b6cb3;
-    --crack:     #ff4d4d;
-    --notcrack:  #22ccff;
-    --erase:     #c77dff;
-    --good:      #2ea86b;
-    --radius:    7px;
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
-    background: var(--bg); color: var(--text);
-    display: flex; overflow: hidden;
-    -webkit-font-smoothing: antialiased;
-  }
-  button { font: inherit; color: var(--text); background: var(--bg-raised);
-           border: 1px solid var(--line); border-radius: var(--radius);
-           padding: 6px 11px; cursor: pointer; transition: background .12s, border-color .12s; }
-  button:hover:not(:disabled) { background: var(--bg-hover); border-color: #33404e; }
-  button:disabled { opacity: .42; cursor: default; }
-  button.on { background: var(--accent-dim); border-color: var(--accent); color: #fff; }
-  button.primary { background: var(--good); border-color: #35bd7b; color: #fff; font-weight: 550; }
-  button.primary:hover:not(:disabled) { background: #35bd7b; }
-  input[type=range] { accent-color: var(--accent); }
+  :root { --bg:#14151a; --panel:#1c1e26; --line:#2c2f3a; --ink:#e8e8ea; --dim:#9a9ba4;
+          --accent:#3b82f6; --ok:#22a06b; --warn:#d97706; --bad:#dc2626;
+          --crack:#ff4d4d; --notcrack:#22ccff; --erase:#c77dff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 -apple-system,
+         BlinkMacSystemFont,"Segoe UI",sans-serif; height:100vh; display:flex; overflow:hidden; }
+  #side { width:330px; min-width:330px; background:var(--panel); border-right:1px solid var(--line);
+          display:flex; flex-direction:column; overflow:hidden; }
+  #main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+  h1 { font-size:15px; margin:0; padding:14px 16px; border-bottom:1px solid var(--line);
+       font-weight:600; }
+  .sec { padding:12px 16px; border-bottom:1px solid var(--line); }
+  .sec h2 { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim);
+            margin:0 0 8px; font-weight:600; }
+  button { background:#2a2d38; color:var(--ink); border:1px solid var(--line); border-radius:6px;
+           padding:7px 11px; font:inherit; font-size:13px; cursor:pointer; }
+  button:hover:not(:disabled) { background:#343845; }
+  button:disabled { opacity:.45; cursor:default; }
+  button.pri { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.ok  { background:var(--ok); border-color:var(--ok); color:#fff; }
+  button.on  { background:var(--bad); border-color:var(--bad); color:#fff; }
 
-  /* ---------- sidebar ---------- */
-  #side { width: 268px; flex: 0 0 268px; background: var(--bg-panel);
-          border-right: 1px solid var(--line); display: flex; flex-direction: column;
-          overflow: hidden; }
-  #brand { padding: 15px 16px 13px; border-bottom: 1px solid var(--line-soft); }
-  #brand h1 { margin: 0; font-size: 14.5px; font-weight: 600; letter-spacing: .2px; }
-  #brand p { margin: 3px 0 0; font-size: 11.5px; color: var(--text-faint); }
-  .sect { padding: 13px 16px; border-bottom: 1px solid var(--line-soft); }
-  .sect h2 { margin: 0 0 9px; font-size: 10px; font-weight: 650; letter-spacing: .9px;
-             text-transform: uppercase; color: var(--text-faint); }
+  #dropTarget { margin:12px 16px; padding:22px 12px; border:2px dashed var(--line);
+                border-radius:10px; text-align:center; color:var(--dim); cursor:pointer; }
+  #dropTarget:hover, #dropTarget.hot { border-color:var(--accent); color:var(--ink);
+                                       background:#1a2436; }
+  #dropTarget .sub { font-size:11px; }
 
-  #dropTarget { border: 1.5px dashed #31404f; border-radius: var(--radius);
-                padding: 17px 12px; text-align: center; cursor: pointer;
-                transition: border-color .15s, background .15s; }
-  #dropTarget:hover { border-color: var(--accent); background: rgba(74,158,255,.06); }
-  #dropTarget .big { font-size: 12.5px; font-weight: 550; }
-  #dropTarget .sub { font-size: 11px; color: var(--text-faint); margin-top: 3px; }
+  .kv { font-size:11px; color:var(--dim); line-height:1.7; }
+  .kv b { color:var(--ink); font-weight:500; }
+  .kv .row { display:flex; justify-content:space-between; gap:8px; }
+  #retrainBtn { width:100%; margin-top:9px; font-weight:600; }
 
-  #modelCard { font-size: 11.5px; color: var(--text-dim); line-height: 1.6; }
-  #modelCard b { color: var(--text); font-weight: 550; }
-  #modelCard .row { display: flex; justify-content: space-between; gap: 8px; }
-  #retrainBtn { width: 100%; margin-top: 10px; }
+  #imgSearch { width:100%; padding:6px 9px; font:inherit; font-size:12px; color:var(--ink);
+               background:var(--bg); border:1px solid var(--line); border-radius:6px; }
+  #imgSearch::placeholder { color:var(--dim); }
+  #imageList { flex:1; overflow-y:auto; }
+  .item { padding:9px 16px; border-bottom:1px solid #23252e; cursor:pointer; font-size:12px; }
+  .item:hover { background:#22242d; }
+  .item.sel { background:#1e2a3f; border-left:3px solid var(--accent); padding-left:13px; }
+  .item .nm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .item .mt { color:var(--dim); font-size:11px; margin-top:2px; }
 
-  #listWrap { flex: 1 1 auto; overflow-y: auto; padding: 11px 10px 16px; }
-  #listWrap h2 { padding: 0 6px; margin: 0 0 8px; font-size: 10px; font-weight: 650;
-                 letter-spacing: .9px; text-transform: uppercase; color: var(--text-faint); }
-  #imgSearch { width: 100%; margin: 0 0 8px; padding: 6px 9px; font: inherit;
-               font-size: 12px; color: var(--text); background: var(--bg);
-               border: 1px solid var(--line); border-radius: var(--radius); }
-  #imgSearch::placeholder { color: var(--text-faint); }
-  .item { padding: 7px 9px; border-radius: var(--radius); cursor: pointer;
-          display: flex; align-items: baseline; gap: 7px; }
-  .item:hover { background: var(--bg-raised); }
-  .item.sel { background: var(--accent-dim); }
-  .item .nm { flex: 1 1 auto; font-size: 12px; overflow: hidden;
-              text-overflow: ellipsis; white-space: nowrap; }
-  .item .ct { font-size: 10.5px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
-  .item.sel .ct { color: #cfe4ff; }
-  .item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--good);
-               flex: 0 0 auto; }
+  #bar { display:flex; gap:8px; align-items:center; padding:10px 14px;
+         border-bottom:1px solid var(--line); flex-wrap:wrap; background:var(--panel); }
+  .grp { font-size:10px; letter-spacing:.09em; color:var(--dim); font-weight:600; min-width:52px; }
+  .vsep { width:1px; height:20px; background:var(--line); }
+  label { font-size:12px; color:var(--dim); display:inline-flex; align-items:center; gap:6px; }
+  input[type=range] { width:96px; accent-color:var(--accent); }
 
-  /* ---------- main ---------- */
-  #main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
-  #head { padding: 11px 16px; border-bottom: 1px solid var(--line);
-          display: flex; align-items: center; gap: 12px; background: var(--bg-panel); }
-  #curName { font-size: 13.5px; font-weight: 600; }
-  #curMeta { font-size: 11.5px; color: var(--text-faint); }
-  #head .spacer { flex: 1 1 auto; }
+  .swatch { width:24px; height:24px; border-radius:50%; cursor:pointer; border:2px solid transparent;
+            display:inline-flex; align-items:center; justify-content:center; font-size:13px; color:#fff; }
+  .swatch.red { background:var(--crack); } .swatch.cyan { background:var(--notcrack); }
+  .swatch.erase { background:var(--erase); }
+  .swatch.selected { border-color:var(--ink); box-shadow:0 0 0 2px var(--panel); }
 
-  #bar { display: flex; align-items: center; gap: 4px; padding: 8px 14px;
-         border-bottom: 1px solid var(--line); background: var(--bg-panel);
-         flex-wrap: wrap; }
-  .grp { display: flex; align-items: center; gap: 4px; }
-  .grp > .lbl { font-size: 9.5px; font-weight: 650; letter-spacing: .8px;
-                text-transform: uppercase; color: var(--text-faint); margin-right: 3px; }
-  .vsep { width: 1px; height: 20px; background: var(--line); margin: 0 7px; }
+  #adv { display:none; align-items:center; gap:14px; padding:9px 14px;
+         border-bottom:1px solid var(--line); background:var(--bg); flex-wrap:wrap; }
+  #adv.open { display:flex; }
 
-  .swatch { width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
-            border: 2px solid transparent; display: inline-flex; align-items: center;
-            justify-content: center; font-size: 14px; color: #fff;
-            transition: box-shadow .12s, transform .1s; }
-  .swatch:hover { transform: scale(1.07); }
-  .swatch.red    { background: var(--crack); }
-  .swatch.cyan   { background: var(--notcrack); }
-  .swatch.erase  { background: var(--erase); }
-  .swatch.selected { box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px currentColor; }
-  .swatch.red.selected    { color: var(--crack); }
-  .swatch.cyan.selected   { color: var(--notcrack); }
-  .swatch.erase.selected  { color: var(--erase); }
+  #prog { height:3px; background:var(--accent); width:0; transition:width .2s; }
+  #canvasWrap { flex:1; overflow:auto; background:#0e0f13; position:relative; min-height:0; }
+  #canvasInner { position:relative; margin:20px; }
+  canvas { position:absolute; top:0; left:0; display:block; image-rendering:pixelated; }
+  #paintCanvas { cursor:crosshair; }
+  #foot { padding:7px 14px; font-size:12px; color:var(--dim); border-top:1px solid var(--line);
+          background:var(--panel); min-height:30px; display:flex; align-items:center; gap:12px; }
+  #status { flex:1; } #status.error { color:var(--bad); }
 
-  #advToggle { font-size: 11.5px; color: var(--text-dim); background: none;
-               border: none; padding: 4px 6px; }
-  #advToggle:hover { color: var(--text); background: none; }
-  #adv { display: none; align-items: center; gap: 14px; padding: 7px 16px;
-         border-bottom: 1px solid var(--line); background: var(--bg);
-         font-size: 11.5px; color: var(--text-dim); flex-wrap: wrap; }
-  #adv.open { display: flex; }
-  #adv label { display: flex; align-items: center; gap: 7px; }
-
-  #canvasWrap { flex: 1 1 auto; min-height: 0; overflow: auto; background: #080a0d;
-                display: flex; align-items: flex-start; justify-content: flex-start; }
-  #canvasInner { position: relative; margin: 22px; flex: 0 0 auto; }
-  canvas { position: absolute; top: 0; left: 0; image-rendering: pixelated; }
-  #baseCanvas { z-index: 1; }
-  #paintCanvas { z-index: 2; cursor: crosshair; }
-
-  #foot { padding: 8px 16px; border-top: 1px solid var(--line); background: var(--bg-panel);
-          display: flex; align-items: center; gap: 12px; font-size: 12px; min-height: 37px; }
-  #status { color: #7fd4a3; flex: 1 1 auto; }
-  #status.error { color: #ff7b7b; }
-  #modelInfo { font-size: 10.5px; color: var(--text-faint); }
-
-  /* ---------- overlays ---------- */
-  #dropZone { position: fixed; inset: 0; z-index: 900; display: none;
-              background: rgba(8,11,15,.86); backdrop-filter: blur(3px);
-              align-items: center; justify-content: center; }
-  #dropZone.active { display: flex; }
-  #dropInner { border: 2.5px dashed var(--accent); border-radius: 16px;
-               padding: 46px 66px; text-align: center; font-size: 19px;
-               background: rgba(21,26,33,.92); }
-  #dropInner .hint { margin-top: 9px; font-size: 12.5px; color: var(--text-dim); }
-
-  #jobBar { display: none; position: fixed; left: 268px; right: 0; bottom: 0; z-index: 950;
-            background: var(--bg-panel); border-top: 1px solid var(--accent-dim);
-            padding: 9px 16px; }
-  #jobLabel { font-size: 12.5px; font-weight: 550; }
-  #jobTrack { height: 4px; background: #1e2833; border-radius: 2px; margin: 7px 0 4px;
-              overflow: hidden; }
-  #jobFill { height: 4px; width: 0%; background: linear-gradient(90deg,var(--accent-dim),var(--accent));
-             border-radius: 2px; transition: width .3s ease; }
-  #jobNote { color: var(--text-faint); font-size: 11px; }
-
-  #expMenu { display: none; position: absolute; z-index: 960; background: var(--bg-raised);
-             border: 1px solid var(--line); border-radius: var(--radius);
-             padding: 5px; box-shadow: 0 10px 26px rgba(0,0,0,.5); min-width: 196px; }
-  #expMenu.open { display: block; }
-  #expMenu button { display: block; width: 100%; text-align: left; background: none;
-                    border: none; padding: 7px 10px; border-radius: 5px; font-size: 12px; }
-  #expMenu button:hover { background: var(--bg-hover); }
-  #expMenu .mdiv { height: 1px; background: var(--line); margin: 4px 2px; }
-
-  #help { position: fixed; right: 14px; bottom: 46px; z-index: 940; display: none;
-          background: var(--bg-raised); border: 1px solid var(--line);
-          border-radius: var(--radius); padding: 12px 14px; font-size: 11.5px;
-          color: var(--text-dim); box-shadow: 0 10px 26px rgba(0,0,0,.5); }
-  #help.open { display: block; }
-  #help b { color: var(--text); }
-  #help kbd { background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
-              padding: 1px 5px; font-family: ui-monospace, monospace; font-size: 10.5px;
-              color: var(--text); }
-  #help table { border-collapse: collapse; }
-  #help td { padding: 3px 8px 3px 0; }
+  #dropZone { position:fixed; inset:0; z-index:900; display:none; background:rgba(14,15,19,.88);
+              align-items:center; justify-content:center; }
+  #dropZone.active { display:flex; }
+  #dropInner { border:2px dashed var(--accent); border-radius:12px; padding:44px 62px;
+               text-align:center; font-size:18px; background:#1a2436; }
+  #dropInner .hint { margin-top:8px; font-size:12px; color:var(--dim); }
+  #jobBar { display:none; }
+  #expMenu { display:none; position:absolute; z-index:960; background:var(--panel);
+             border:1px solid var(--line); border-radius:8px; padding:5px;
+             box-shadow:0 12px 30px rgba(0,0,0,.55); min-width:210px; }
+  #expMenu.open { display:block; }
+  #expMenu button { display:block; width:100%; text-align:left; background:none; border:none;
+                    padding:8px 10px; border-radius:5px; font-size:12.5px; }
+  #expMenu button:hover { background:#22242d; }
+  #expMenu .mdiv { height:1px; background:var(--line); margin:4px 2px; }
+  #help { position:fixed; right:14px; bottom:42px; z-index:940; display:none; background:var(--panel);
+          border:1px solid var(--line); border-radius:8px; padding:12px 14px; font-size:12px;
+          color:var(--dim); box-shadow:0 12px 30px rgba(0,0,0,.55); }
+  #help.open { display:block; }
+  #help kbd { background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:1px 5px;
+              font-family:ui-monospace,monospace; font-size:11px; color:var(--ink); }
+  #help td { padding:3px 8px 3px 0; }
 </style>
 </head>
 <body>
 
-<aside id="side">
-  <div id="brand">
-    <h1>Crack Detector</h1>
-    <p>Detect &middot; correct &middot; retrain</p>
-  </div>
+<div id="side">
+  <h1>SEM Crack Detection</h1>
+  <div id="dropTarget">Drag SEM images here<br>
+    <span class="sub">or click to choose &middot; .tif .tiff .png .jpg</span></div>
 
-  <div class="sect">
-    <h2>Add images</h2>
-    <div id="dropTarget">
-      <div class="big">Drop images here</div>
-      <div class="sub">or click to browse &middot; TIF PNG JPG</div>
-    </div>
-  </div>
-
-  <div class="sect">
+  <div class="sec">
     <h2>Model</h2>
-    <div id="modelCard">loading&hellip;</div>
-    <button id="retrainBtn" title="Rebuild training data from every correction you have made, retrain, and re-render all images. The new model is only deployed if it scores at least as well on held-out data.">Retrain &amp; re-overlay</button>
+    <div class="kv" id="modelCard">loading&hellip;</div>
+    <button id="retrainBtn" class="ok" title="Rebuild training data from every correction, retrain, and re-render. The new model is deployed only if it scores at least as well on held-out data.">&#9635; Retrain on my corrections</button>
   </div>
 
-  <div id="listWrap">
+  <div class="sec">
     <h2>Images</h2>
     <input id="imgSearch" type="search" placeholder="Filter&hellip;" autocomplete="off">
-    <div id="imageList"></div>
-    <!-- kept as the single source of truth for the existing logic; the visual
-         list above just drives it, so no behaviour changed with the redesign -->
-    <select id="imageSelect" style="display:none"></select>
   </div>
-</aside>
+  <div id="imageList"></div>
+  <select id="imageSelect" style="display:none"></select>
+</div>
 
 <div id="main">
-  <div id="head">
-    <span id="curName">No image selected</span>
-    <span id="curMeta"></span>
-    <span class="spacer"></span>
-    <span id="saveState" style="font-size:11.5px;color:var(--text-dim)"></span>
-    <button id="retryBtn" class="primary" style="display:none" title="A save failed -- your marks are still here. Retry.">Retry save</button>
+  <div id="bar" style="border-bottom:none;padding-bottom:0">
+    <span class="grp">IMAGE</span>
+    <span id="curName" style="font-size:13.5px;font-weight:600;color:var(--ink)">No image selected</span>
+    <span id="curMeta" style="font-size:12px;color:var(--dim)"></span>
+    <span style="flex:1"></span>
+    <span id="saveState" style="font-size:12px;color:var(--dim)"></span>
+    <button id="retryBtn" class="pri" style="display:none" title="A save failed -- your marks are still here.">Retry save</button>
+    <button id="advToggle" style="background:none;border:none;color:var(--dim);font-size:12px">Options &#9662;</button>
+    <button id="helpBtn" style="background:none;border:none;color:var(--dim)">?</button>
   </div>
 
   <div id="bar">
-    <div class="grp">
-      <span class="lbl">Mark</span>
-      <span class="swatch red selected" id="swatchRed" title="Crack (1)"></span>
-      <span class="swatch cyan" id="swatchCyan" title="Not a crack (2)"></span>
-      <span class="swatch erase" id="swatchErase" title="Remove from candidacy (3)">&times;</span>
-    </div>
-    <div class="vsep"></div>
-    <div class="grp">
-      <span class="lbl">Mode</span>
-      <button id="bucketBtn" title="Brush: paint pixel by pixel. Whole region: one click sets an entire connected region -- essential for large ones.">Brush</button>
-    </div>
-    <div class="vsep"></div>
-    <div class="grp">
-      <span class="lbl">View</span>
-      <button id="zoomOut" title="Zoom out">&minus;</button>
-      <span id="zoomLabel" style="min-width:44px;text-align:center;font-variant-numeric:tabular-nums;color:var(--text-dim)">100%</span>
-      <button id="zoomIn" title="Zoom in">+</button>
-      <button id="fitBtn" title="Fit to window (F)">Fit</button>
-    </div>
-    <div class="vsep"></div>
-    <div class="grp">
-      <span class="lbl">Edit</span>
-      <button id="undoBtn" title="Undo (&#8984;Z)">Undo</button>
-      <button id="clearBtn" title="Discard all unsaved strokes on this image">Clear</button>
-    </div>
-    <div class="vsep"></div>
-    <div class="grp">
-      <button id="exportBtn" title="Download masks, overlays and measurements">Export &#9662;</button>
-    </div>
-    <span class="spacer" style="flex:1 1 auto"></span>
-    <button id="advToggle" title="Brush size, detection options">Options &#9662;</button>
-    <button id="helpBtn" title="Keyboard shortcuts">?</button>
+    <span class="grp">PAINT</span>
+    <span class="swatch red selected" id="swatchRed" title="Crack (1)"></span>
+    <span class="swatch cyan" id="swatchCyan" title="Not a crack (2)"></span>
+    <span class="swatch erase" id="swatchErase" title="Remove from candidacy (3)">&times;</span>
+    <button id="bucketBtn" title="Brush paints pixel by pixel. Whole region sets an entire connected region in one click.">Brush</button>
+    <span class="vsep"></span>
+    <span class="grp">VIEW</span>
+    <button id="zoomOut">&minus;</button>
+    <span id="zoomLabel" style="min-width:42px;text-align:center;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums">100%</span>
+    <button id="zoomIn">+</button>
+    <button id="fitBtn" title="Fit to window (F)">Fit</button>
+    <span class="vsep"></span>
+    <span class="grp">EDIT</span>
+    <button id="undoBtn">Undo <span style="opacity:.6">&#8984;Z</span></button>
+    <button id="clearBtn" title="Erase every unsaved stroke on this image.">Reset</button>
+    <span class="vsep"></span>
+    <button id="exportBtn" class="pri">Download &#9662;</button>
   </div>
 
   <div id="adv">
-    <label>Brush
-      <input type="range" id="brushSize" min="2" max="120" value="18">
-      <span id="brushSizeLabel" style="min-width:38px;font-variant-numeric:tabular-nums">18px</span>
-    </label>
-    <label><input type="checkbox" id="useSam" checked>
-      Use SAM on new images
-      <span style="color:var(--text-faint)">(slower, f1 0.776 vs 0.715)</span>
-    </label>
-    <label style="display:none">
-      <input type="range" id="zoom" min="10" max="800" value="100">
-    </label>
+    <label>Brush <input type="range" id="brushSize" min="2" max="120" value="18">
+      <span id="brushSizeLabel" style="font-variant-numeric:tabular-nums">18px</span></label>
+    <label><input type="checkbox" id="useSam" checked> Use SAM on new images
+      <span style="opacity:.6">(slower &middot; f1 0.776 vs 0.715)</span></label>
+    <label style="display:none"><input type="range" id="zoom" min="10" max="800" value="100"></label>
   </div>
+
+  <div id="prog"></div>
 
   <div id="canvasWrap">
     <div id="canvasInner">
@@ -281,15 +181,15 @@ INDEX_HTML = r"""<!doctype html>
   </div>
 
   <div id="foot">
-    <span id="status">Ready</span>
-    <span id="modelInfo"></span>
+    <span id="status">Drag some images in to begin.</span>
+    <span id="modelInfo" style="font-size:11px"></span>
   </div>
 </div>
 
 <div id="expMenu">
-  <button id="dlMask">B&amp;W mask <span style="color:var(--text-faint)">&middot; crack = black</span></button>
-  <button id="dlOverlay">Overlay <span style="color:var(--text-faint)">&middot; burned in</span></button>
-  <button id="dlCsv">Region measurements <span style="color:var(--text-faint)">&middot; CSV</span></button>
+  <button id="dlMask">B&amp;W mask <span style="opacity:.55">&middot; crack = black</span></button>
+  <button id="dlOverlay">Overlay <span style="opacity:.55">&middot; burned in</span></button>
+  <button id="dlCsv">Region measurements <span style="opacity:.55">&middot; CSV</span></button>
   <div class="mdiv"></div>
   <button id="dlAll">All images &rarr; .zip</button>
 </div>
@@ -299,23 +199,16 @@ INDEX_HTML = r"""<!doctype html>
     <tr><td><kbd>&#8984;Z</kbd> / <kbd>Ctrl Z</kbd></td><td>Undo</td></tr>
     <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Crack / not-crack / erase</td></tr>
     <tr><td><kbd>F</kbd></td><td>Fit to window</td></tr>
-    <tr><td colspan="2" style="padding-top:7px;color:var(--text-faint)">
-      Red = crack &middot; Cyan = not a crack<br>Corrections always override the model.</td></tr>
+    <tr><td colspan="2" style="padding-top:7px">Red = crack &middot; Cyan = not a crack.<br>
+      Marks save themselves. Corrections override the model.</td></tr>
   </table>
 </div>
 
-<div id="dropZone">
-  <div id="dropInner">
-    <strong>Drop SEM images</strong>
-    <div class="hint">the current model is applied automatically</div>
-  </div>
-</div>
+<div id="dropZone"><div id="dropInner"><strong>Drop SEM images</strong>
+  <div class="hint">the current model is applied automatically</div></div></div>
 
-<div id="jobBar">
-  <div id="jobLabel">Working&hellip;</div>
-  <div id="jobTrack"><div id="jobFill"></div></div>
-  <div id="jobNote"></div>
-</div>
+<div id="jobBar"><div id="jobLabel"></div><div id="jobTrack"><div id="jobFill"></div></div>
+  <div id="jobNote"></div></div>
 
 <script>
 const RED = '#ff0000', CYAN = '#00ccff', ERASE = '#ff00ff';
@@ -823,13 +716,17 @@ window.addEventListener('resize', () => {});
 // Long jobs are polled rather than awaited: SAM takes ~3 min/image, which no
 // browser should hold a request open for.
 
+// Progress shows as a 3px strip under the toolbar plus the status line, which
+// is how the sibling TXM app does it -- a boxed panel pinned over the bottom of
+// the window covered the canvas exactly where the status line already lives.
 function showJob(label) {
-  document.getElementById('jobBar').style.display = 'block';
+  document.getElementById('prog').style.width = '0%';
   document.getElementById('jobLabel').textContent = label;
-  document.getElementById('jobFill').style.width = '0%';
-  document.getElementById('jobNote').textContent = '';
+  setStatus(label + '\u2026');
 }
-function hideJob() { document.getElementById('jobBar').style.display = 'none'; }
+function hideJob() {
+  document.getElementById('prog').style.width = '0%';
+}
 
 async function pollJob(jobId, label) {
   showJob(label);
@@ -839,8 +736,12 @@ async function pollJob(jobId, label) {
     try { j = await (await fetch('/api/job/' + jobId)).json(); }
     catch (e) { continue; }                       // transient: keep polling
     if (!j.ok) { hideJob(); throw new Error(j.error || 'job vanished'); }
-    document.getElementById('jobFill').style.width = Math.round((j.frac || 0) * 100) + '%';
-    document.getElementById('jobNote').textContent = (j.stage || '') + (j.note ? ' — ' + j.note : '');
+    const pct = Math.round((j.frac || 0) * 100);
+    document.getElementById('prog').style.width = pct + '%';
+    document.getElementById('jobFill').style.width = pct + '%';
+    const detail = (j.stage || '') + (j.note ? ' \u2014 ' + j.note : '');
+    document.getElementById('jobNote').textContent = detail;
+    setStatus(label + ' \u2014 ' + pct + '%' + (detail ? '  (' + detail + ')' : ''));
     if (j.state === 'done') { hideJob(); return j.result; }
     if (j.state === 'error') { hideJob(); throw new Error(j.error || 'job failed'); }
   }
@@ -991,21 +892,37 @@ function renderImageList() {
     shown++;
     const el = document.createElement('div');
     el.className = 'item' + (info.name === currentImage ? ' sel' : '');
-    const nm = document.createElement('span');
+    const nm = document.createElement('div');
     nm.className = 'nm'; nm.textContent = info.name; nm.title = info.name;
-    const ct = document.createElement('span');
-    ct.className = 'ct';
-    ct.textContent = (info.n_crack != null && info.n_candidates)
-      ? info.n_crack + '/' + info.n_candidates
-      : (info.n_candidates ? info.n_candidates : '—');
-    ct.title = 'crack regions / candidates';
-    el.appendChild(nm); el.appendChild(ct);
+    const mt = document.createElement('div');
+    mt.className = 'mt';
+    mt.textContent = (info.n_crack != null && info.n_candidates)
+      ? info.n_crack + ' crack \u00b7 ' + info.n_candidates + ' candidates'
+      : (info.n_candidates ? info.n_candidates + ' candidates' : 'not processed yet');
+    el.appendChild(nm); el.appendChild(mt);
     el.addEventListener('click', () => {
       const sel = document.getElementById('imageSelect');
       sel.value = info.name;
       sel.dispatchEvent(new Event('change', {bubbles: true}));
     });
+    if (info.name === currentImage) el.dataset.sel = '1';
     box.appendChild(el);
+  }
+  // With 62 images the selected one is usually outside the scroll viewport, so
+  // the list looked like nothing was selected. Bring it into view -- 'nearest'
+  // so it does not yank the list around when it is already visible.
+  const cur = box.querySelector('.item[data-sel="1"]');
+  if (cur) {
+    // Explicit scrollTop rather than scrollIntoView: the latter silently did
+    // nothing here, since the row is appended and measured in the same frame.
+    // Defer one frame so layout has settled, then centre it only when it is
+    // actually outside the viewport.
+    requestAnimationFrame(() => {
+      const top = cur.offsetTop, bot = top + cur.offsetHeight;
+      if (top < box.scrollTop || bot > box.scrollTop + box.clientHeight) {
+        box.scrollTop = Math.max(0, top - box.clientHeight / 2 + cur.offsetHeight / 2);
+      }
+    });
   }
   if (!shown) {
     const e = document.createElement('div');

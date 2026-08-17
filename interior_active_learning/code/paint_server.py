@@ -103,8 +103,37 @@ def _png_response(pil_img):
     return Response(buf.read(), mimetype="image/png")
 
 
+_frontend_mtime = None
+
+
 @app.route("/")
 def index():
+    """Serve the frontend, re-reading paint_frontend.py if it changed on disk.
+
+    Without this, editing the frontend has no effect until the server process is
+    restarted: INDEX_HTML is bound at import time, so a browser reload re-fetches
+    the same stale string. That cost real debugging time -- two UI fixes appeared
+    not to work and were investigated as bugs when the edited code simply was not
+    being served. It is the same staleness that bit the paint templates and the
+    stage cache, one level up.
+
+    Cheap: one stat() per page load, and reimport only when the mtime moves.
+    """
+    global INDEX_HTML, _frontend_mtime
+    try:
+        import importlib
+        import paint_frontend
+        path = paint_frontend.__file__
+        mtime = os.path.getmtime(path)
+        if _frontend_mtime is None:
+            _frontend_mtime = mtime
+        elif mtime > _frontend_mtime:
+            importlib.reload(paint_frontend)
+            INDEX_HTML = paint_frontend.INDEX_HTML
+            _frontend_mtime = mtime
+            print(f"frontend reloaded from disk ({path})")
+    except Exception as e:
+        print(f"frontend reload skipped: {type(e).__name__}: {e}")
     return INDEX_HTML
 
 
