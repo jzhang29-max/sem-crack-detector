@@ -220,8 +220,8 @@ INDEX_HTML = r"""<!doctype html>
     <span id="curName">No image selected</span>
     <span id="curMeta"></span>
     <span class="spacer"></span>
-    <button id="saveBtn" title="Save your strokes without re-running detection">Save</button>
-    <button id="ingestBtn" class="primary" title="Save and fold your corrections into the model's candidate set">Save &amp; Ingest</button>
+    <span id="saveState" style="font-size:11.5px;color:var(--text-dim)"></span>
+    <button id="retryBtn" class="primary" style="display:none" title="A save failed -- your marks are still here. Retry.">Retry save</button>
   </div>
 
   <div id="bar">
@@ -468,19 +468,79 @@ async function loadImage(name) {
   } else {
     setStatus('Loaded ' + name + (wasRegenerated ? ' (refreshed with the newly retrained model)' : ''));
   }
-  pushUndo();
+  resetUndoHistory();
 }
 
-function pushUndo() {
-  undoStack.push(paintCtx.getImageData(0, 0, nativeW, nativeH));
-  if (undoStack.length > 25) undoStack.shift();
+// Undo stores only the rectangle a stroke actually touched.
+//
+// This previously snapshotted the WHOLE canvas on every stroke:
+// getImageData(0,0,nativeW,nativeH) on a 6144x4096 image is 100 MB, kept 25
+// deep, so an ordinary editing session could hold 2.5 GB of undo history. That
+// was the main reason painting and image switching felt slow, and it made each
+// getImageData call take seconds on the largest images.
+//
+// beforeCanvas holds the pre-stroke paint layer -- ONE full-size canvas
+// (GPU-backed, far cheaper than ImageData) instead of one snapshot per undo
+// step. On stroke end the touched rect is copied out of it, then it is
+// resynced. Undo puts that rect back into both layers so they stay consistent.
+let beforeCanvas = document.createElement('canvas');
+let beforeCtx = beforeCanvas.getContext('2d', { willReadFrequently: true });
+let undoBytes = 0;
+const UNDO_BYTE_BUDGET = 150 * 1024 * 1024;   // ~150 MB, not 2.5 GB
+let sMinX = 0, sMinY = 0, sMaxX = 0, sMaxY = 0, sTouched = false;
+
+function resetUndoHistory() {
+  undoStack = []; undoBytes = 0; sTouched = false;
+  if (!nativeW || !nativeH) return;
+  beforeCanvas.width = nativeW; beforeCanvas.height = nativeH;
+  beforeCtx.clearRect(0, 0, nativeW, nativeH);
+  beforeCtx.drawImage(paintCanvas, 0, 0);
+}
+
+function noteStrokePoint(x, y) {
+  const pad = brushSize / 2 + 2;
+  if (!sTouched) {
+    sMinX = x - pad; sMinY = y - pad; sMaxX = x + pad; sMaxY = y + pad; sTouched = true;
+  } else {
+    sMinX = Math.min(sMinX, x - pad); sMinY = Math.min(sMinY, y - pad);
+    sMaxX = Math.max(sMaxX, x + pad); sMaxY = Math.max(sMaxY, y + pad);
+  }
+}
+
+function pushUndo(fullFrame) {
+  if (!nativeW || !nativeH) return;
+  if (beforeCanvas.width !== nativeW || beforeCanvas.height !== nativeH) resetUndoHistory();
+  let x, y, w, h;
+  if (fullFrame || !sTouched) {
+    x = 0; y = 0; w = nativeW; h = nativeH;
+  } else {
+    x = Math.max(0, Math.floor(sMinX)); y = Math.max(0, Math.floor(sMinY));
+    w = Math.min(nativeW, Math.ceil(sMaxX)) - x;
+    h = Math.min(nativeH, Math.ceil(sMaxY)) - y;
+  }
+  sTouched = false;
+  if (w <= 0 || h <= 0) return;
+  let data;
+  try { data = beforeCtx.getImageData(x, y, w, h); } catch (e) { return; }
+  undoStack.push({ x, y, w, h, data });
+  undoBytes += w * h * 4;
+  while (undoStack.length > 1 && (undoBytes > UNDO_BYTE_BUDGET || undoStack.length > 60)) {
+    const dropped = undoStack.shift();
+    undoBytes -= dropped.w * dropped.h * 4;
+  }
+  beforeCtx.clearRect(x, y, w, h);
+  beforeCtx.drawImage(paintCanvas, x, y, w, h, x, y, w, h);
 }
 
 function undo() {
-  if (undoStack.length <= 1) return;
-  undoStack.pop();
-  const prev = undoStack[undoStack.length - 1];
-  paintCtx.putImageData(prev, 0, 0);
+  const e = undoStack.pop();
+  if (!e) return false;
+  undoBytes -= e.w * e.h * 4;
+  paintCtx.clearRect(e.x, e.y, e.w, e.h);
+  paintCtx.putImageData(e.data, e.x, e.y);
+  beforeCtx.clearRect(e.x, e.y, e.w, e.h);
+  beforeCtx.putImageData(e.data, e.x, e.y);
+  return true;
 }
 
 function canvasCoords(e) {
@@ -505,6 +565,9 @@ function strokeAt(x, y) {
   paintCtx.beginPath();
   paintCtx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
   paintCtx.fill();
+  // remember what this stroke touched so undo can snapshot just that rect
+  noteStrokePoint(lastX, lastY);
+  noteStrokePoint(x, y);
 }
 
 paintCanvas.addEventListener('mousedown', (e) => {
@@ -569,10 +632,10 @@ paintCanvas.addEventListener('mousemove', (e) => {
   lastX = x; lastY = y;
 });
 window.addEventListener('mouseup', () => {
-  if (drawing) { drawing = false; pushUndo(); }
+  if (drawing) { drawing = false; pushUndo(); markDirty(); }
 });
 paintCanvas.addEventListener('mouseleave', () => {
-  if (drawing) { drawing = false; pushUndo(); }
+  if (drawing) { drawing = false; pushUndo(); markDirty(); }
 });
 
 function selectColor(id, color) {
@@ -638,12 +701,15 @@ window.addEventListener('keydown', (e) => {
 });
 document.getElementById('clearBtn').addEventListener('click', () => {
   if (confirm('Clear all painted strokes for this image?')) {
+    pushUndo(true);
     paintCtx.clearRect(0, 0, nativeW, nativeH);
-    pushUndo();
   }
 });
-document.getElementById('imageSelect').addEventListener('change', (e) => {
+document.getElementById('imageSelect').addEventListener('change', async (e) => {
+  // flush pending marks before leaving, so switching images cannot lose work
+  if (savePending || saveInFlight) { setStatus('Saving before switching\u2026'); await commitNow(true); }
   currentImage = e.target.value;
+  setSaveState('idle');
   loadImage(currentImage);
 });
 
@@ -659,17 +725,76 @@ async function savePaint() {
   return result;
 }
 
-document.getElementById('saveBtn').addEventListener('click', async () => {
+// ---- autosave ----
+// There is no Save button any more. Two buttons that both "saved" was a false
+// choice: Save wrote the stroke layer, Save & Ingest additionally folded those
+// strokes into the candidate set -- and only the second one actually recorded a
+// verdict the model would ever learn from, so anyone pressing Save alone was
+// quietly getting less than they expected.
+//
+// Marks are now committed automatically once drawing pauses. Debounced rather
+// than per-stroke because ingest re-renders the overlay, and doing that between
+// two quick strokes would fight the user.
+let saveTimer = null, saveInFlight = false, savePending = false;
+const AUTOSAVE_IDLE_MS = 1100;
+
+function markDirty() {
+  savePending = true;
+  setSaveState('pending');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(commitNow, AUTOSAVE_IDLE_MS);
+}
+
+function setSaveState(state) {
+  const el = document.getElementById('saveState');
+  if (!el) return;
+  const map = {
+    idle:    ['', ''],
+    pending: ['Unsaved changes', 'var(--text-dim)'],
+    saving:  ['Saving\u2026', 'var(--text-dim)'],
+    saved:   ['All changes saved', '#7fd4a3'],
+    error:   ['Save failed \u2014 use Retry', '#ff7b7b'],
+  };
+  const [txt, col] = map[state] || map.idle;
+  el.textContent = txt;
+  el.style.color = col;
+  const retry = document.getElementById('retryBtn');
+  if (retry) retry.style.display = (state === 'error') ? '' : 'none';
+}
+
+async function commitNow(silent) {
+  clearTimeout(saveTimer);
+  if (!currentImage || !savePending) return;
+  if (saveInFlight) { saveTimer = setTimeout(commitNow, 400); return; }  // coalesce
+  saveInFlight = true; savePending = false;
+  setSaveState('saving');
   try {
-    setStatus('Saving...');
     await savePaint();
-    setStatus('Saved.');
+    const res = await fetch('/api/ingest/' + currentImage, { method: 'POST' });
+    const result = await res.json();
+    if (!result.ok) throw new Error(result.error || 'ingest failed');
+    // reload so corrected/erased pixels show their real committed appearance
+    // rather than the transient marker colour
+    await loadImage(currentImage);
+    setSaveState('saved');
+    if (!silent) setStatus(result.message || 'Saved.');
+    loadImageList(true);
   } catch (err) {
-    setStatus('Error: ' + err.message, true);
+    savePending = true;            // keep the work; let the user retry
+    setSaveState('error');
+    setStatus('Save failed: ' + err.message, true);
+  } finally {
+    saveInFlight = false;
   }
+}
+
+// don't lose marks when switching images or closing the tab
+const _origLoadImageForSave = loadImage;
+window.addEventListener('beforeunload', (e) => {
+  if (savePending || saveInFlight) { e.preventDefault(); e.returnValue = ''; }
 });
 
-document.getElementById('ingestBtn').addEventListener('click', async () => {
+document.getElementById('retryBtn').addEventListener('click', async () => {
   try {
     setStatus('Saving...');
     await savePaint();
