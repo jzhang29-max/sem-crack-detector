@@ -242,13 +242,18 @@ def main():
         check(name, token in html)
     check("keydown ignores real text fields", "isContentEditable" in html)
 
-    # Redesigned shell. Every id the 533-line paint/save/zoom/undo script talks to
-    # must survive the layout change, or the app renders but silently does
-    # nothing -- so assert the full set rather than spot-checking.
+    # Redesigned shell. Every id the paint/save/zoom/undo script talks to must
+    # survive the layout change, or the app renders but silently does nothing --
+    # so assert the full set rather than spot-checking.
+    #
+    # saveBtn/ingestBtn are deliberately NOT in this list any more: autosave
+    # replaced them, and their absence is asserted separately below. This check
+    # failing is how that removal was caught, which is the point of listing them
+    # explicitly rather than sampling.
     LOGIC_IDS = ["baseCanvas", "paintCanvas", "canvasInner", "canvasWrap", "status",
                  "imageSelect", "swatchRed", "swatchCyan", "swatchErase", "brushSize",
                  "brushSizeLabel", "bucketBtn", "zoom", "zoomLabel", "fitBtn", "undoBtn",
-                 "clearBtn", "saveBtn", "ingestBtn", "dropZone", "jobBar", "jobFill",
+                 "clearBtn", "dropZone", "jobBar", "jobFill",
                  "jobLabel", "jobNote", "modelInfo", "retrainBtn", "useSam",
                  "dlMask", "dlOverlay", "dlCsv", "dlAll"]
     missing = [i for i in LOGIC_IDS if f'id="{i}"' not in html]
@@ -267,8 +272,55 @@ def main():
     check("brush size hidden behind Options",
           html.find('id="adv"') < html.find('id="brushSize"'),
           "brushSize lives inside the collapsed #adv row")
-    check("advanced row collapsed by default", "#adv { display: none" in html)
+    # Whitespace-insensitive: the CSS was restyled to the sibling TXM app's
+    # convention (`display:none`, no space), and an exact-string assertion
+    # reported a passing behaviour as a failure.
+    import re as _re
+    _adv = _re.search(r"#adv\s*\{([^}]*)\}", html)
+    check("advanced row collapsed by default",
+          bool(_adv) and "display:none" in _adv.group(1).replace(" ", ""))
     check("hidden select drives the visual list", 'id="imageSelect" style="display:none"' in html)
+
+    # ---- autosave replaced the two save buttons ----
+    check("Save button removed", 'id="saveBtn"' not in html)
+    check("Save & Ingest button removed", 'id="ingestBtn"' not in html)
+    check("no stale JS reference to the removed buttons",
+          "getElementById('saveBtn')" not in html and "getElementById('ingestBtn')" not in html)
+    check("autosave commits on a debounce", "AUTOSAVE_IDLE_MS" in html and "markDirty" in html)
+    check("stroke end triggers autosave", "markDirty();" in html)
+    check("switching images flushes pending marks first",
+          "Saving before switching" in html)
+    check("warns before closing with unsaved marks", "beforeunload" in html)
+    check("save-state indicator present", 'id="saveState"' in html)
+    check("failed save is retryable and keeps the work",
+          'id="retryBtn"' in html and "savePending = true;" in html)
+
+    # ---- undo no longer snapshots the whole canvas ----
+    check("undo stores only the touched rect, not the frame",
+          "getImageData(0, 0, nativeW, nativeH)" not in html,
+          "the 100MB-per-stroke snapshot is gone")
+    check("undo has a memory budget", "UNDO_BYTE_BUDGET" in html)
+    check("stroke bbox is tracked", "noteStrokePoint" in html)
+    check("a pre-stroke reference layer exists", "beforeCanvas" in html)
+
+    # ---- minimal launch ----
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    run = os.path.join(root, "run")
+    check("./run exists and is executable",
+          os.path.exists(run) and os.access(run, os.X_OK))
+    if os.path.exists(run):
+        rs = open(run).read()
+        check("./run bootstraps a virtualenv", "python3 -m venv" in rs)
+        check("./run opens the browser itself", "xdg-open" in rs or "open \"$URL\"" in rs)
+        check("./run sets the OpenMP workaround", "KMP_DUPLICATE_LIB_OK" in rs)
+    check("Makefile provides bare `make`", os.path.exists(os.path.join(root, "Makefile")))
+
+    # Editing the frontend used to require restarting the server, because
+    # INDEX_HTML is bound at import time -- which made two working UI fixes look
+    # broken. The server now restats the module per page load.
+    srv = open(os.path.join(os.path.dirname(__file__), "paint_server.py")).read()
+    check("frontend edits are picked up without a restart",
+          "importlib.reload(paint_frontend)" in srv and "_frontend_mtime" in srv)
 
     # ---------- cleanup ----------
     print("\n[cleanup]")
