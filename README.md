@@ -91,8 +91,27 @@ with the classifier trained on *other* images:
 | detector | f1 | recall | specificity |
 |---|---|---|---|
 | Pass 1 (darkness threshold + classifier) | 0.697 | 0.575 | 0.476 |
-| Pass 1 + Pass 2 (interior / bridge fills) | 0.715 | 0.597 | 0.476 |
-| **Pass 1 + Pass 2 + SAM** — the default | **0.776** | **0.678** | 0.395 |
+| **Pass 1 + Pass 2** — what the shipped overlays use | **0.715** | 0.597 | 0.476 |
+| **Pass 1 + Pass 2 + SAM** — best, opt-in | **0.776** | **0.678** | 0.395 |
+
+**SAM is not part of the model.** `crack_classifier.joblib` is a LogisticRegression
+over 8 features and is identical whether or not SAM is installed. SAM is a
+separate stage run at detection time: it proposes regions the darkness threshold
+never found, and the same classifier scores them. So "+ SAM" is a pipeline
+configuration, not a different trained model.
+
+Which means it only applies where it is actually run:
+
+| action | includes SAM? |
+|---|---|
+| dropping in a new image | yes, if **Use SAM** is ticked |
+| **Re-apply model** | only if you choose it when asked |
+| the re-render after **Retrain** | only if you ask for it |
+| the overlays shipped in this repo | **no** — pipeline only, f1 0.715 |
+
+Including SAM costs ~3 min per image instead of ~40 s, so a 62-image re-render is
+~3 hours rather than ~15 minutes. Re-apply asks which you want and shows the
+estimate for your image count.
 
 SAM adds +0.061 f1 over the full pipeline, improving 4 of 5 images. The gain is
 entirely recall (+8.1 points) traded against specificity (−8.1), precision flat —
@@ -110,11 +129,15 @@ invalidated, is in [docs/MODEL_VALIDATION_BENCHMARK.md](docs/MODEL_VALIDATION_BE
 A comparison against the sibling TXM app — what was adopted from it and what was
 declined — is in [docs/APP_COMPARISON.md](docs/APP_COMPARISON.md).
 
-## SAM is optional
+## Turning SAM on
 
-Untick **Advanced → Use SAM on new images** for ~40 s/image instead of ~3 min, at
-f1 0.715 instead of 0.776. If PyTorch is not installed the checkbox disables
-itself and the pipeline runs alone — nothing breaks.
+If PyTorch is not installed, **Advanced** shows an **Enable SAM** button that
+installs it into this app's own virtualenv — no terminal needed. It is ~2.5 GB and
+takes a few minutes; restart the app afterwards. Until then the checkbox is
+disabled and the pipeline runs alone, which is a working detector, just the 0.715
+one rather than 0.776.
+
+Equivalent by hand, if you prefer:
 
 ```bash
 pip install torch transformers torchvision   # torchvision is required, not extra:
@@ -138,7 +161,7 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 python3 interior_active_learning/code/test_app.py
 ```
 
-66 checks covering upload, detection, exports, correction precedence, region
+67+ checks covering upload, detection, exports, correction precedence, region
 isolation, threshold plumbing, the retrain gate, autosave, undo, and the
 performance fixes. `make test` runs the same thing.
 

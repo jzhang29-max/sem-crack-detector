@@ -228,3 +228,68 @@ def detect(image_name, use_sam=True, progress=None):
     else:
         rep("done", 1.0, "pipeline only")
     return stage
+
+
+def fold_sam_into_candidates(stage, image_name):
+    """Turn SAM's accepted pixels into real candidate regions in the stage.
+
+    Without this a SAM region renders red but has no row in `df`, so it cannot be
+    clicked, corrected or counted -- visible but not editable. Extracted here so
+    the interactive path (/api/process) and the batch path
+    (regenerate_templates.py --with-sam) share ONE implementation. They had
+    diverged: only the interactive path ran SAM at all, which meant Re-apply and
+    the post-retrain re-render silently dropped every SAM region.
+    """
+    sam = stage.get("sam_mask")
+    if sam is None or not sam.any():
+        return 0
+    import pandas as pd
+    from skimage import measure
+    labeled, df = stage["labeled"], stage["df"]
+    new = sam & (labeled == 0)
+    if not new.any():
+        return 0
+    lab_new = measure.label(new, connectivity=2)
+    nxt = int(df["Label"].max()) + 1 if len(df) else 1
+    rows = []
+    for pr in measure.regionprops(lab_new):
+        if pr.area < MIN_AREA:
+            continue
+        labeled[pr.slice][pr.image] = nxt
+        rows.append({"Label": nxt, "Area": int(pr.area), "IsCrack": True,
+                     "CrackProbability": 1.0, "SourceImage": image_name,
+                     "CandidateType": "sam"})
+        nxt += 1
+    if rows:
+        stage["df"] = pd.concat([df, pd.DataFrame(rows)], ignore_index=True)
+    return len(rows)
+
+
+def render_and_record(image_name, use_sam=True, progress=None):
+    """Detect, fold SAM in, write the paint template, update candidate counts.
+
+    The single entry point for producing an overlay, so the interactive and
+    batch paths cannot disagree about what an overlay contains.
+    """
+    import json
+    from interior_candidates import build_simple_overlay
+    from common import PAINT_DIR
+
+    stage = detect(image_name, use_sam=use_sam, progress=progress)
+    n_sam = fold_sam_into_candidates(stage, image_name)
+    build_simple_overlay(stage).save(
+        os.path.join(PAINT_DIR, f"{image_name}_paint_template.png"))
+    df = stage["df"]
+    counts_path = os.path.join(PAINT_DIR, "candidate_counts.json")
+    counts = {}
+    if os.path.exists(counts_path):
+        try:
+            counts = json.load(open(counts_path))
+        except Exception:
+            counts = {}
+    counts[image_name] = {"n_candidates": int(len(df)), "n_crack": int(df["IsCrack"].sum())}
+    json.dump(counts, open(counts_path, "w"), indent=2)
+    n_interior = len(stage.get("interior_origin", {}))
+    return {"image": image_name, "n_candidates": int(len(df)),
+            "n_crack": int(df["IsCrack"].sum()), "n_sam_regions": n_sam,
+            "n_interior": n_interior, "used_sam": bool(use_sam and stage.get("sam_mask") is not None)}

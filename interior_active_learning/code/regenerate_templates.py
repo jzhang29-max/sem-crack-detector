@@ -39,8 +39,25 @@ from unified_pipeline import run_unified_pipeline
 COUNTS_PATH = os.path.join(PAINT_DIR, "candidate_counts.json")
 
 
+USE_SAM = "--with-sam" in sys.argv
+
+
 def process(image_name):
     try:
+        if USE_SAM:
+            # Route through the SAME helper the interactive path uses, so a
+            # batch re-render and a drag-drop produce identical overlays. They
+            # did not before: only /api/process ran SAM, so Re-apply and the
+            # post-retrain re-render silently discarded every SAM region and
+            # quietly downgraded the detector from f1 0.776 to 0.715.
+            from hybrid_detect import render_and_record
+            r = render_and_record(image_name, use_sam=True)
+            n_total, n_crack = r["n_candidates"], r["n_crack"]
+            n_interior = r["n_interior"]
+            print(f"OK   {image_name:30s} {n_total:5d} cand | {n_crack:5d} crack "
+                  f"({n_crack - n_interior - r['n_sam_regions']} pass1 + {n_interior} interior "
+                  f"+ {r['n_sam_regions']} SAM)", flush=True)
+            return (image_name, n_total, n_crack, n_interior, None)
         stage = run_unified_pipeline(image_name)
         df = stage["df"]
         build_simple_overlay(stage).save(
@@ -64,10 +81,16 @@ if __name__ == "__main__":
     else:
         names = sorted(os.path.splitext(f)[0] for f in os.listdir(ORIGINAL_DIR)
                         if f.lower().endswith(".tif"))
-    print(f"regenerating {len(names)} template(s) via run_unified_pipeline\n")
+    print(f"regenerating {len(names)} template(s) "
+          f"{'WITH SAM (~3 min each)' if USE_SAM else 'pipeline only (~40s each)'}\n")
 
-    with Pool(3) as pool:
-        results = pool.map(process, names)
+    if USE_SAM:
+        # One process: SAM holds a ViT-Huge on the GPU, and three workers
+        # would load three copies and contend for the same device.
+        results = [process(n) for n in names]
+    else:
+        with Pool(3) as pool:
+            results = pool.map(process, names)
 
     counts = {}
     if os.path.exists(COUNTS_PATH):

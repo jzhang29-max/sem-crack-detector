@@ -322,6 +322,20 @@ def main():
         check("./run sets the OpenMP workaround", "KMP_DUPLICATE_LIB_OK" in rs)
     check("Makefile provides bare `make`", os.path.exists(os.path.join(root, "Makefile")))
 
+    # Nothing in the normal workflow should require a terminal. SAM install was
+    # the last thing the README told the user to go and run pip for, and it is
+    # the difference between f1 0.715 and 0.776.
+    ex = open(os.path.join(os.path.dirname(__file__), "app_extras.py")).read()
+    check("SAM can be installed from inside the app", "/api/install_sam" in ex)
+    check("SAM installs into this venv, not a system python", "sys.executable" in ex)
+    for cap, tok in [("upload", "api/upload"), ("detect", "api/process"),
+                     ("retrain", "api/retrain"), ("re-apply", "api/reapply"),
+                     ("rollback", "api/model/select"), ("undo saved", "api/undo_correction"),
+                     ("export", "api/export/"), ("export all", "api/export_all"),
+                     ("remove image", "api/remove/"), ("hide overlay", "api/raw"),
+                     ("install SAM", "api/install_sam")]:
+        check(f"UI can {cap} without a terminal", tok in html)
+
     # ---- autosave has to be fast, not just automatic ----
     # Measured on 260622_316_H_b2_back_CBS_01 (6144x4096): a correction took
     # 208.8s because opening an image never warmed the pipeline stage, so the

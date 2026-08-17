@@ -206,6 +206,7 @@ button:disabled{opacity:.4;cursor:default}
       <div class="fld">Zoom <input type="range" id="zoom" min="10" max="800" value="100"><span class="num" id="zoomLabel">100%</span>
         <button class="ghost" id="fitBtn">Fit</button></div>
       <label class="fld" style="gap:7px"><input type="checkbox" id="useSam" checked> Use SAM on new images</label>
+      <button class="ghost" id="installSamBtn" style="display:none" title="Install PyTorch + transformers into this app's virtualenv, no terminal needed">Enable SAM (+6% accuracy)</button>
       <div class="sp"></div>
       <button class="ghost" id="reapplyBtn" title="Re-render every image with the current model">Re-apply model</button>
       <button class="ghost" id="undoBtn">Undo <span class="kbd">&#8984;Z</span></button>
@@ -1218,16 +1219,64 @@ document.getElementById('mpick').addEventListener('change', async (e) => {
       headers: {'Content-Type': 'application/json'}, body: JSON.stringify({file})})).json();
     if (!r.ok) throw new Error(r.error || 'failed');
     setStatus(r.message || 'model switched');
-    await refreshModelInfo(); await refreshModelPicker();
+    await refreshModelInfo(); await // ---- one-click SAM install, so the best detector needs no terminal ----
+document.getElementById('installSamBtn').addEventListener('click', async () => {
+  if (!confirm('Install PyTorch and transformers into this app\'s virtualenv?\n\n' +
+               'About 2.5 GB and several minutes. It raises measured f1 from 0.715 to 0.776, ' +
+               'at ~3 min per image instead of ~40 s.')) return;
+  const b = document.getElementById('installSamBtn'); b.disabled = true;
+  try {
+    const r = await (await fetch('/api/install_sam', {method: 'POST'})).json();
+    if (r.already) { setStatus(r.message); b.style.display = 'none'; return; }
+    if (!r.ok) throw new Error(r.error || 'could not start');
+    const res = await pollJob(r.job, 'Installing SAM');
+    setStatus((res && res.message) || 'SAM installed');
+    if (res && res.restart_needed) {
+      setStatus((res.message || '') + ' Restart the app to load it.');
+    }
+    await refreshModelInfo();
+  } catch (e) { setStatus('Install failed: ' + e.message, true); }
+  finally { b.disabled = false; }
+});
+
+// surface the button only when SAM is actually missing
+(async () => {
+  try {
+    const i = await (await fetch('/api/pipeline_info')).json();
+    if (!i.sam_available) {
+      document.getElementById('installSamBtn').style.display = '';
+      document.getElementById('useSam').checked = false;
+      document.getElementById('useSam').disabled = true;
+    }
+  } catch (e) { }
+})();
+
+refreshModelPicker();
   } catch (err) { setStatus('Switch failed: ' + err.message, true); }
 });
 
 // ---- re-apply the current model to every image ----
 document.getElementById('reapplyBtn').addEventListener('click', async () => {
-  if (!confirm('Re-render every image with the current model?')) return;
+  // Ask about SAM explicitly and state the cost. Re-apply used to always run
+  // pipeline-only, which silently discarded SAM regions from any image that had
+  // them -- a downgrade from f1 0.776 to 0.715 with nothing on screen about it.
+  const samOk = document.getElementById('useSam') && !document.getElementById('useSam').disabled;
+  let withSam = false;
+  if (samOk) {
+    withSam = confirm('Re-render every image.\n\n' +
+      'OK = include SAM: best accuracy (f1 0.776), about 3 minutes per image.\n' +
+      'Cancel = pipeline only: f1 0.715, about 40 seconds per image.\n\n' +
+      'With ' + (_imgCache.length || 0) + ' images that is roughly ' +
+      Math.round((_imgCache.length || 0) * 3) + ' min with SAM vs ' +
+      Math.round((_imgCache.length || 0) * 40 / 60) + ' min without.');
+  } else if (!confirm('Re-render every image with the current model (pipeline only)?')) {
+    return;
+  }
   const b = document.getElementById('reapplyBtn'); b.disabled = true;
   try {
-    const r = await (await fetch('/api/reapply', {method: 'POST'})).json();
+    const r = await (await fetch('/api/reapply', {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({use_sam: withSam})})).json();
     if (!r.ok) throw new Error(r.error || 'could not start');
     const res = await pollJob(r.job, 'Re-applying the model to every image');
     setStatus(res && res.message ? res.message : 're-applied');

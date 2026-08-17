@@ -186,19 +186,73 @@ def register(app, list_images, invalidate_stage):
     @app.route("/api/reapply", methods=["POST"])
     def api_reapply():
         from app_endpoints import _new_job, _run_bg
+        from hybrid_detect import sam_available
+        want_sam = bool((request.get_json(silent=True) or {}).get("use_sam", False))
+        if want_sam and not sam_available():
+            return jsonify({"ok": False, "error": "SAM is not installed"}), 409
         jid = _new_job("reapply")
 
         def work(report):
             import subprocess
-            report(stage="reapply", frac=0.05, note="re-rendering every image")
-            r = subprocess.run(["python3", "regenerate_templates.py"], cwd=CODE_DIR,
-                               capture_output=True, text=True, timeout=14400)
+            # Pass SAM through. Previously this always ran the pipeline-only
+            # renderer, so re-applying after processing images WITH SAM silently
+            # threw those regions away and downgraded f1 from 0.776 to 0.715
+            # with nothing on screen to say so.
+            cmd = ["python3", "regenerate_templates.py"] + (["--with-sam"] if want_sam else [])
+            report(stage="reapply", frac=0.05,
+                   note=("re-rendering every image WITH SAM (~3 min each)" if want_sam
+                         else "re-rendering every image, pipeline only (~40s each)"))
+            r = subprocess.run(cmd, cwd=CODE_DIR,
+                               capture_output=True, text=True, timeout=86400)
             if r.returncode != 0:
                 raise RuntimeError((r.stderr or "")[-500:])
             if invalidate_stage:
                 invalidate_stage(None)
             tail = [l for l in (r.stdout or "").splitlines() if "regenerated" in l]
             return {"message": tail[-1] if tail else "re-applied"}
+
+        _run_bg(jid, work)
+        return jsonify({"ok": True, "job": jid})
+
+    @app.route("/api/install_sam", methods=["POST"])
+    def api_install_sam():
+        """Install the optional SAM dependencies into the running virtualenv.
+
+        This existed only as a line in the README telling the user to open a
+        terminal and run pip -- which is the difference between the default
+        detector (f1 0.715) and the best one measured (0.776). For a local
+        single-user tool there is no reason that has to be a manual step.
+
+        Installs into sys.executable's own environment, so it lands in the venv
+        ./run created rather than wherever a system pip points. torchvision is
+        included because SAM's mask post-processing calls its NMS -- omitting it
+        produces an import error at first predict, not at install.
+        """
+        from app_endpoints import _new_job, _run_bg
+        from hybrid_detect import sam_available
+        if sam_available():
+            return jsonify({"ok": True, "already": True, "message": "SAM is already available"})
+        jid = _new_job("install_sam")
+
+        def work(report):
+            import subprocess
+            report(stage="install", frac=0.05,
+                   note="downloading PyTorch, transformers, torchvision (~2.5 GB, several minutes)")
+            r = subprocess.run([sys.executable, "-m", "pip", "install", "--quiet",
+                                "torch", "transformers", "torchvision"],
+                               capture_output=True, text=True, timeout=7200)
+            if r.returncode != 0:
+                raise RuntimeError((r.stderr or "")[-600:])
+            report(stage="install", frac=0.9, note="verifying")
+            chk = subprocess.run([sys.executable, "-c",
+                                  "import torch, transformers, torchvision; print('ok')"],
+                                 capture_output=True, text=True, timeout=600)
+            ok = "ok" in (chk.stdout or "")
+            return {"installed": ok,
+                    "message": ("SAM installed. It applies to images you process from now on; "
+                                "use Re-apply model to redo existing ones.")
+                               if ok else "install finished but the import check failed",
+                    "restart_needed": True}
 
         _run_bg(jid, work)
         return jsonify({"ok": True, "job": jid})
