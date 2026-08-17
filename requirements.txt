@@ -1,0 +1,32 @@
+numpy>=2.3
+pandas>=2.2
+scikit-learn>=1.7
+scikit-image>=0.26
+scipy>=1.16
+Pillow>=12.0
+joblib>=1.5
+Flask>=3.1
+matplotlib>=3.10
+opencv-python>=4.12
+tifffile>=2026.7
+
+# Not a pip package -- install via system package manager (e.g. `brew
+# install librsvg` on macOS, `apt-get install librsvg2-bin` on Linux).
+# Only needed to render the *.svg pipeline diagrams to PNG
+# (generate_full_workflow_diagram_unified.py and friends); everything else
+# runs without it.
+#   rsvg-convert
+
+# ---- optional: SAM hybrid detection ----
+# Without these the app still runs, using the pipeline alone. Measured on 5
+# images with human ground truth: pipeline f1 0.715, pipeline+SAM f1 0.776.
+# Costs ~3 min/image on Apple MPS vs ~40s without, so the app exposes it as a
+# checkbox rather than forcing it.
+#   pip install torch transformers torchvision
+# torchvision is genuinely required, not optional-within-optional: SAM's
+# mask-generation post-processing calls its NMS.
+
+# ---- test suite only ----
+# interior_active_learning/code/test_app.py drives the running server over HTTP.
+# The app itself does not need this.
+requests>=2.32
