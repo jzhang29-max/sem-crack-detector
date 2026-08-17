@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Start the SEM crack-detection app. Nothing to configure.
+#
+#   ./run_app.sh
+#
+# Creates a virtualenv on first run, installs dependencies, then serves the app
+# at http://127.0.0.1:8767 -- drag images in, correct them, press Retrain.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+PORT="${PORT:-8767}"
+VENV="${VENV:-.venv}"
+
+if [ ! -d "$VENV" ]; then
+  echo "==> creating virtualenv in $VENV (first run only)"
+  python3 -m venv "$VENV"
+fi
+# shellcheck disable=SC1090
+source "$VENV/bin/activate"
+
+# Only reinstall when requirements change -- a stamp file keeps startup fast.
+STAMP="$VENV/.req-stamp"
+if [ ! -f "$STAMP" ] || ! cmp -s requirements.txt "$STAMP"; then
+  echo "==> installing dependencies (this takes a few minutes the first time)"
+  python3 -m pip install --quiet --upgrade pip
+  python3 -m pip install --quiet -r requirements.txt
+  cp requirements.txt "$STAMP"
+fi
+
+mkdir -p original interior_active_learning/paint interior_active_learning/labels \
+         models training_data figures
+
+if ! python3 -c "import torch" 2>/dev/null; then
+  echo "==> NOTE: PyTorch not installed, so SAM is unavailable."
+  echo "    The pipeline still runs (f1 0.715 vs 0.776 with SAM)."
+  echo "    To enable it:  pip install torch transformers torchvision"
+fi
+
+if [ ! -f models/crack_classifier.joblib ]; then
+  echo "==> WARNING: no model at models/crack_classifier.joblib."
+  echo "    The app will start but cannot detect anything until one exists."
+fi
+
+# KMP_DUPLICATE_LIB_OK: scikit-learn and torch each vendor their own OpenMP
+# runtime, and loading both into one process aborts on macOS without this. This
+# app does load both -- the classifier is scikit-learn and SAM is torch -- so
+# this is required, not a tuning knob. Borrowed from the sibling TXM app, which
+# hit exactly this and documented it.
+export KMP_DUPLICATE_LIB_OK=TRUE
+# Let the SAM pass use all of unified memory instead of a fraction of it.
+export PYTORCH_MPS_HIGH_WATERMARK_RATIO="${PYTORCH_MPS_HIGH_WATERMARK_RATIO:-0.0}"
+
+echo "==> serving on http://127.0.0.1:$PORT"
+echo "    drop images onto the window; press Ctrl-C to stop"
+exec python3 interior_active_learning/code/paint_server.py
