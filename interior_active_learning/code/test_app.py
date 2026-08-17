@@ -266,7 +266,7 @@ def main():
                         ("export menu", 'id="expMenu"'),
                         ("options disclosure", 'id="adv"'),
                         ("shortcut help", 'id="help"'),
-                        ("zoom buttons", 'id="zoomIn"')]:
+                        ("zoom control", 'id="zoom"')]:
         check(name, token in html)
     # the point of the redesign: fine-tuning is not in the default view
     check("brush size hidden behind Options",
@@ -276,9 +276,16 @@ def main():
     # convention (`display:none`, no space), and an exact-string assertion
     # reported a passing behaviour as a failure.
     import re as _re
+    # Accept either collapse mechanism. The layout was restyled to the sibling
+    # TXM app's convention, which collapses with `max-height:0` and animates it
+    # open; asserting `display:none` reported a correctly-collapsed panel as a
+    # failure. Assert the OUTCOME -- hidden by default, revealed by .open.
     _adv = _re.search(r"#adv\s*\{([^}]*)\}", html)
-    check("advanced row collapsed by default",
-          bool(_adv) and "display:none" in _adv.group(1).replace(" ", ""))
+    _advc = _adv.group(1).replace(" ", "") if _adv else ""
+    _open = _re.search(r"#adv\.open\s*\{([^}]*)\}", html)
+    check("advanced panel collapsed by default",
+          ("display:none" in _advc or "max-height:0" in _advc) and bool(_open),
+          "collapsed via " + ("display" if "display:none" in _advc else "max-height"))
     check("hidden select drives the visual list", 'id="imageSelect" style="display:none"' in html)
 
     # ---- autosave replaced the two save buttons ----
