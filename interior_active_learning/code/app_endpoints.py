@@ -166,69 +166,23 @@ def register(app, get_stage, invalidate_stage=None):
         jid = _new_job("process", image_name)
 
         def work(report):
-            from hybrid_detect import detect
-            from interior_candidates import build_simple_overlay
-            import json
+            from hybrid_detect import render_and_record
 
             def prog(stage, frac, note):
                 report(stage=stage, frac=float(frac), note=note)
 
-            stage = detect(image_name, use_sam=use_sam, progress=prog)
-            report(stage="rendering", frac=0.97, note="writing overlay")
-
-            # Fold SAM's accepted pixels in as real candidates so they are
-            # paintable and correctable exactly like pipeline candidates --
-            # otherwise the user can see them but not fix them.
-            if stage.get("sam_mask") is not None and stage["sam_mask"].any():
-                from skimage import measure
-                labeled, df = stage["labeled"], stage["df"]
-                import pandas as pd
-                new = stage["sam_mask"] & (labeled == 0)
-                if new.any():
-                    lab_new = measure.label(new, connectivity=2)
-                    nxt = int(df["Label"].max()) + 1 if len(df) else 1
-                    rows = []
-                    for p in measure.regionprops(lab_new):
-                        if p.area < 40:
-                            continue
-                        sl = p.slice
-                        labeled[sl][p.image] = nxt
-                        rows.append({"Label": nxt, "Area": int(p.area),
-                                     "IsCrack": True, "CrackProbability": 1.0,
-                                     "SourceImage": image_name,
-                                     "CandidateType": "sam"})
-                        nxt += 1
-                    if rows:
-                        stage["df"] = pd.concat([df, pd.DataFrame(rows)], ignore_index=True)
-
-            img = build_simple_overlay(stage)
-            img.save(os.path.join(PAINT_DIR, f"{image_name}_paint_template.png"))
-            df = stage["df"]
-            counts = {}
-            if os.path.exists(COUNTS_PATH):
-                try:
-                    counts = json.load(open(COUNTS_PATH))
-                except Exception:
-                    counts = {}
-            counts[image_name] = {"n_candidates": int(len(df)),
-                                  "n_crack": int(df["IsCrack"].sum())}
-            json.dump(counts, open(COUNTS_PATH, "w"), indent=2)
+            # Shared with regenerate_templates.py so the interactive and batch
+            # paths cannot diverge again.
+            res = render_and_record(image_name, use_sam=use_sam, progress=prog)
+            report(stage="rendering", frac=0.98, note="writing overlay")
             if invalidate_stage:
                 invalidate_stage(image_name)
-            # Warm the stage right after processing. A freshly uploaded image is
-            # the one a user corrects first, and without this that first
-            # correction pays the full pipeline cost (up to ~204s on a large
-            # image) -- the same trap that made every session's first save slow
-            # before opening an image started warming it.
             try:
                 import paint_server
                 paint_server.warm_stage_async(image_name)
             except Exception:
                 pass
-            return {"image": image_name, "n_candidates": int(len(df)),
-                    "n_crack": int(df["IsCrack"].sum()),
-                    "n_sam_regions": int(stage.get("n_sam_regions", 0)),
-                    "used_sam": bool(use_sam)}
+            return res
 
         _run_bg(jid, work)
         return jsonify({"ok": True, "job": jid})
@@ -237,6 +191,7 @@ def register(app, get_stage, invalidate_stage=None):
     def api_retrain():
         body = request.get_json(silent=True) or {}
         regen = bool(body.get("regenerate", True))
+        regen_sam = bool(body.get("regenerate_with_sam", False))
         jid = _new_job("retrain")
 
         def work(report):
@@ -290,9 +245,11 @@ def register(app, get_stage, invalidate_stage=None):
 
             if regen and promoted:
                 report(stage="regenerate", frac=0.85,
-                       note="re-rendering every image with the new model")
-                r = subprocess.run(["python3", "regenerate_templates.py"], cwd=CODE_DIR,
-                                   capture_output=True, text=True, timeout=14400)
+                       note=("re-rendering every image with the new model"
+                             + (" WITH SAM (~3 min each)" if regen_sam else " (~40s each)")))
+                cmd = ["python3", "regenerate_templates.py"] + (["--with-sam"] if regen_sam else [])
+                r = subprocess.run(cmd, cwd=CODE_DIR,
+                                   capture_output=True, text=True, timeout=86400)
                 out["regenerate_templates.py"] = (r.stdout or "")[-2000:]
                 if invalidate_stage:
                     invalidate_stage(None)
