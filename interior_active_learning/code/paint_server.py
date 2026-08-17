@@ -378,6 +378,15 @@ def api_ingest(image_name):
         # to reflect what it just committed, so the cache stays valid for
         # the next click-to-flip or template reload -- nothing further to
         # do here.
+        # Record the pre-ingest correction state so a committed mark can still
+        # be taken back. Autosave made this necessary: it commits ~1s after
+        # drawing stops and the reload clears the browser's stroke-layer undo,
+        # which left no way to reverse a mistake. See app_undo.py.
+        try:
+            import app_undo
+            app_undo.snapshot(image_name)
+        except Exception as _e:
+            print(f"undo snapshot skipped: {type(_e).__name__}: {_e}")
         stage = get_stage(image_name)
         result = _ingest(image_name, stage=stage)
         return jsonify({"ok": True, **(result or {})})
@@ -414,7 +423,12 @@ try:
     _register_app_endpoints(app, get_stage, invalidate_stage)
     from app_exports import register as _register_exports
     _register_exports(app, list_images)
-    print("app endpoints registered: /api/upload, /api/process, /api/retrain, /api/export*")
+    from app_undo import register as _register_undo
+    _register_undo(app, invalidate_stage)
+    from app_extras import register as _register_extras
+    _register_extras(app, list_images, invalidate_stage)
+    print("app endpoints registered: /api/upload, /api/process, /api/retrain, "
+          "/api/export*, /api/undo_correction, /api/thumb, /api/models")
 except Exception as _e:  # pragma: no cover
     print(f"app endpoints NOT registered ({type(_e).__name__}: {_e}) -- "
           f"painting still works")

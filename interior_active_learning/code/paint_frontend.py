@@ -5,170 +5,214 @@ INDEX_HTML = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SEM Crack Detection</title>
 <style>
-  /* ============================================================
-     Visual language deliberately matched to the sibling TXM app
-     (app/static/index.html) so the two tools feel like one family: same
-     palette, type scale, 330px sidebar, full-width image rows with a blue
-     left-edge marker on the selection, 10px letter-spaced group labels, and a
-     3px progress strip rather than a boxed progress panel.
+/* Ported from the sibling TXM app's current frontend (app/static/index.html) so
+   the two tools are one family. Its three stated design rules are followed here
+   too, and they happen to be the right ones for this app as well:
+     1. Show the FOUR things the workflow needs (load, look, fix, retrain).
+        Everything else is a tuning knob and lives behind Advanced.
+     2. One primary action visible at a time. Retrain is the only filled button.
+     3. Group by task with real whitespace, not by cramming into one flex row.
+   Difference forced by this app's data model: "what you mark" (crack /
+   not-crack / erase) and "how much you take" (brush vs whole region) are
+   independent here, where TXM folds them into one tool list. They are two
+   segmented controls rather than one, because collapsing them would misreport
+   what a click is about to do. */
+:root{
+  --bg:#0f1114; --surface:#16191e; --surface2:#1c2027; --line:#252a32;
+  --line2:#333a45; --ink:#eceef1; --ink2:#a8aeb8; --ink3:#6f7681;
+  --brand:#4f8ef7; --ok:#2ea36b; --warn:#c9822a; --bad:#d64545;
+  --r:8px; --shadow:0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.22);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);display:flex;
+  font:14px/1.55 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:var(--ink);background:var(--surface2);cursor:pointer;
+  border:1px solid var(--line2);border-radius:var(--r);padding:8px 13px;
+  transition:background .12s,border-color .12s}
+button:hover:not(:disabled){background:#232833;border-color:#3d4552}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.4;cursor:default}
+.primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+.primary:hover:not(:disabled){background:#5f9bfa;border-color:#5f9bfa}
+.ghost{background:transparent;border-color:transparent;color:var(--ink2);padding:6px 9px}
+.ghost:hover:not(:disabled){background:var(--surface2);color:var(--ink)}
+.danger:hover:not(:disabled){border-color:var(--bad);color:#ff8080}
 
-     What is NOT copied is TXM's control density. It puts brush, zoom,
-     threshold and post-processing inline, which is the clutter this app was
-     just asked to remove -- so brush size and the SAM toggle stay behind
-     Options, and downloads stay in one menu.
-     ============================================================ */
-  :root { --bg:#14151a; --panel:#1c1e26; --line:#2c2f3a; --ink:#e8e8ea; --dim:#9a9ba4;
-          --accent:#3b82f6; --ok:#22a06b; --warn:#d97706; --bad:#dc2626;
-          --crack:#ff4d4d; --notcrack:#22ccff; --erase:#c77dff; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 -apple-system,
-         BlinkMacSystemFont,"Segoe UI",sans-serif; height:100vh; display:flex; overflow:hidden; }
-  #side { width:330px; min-width:330px; background:var(--panel); border-right:1px solid var(--line);
-          display:flex; flex-direction:column; overflow:hidden; }
-  #main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
-  h1 { font-size:15px; margin:0; padding:14px 16px; border-bottom:1px solid var(--line);
-       font-weight:600; }
-  .sec { padding:12px 16px; border-bottom:1px solid var(--line); }
-  .sec h2 { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim);
-            margin:0 0 8px; font-weight:600; }
-  button { background:#2a2d38; color:var(--ink); border:1px solid var(--line); border-radius:6px;
-           padding:7px 11px; font:inherit; font-size:13px; cursor:pointer; }
-  button:hover:not(:disabled) { background:#343845; }
-  button:disabled { opacity:.45; cursor:default; }
-  button.pri { background:var(--accent); border-color:var(--accent); color:#fff; }
-  button.ok  { background:var(--ok); border-color:var(--ok); color:#fff; }
-  button.on  { background:var(--bad); border-color:var(--bad); color:#fff; }
+/* ---------------- sidebar ---------------- */
+#side{width:296px;min-width:296px;background:var(--surface);
+  border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
+.brand{padding:16px 18px 14px;border-bottom:1px solid var(--line)}
+.brand h1{margin:0;font-size:14px;font-weight:600;letter-spacing:-.01em}
+.brand p{margin:3px 0 0;font-size:11.5px;color:var(--ink3)}
+#dropTarget{margin:14px;padding:20px 14px;border:1.5px dashed var(--line2);border-radius:10px;
+  text-align:center;color:var(--ink2);cursor:pointer;transition:.14s}
+#dropTarget:hover{border-color:#44506b;background:#171c26}
+#dropTarget.hot{border-color:var(--brand);background:#17233a;color:var(--ink)}
+#dropTarget b{display:block;font-size:13px;font-weight:500;color:var(--ink)}
+#dropTarget span{font-size:11px;color:var(--ink3)}
+.lbl{padding:12px 18px 6px;font-size:10.5px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink3);display:flex;gap:8px;align-items:baseline}
+#imgSearch{margin:0 14px 6px;padding:6px 9px;font:inherit;font-size:12px;color:var(--ink);
+  background:var(--surface2);border:1px solid var(--line2);border-radius:6px}
+#imgSearch::placeholder{color:var(--ink3)}
+#imageList{flex:1;overflow-y:auto;padding-bottom:8px}
+.item{display:flex;gap:10px;align-items:center;padding:8px 18px;cursor:pointer;
+  border-left:2px solid transparent}
+.item:hover{background:#1a1e25}
+.item.sel{background:#1a2333;border-left-color:var(--brand)}
+.item .th{width:38px;height:30px;flex:0 0 38px;border-radius:4px;object-fit:contain;
+  background:#0b0d10;border:1px solid var(--line)}
+.item .tx{min-width:0;flex:1}
+.item .nm{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .sub{display:block;font-size:11px;color:var(--ink3);margin-top:1px}
+.item .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:0 0 6px}
+.item .dot.busy{background:var(--warn)}
+.item .x{flex:0 0 18px;width:18px;height:18px;border:0;padding:0;border-radius:4px;
+  background:transparent;color:var(--ink3);font-size:15px;line-height:1;opacity:0;
+  transition:opacity .12s,background .12s,color .12s}
+.item:hover .x,.item.sel .x{opacity:1}
+.item .x:hover{background:#3a2326;color:#ff8080}
+#modelcard{border-top:1px solid var(--line);padding:13px 18px;background:#13161b}
+#modelcard .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3)}
+#modelcard .v{font-size:12px;margin-top:3px}
+#modelcard .v b{font-weight:600}
+#mpick{width:100%;margin:6px 0 7px;padding:6px 8px;font:inherit;font-size:12px;
+  color:var(--ink);background:var(--surface2);border:1px solid var(--line2);
+  border-radius:6px;cursor:pointer}
+#mpick:hover{border-color:#3d4552}
 
-  #dropTarget { margin:12px 16px; padding:22px 12px; border:2px dashed var(--line);
-                border-radius:10px; text-align:center; color:var(--dim); cursor:pointer; }
-  #dropTarget:hover, #dropTarget.hot { border-color:var(--accent); color:var(--ink);
-                                       background:#1a2436; }
-  #dropTarget .sub { font-size:11px; }
-
-  .kv { font-size:11px; color:var(--dim); line-height:1.7; }
-  .kv b { color:var(--ink); font-weight:500; }
-  .kv .row { display:flex; justify-content:space-between; gap:8px; }
-  #retrainBtn { width:100%; margin-top:9px; font-weight:600; }
-
-  #imgSearch { width:100%; padding:6px 9px; font:inherit; font-size:12px; color:var(--ink);
-               background:var(--bg); border:1px solid var(--line); border-radius:6px; }
-  #imgSearch::placeholder { color:var(--dim); }
-  #imageList { flex:1; overflow-y:auto; }
-  .item { padding:9px 16px; border-bottom:1px solid #23252e; cursor:pointer; font-size:12px; }
-  .item:hover { background:#22242d; }
-  .item.sel { background:#1e2a3f; border-left:3px solid var(--accent); padding-left:13px; }
-  .item .nm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .item .mt { color:var(--dim); font-size:11px; margin-top:2px; }
-
-  #bar { display:flex; gap:8px; align-items:center; padding:10px 14px;
-         border-bottom:1px solid var(--line); flex-wrap:wrap; background:var(--panel); }
-  .grp { font-size:10px; letter-spacing:.09em; color:var(--dim); font-weight:600; min-width:52px; }
-  .vsep { width:1px; height:20px; background:var(--line); }
-  label { font-size:12px; color:var(--dim); display:inline-flex; align-items:center; gap:6px; }
-  input[type=range] { width:96px; accent-color:var(--accent); }
-
-  .swatch { width:24px; height:24px; border-radius:50%; cursor:pointer; border:2px solid transparent;
-            display:inline-flex; align-items:center; justify-content:center; font-size:13px; color:#fff; }
-  .swatch.red { background:var(--crack); } .swatch.cyan { background:var(--notcrack); }
-  .swatch.erase { background:var(--erase); }
-  .swatch.selected { border-color:var(--ink); box-shadow:0 0 0 2px var(--panel); }
-
-  #adv { display:none; align-items:center; gap:14px; padding:9px 14px;
-         border-bottom:1px solid var(--line); background:var(--bg); flex-wrap:wrap; }
-  #adv.open { display:flex; }
-
-  #prog { height:3px; background:var(--accent); width:0; transition:width .2s; }
-  #canvasWrap { flex:1; overflow:auto; background:#0e0f13; position:relative; min-height:0; }
-  #canvasInner { position:relative; margin:20px; }
-  canvas { position:absolute; top:0; left:0; display:block; image-rendering:pixelated; }
-  #paintCanvas { cursor:crosshair; }
-  #foot { padding:7px 14px; font-size:12px; color:var(--dim); border-top:1px solid var(--line);
-          background:var(--panel); min-height:30px; display:flex; align-items:center; gap:12px; }
-  #status { flex:1; } #status.error { color:var(--bad); }
-
-  #dropZone { position:fixed; inset:0; z-index:900; display:none; background:rgba(14,15,19,.88);
-              align-items:center; justify-content:center; }
-  #dropZone.active { display:flex; }
-  #dropInner { border:2px dashed var(--accent); border-radius:12px; padding:44px 62px;
-               text-align:center; font-size:18px; background:#1a2436; }
-  #dropInner .hint { margin-top:8px; font-size:12px; color:var(--dim); }
-  #jobBar { display:none; }
-  #expMenu { display:none; position:absolute; z-index:960; background:var(--panel);
-             border:1px solid var(--line); border-radius:8px; padding:5px;
-             box-shadow:0 12px 30px rgba(0,0,0,.55); min-width:210px; }
-  #expMenu.open { display:block; }
-  #expMenu button { display:block; width:100%; text-align:left; background:none; border:none;
-                    padding:8px 10px; border-radius:5px; font-size:12.5px; }
-  #expMenu button:hover { background:#22242d; }
-  #expMenu .mdiv { height:1px; background:var(--line); margin:4px 2px; }
-  #help { position:fixed; right:14px; bottom:42px; z-index:940; display:none; background:var(--panel);
-          border:1px solid var(--line); border-radius:8px; padding:12px 14px; font-size:12px;
-          color:var(--dim); box-shadow:0 12px 30px rgba(0,0,0,.55); }
-  #help.open { display:block; }
-  #help kbd { background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:1px 5px;
-              font-family:ui-monospace,monospace; font-size:11px; color:var(--ink); }
-  #help td { padding:3px 8px 3px 0; }
+/* ---------------- main ---------------- */
+#main{flex:1;display:flex;flex-direction:column;min-width:0}
+#top{display:flex;align-items:center;gap:14px;padding:11px 18px;background:var(--surface);
+  border-bottom:1px solid var(--line);flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--surface2);border:1px solid var(--line2);
+  border-radius:var(--r);overflow:hidden;flex:0 0 auto}
+.seg button{border:0;border-radius:0;background:transparent;padding:7px 13px;font-size:13px;
+  color:var(--ink2);white-space:nowrap}
+.seg button+button{border-left:1px solid var(--line2)}
+.seg button.on,.seg button.selected{background:var(--brand);color:#fff;font-weight:500}
+.seg button:hover:not(.on):not(.selected){background:#232833;color:var(--ink)}
+.sp{flex:1}
+.menu{position:relative}
+.menu .pop{position:absolute;top:calc(100% + 7px);right:0;z-index:40;min-width:250px;
+  background:var(--surface2);border:1px solid var(--line2);border-radius:10px;
+  box-shadow:var(--shadow);padding:6px;display:none}
+.menu.open .pop{display:block}
+.pop button{display:block;width:100%;text-align:left;background:transparent;border:0;
+  border-radius:6px;padding:8px 10px;font-size:13px}
+.pop button:hover{background:#282e39}
+.pop .hint{font-size:11px;color:var(--ink3);padding:6px 10px 8px;line-height:1.45}
+.pop hr{border:0;border-top:1px solid var(--line);margin:5px 2px}
+#adv{padding:0 18px;background:#12151a;border-bottom:1px solid var(--line);
+  max-height:0;overflow:hidden;transition:max-height .18s ease,padding .18s ease}
+#adv.open{max-height:60vh;overflow-y:auto;padding:13px 18px}
+.advrow{display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+.fld{display:flex;gap:9px;align-items:center;font-size:12px;color:var(--ink2)}
+.fld input[type=range]{width:118px;accent-color:var(--brand)}
+.fld .num{font-variant-numeric:tabular-nums;color:var(--ink);min-width:38px}
+.note{font-size:11px;color:var(--ink3);margin-top:9px;line-height:1.5;max-width:760px}
+#prog{height:2px;background:var(--brand);width:0;transition:width .25s}
+#canvasWrap{flex:1;overflow:auto;background:#0a0c0e;position:relative;min-height:0}
+#canvasInner{position:relative;margin:0 auto}
+#canvasWrap canvas{position:absolute;top:0;left:0;display:block;image-rendering:pixelated}
+#paintCanvas{cursor:crosshair}
+#foot{display:flex;gap:10px;align-items:center;padding:9px 18px;font-size:12px;
+  color:var(--ink2);background:var(--surface);border-top:1px solid var(--line);min-height:36px}
+#status{flex:1}
+#status.error{color:#ff8080}
+.tag{font-size:10.5px;padding:2px 7px;border-radius:20px;border:1px solid var(--line2);
+  color:var(--ink3);white-space:nowrap}
+.kbd{font:11px ui-monospace,monospace;background:#20242c;border:1px solid var(--line2);
+  border-radius:4px;padding:1px 5px;color:var(--ink2)}
+#dropZone{position:fixed;inset:0;z-index:900;display:none;background:rgba(10,12,14,.88);
+  align-items:center;justify-content:center}
+#dropZone.active{display:flex}
+#dropInner{border:2px dashed var(--brand);border-radius:12px;padding:44px 62px;
+  text-align:center;font-size:18px;background:#17233a}
+#dropInner .hint{margin-top:8px;font-size:12px;color:var(--ink2)}
+#jobBar{display:none}
+#help{position:fixed;right:18px;bottom:48px;z-index:940;display:none;background:var(--surface2);
+  border:1px solid var(--line2);border-radius:10px;padding:12px 14px;font-size:12px;
+  color:var(--ink2);box-shadow:var(--shadow)}
+#help.open{display:block}
+#help td{padding:3px 8px 3px 0}
 </style>
 </head>
 <body>
 
-<div id="side">
-  <h1>SEM Crack Detection</h1>
-  <div id="dropTarget">Drag SEM images here<br>
-    <span class="sub">or click to choose &middot; .tif .tiff .png .jpg</span></div>
-
-  <div class="sec">
-    <h2>Model</h2>
-    <div class="kv" id="modelCard">loading&hellip;</div>
-    <button id="retrainBtn" class="ok" title="Rebuild training data from every correction, retrain, and re-render. The new model is deployed only if it scores at least as well on held-out data.">&#9635; Retrain on my corrections</button>
+<aside id="side">
+  <div class="brand">
+    <h1>SEM Crack Detection</h1>
+    <p>Load &middot; review &middot; correct &middot; retrain</p>
   </div>
 
-  <div class="sec">
-    <h2>Images</h2>
-    <input id="imgSearch" type="search" placeholder="Filter&hellip;" autocomplete="off">
+  <div id="dropTarget">
+    <b>Drop SEM images</b>
+    <span>or click to browse &mdash; .tif .tiff .png .jpg</span>
   </div>
+
+  <div class="lbl">Images <span id="ncount" style="color:var(--ink3)"></span></div>
+  <input id="imgSearch" type="search" placeholder="Filter&hellip;" autocomplete="off">
   <div id="imageList"></div>
   <select id="imageSelect" style="display:none"></select>
-</div>
 
-<div id="main">
-  <div id="bar" style="border-bottom:none;padding-bottom:0">
-    <span class="grp">IMAGE</span>
-    <span id="curName" style="font-size:13.5px;font-weight:600;color:var(--ink)">No image selected</span>
-    <span id="curMeta" style="font-size:12px;color:var(--dim)"></span>
-    <span style="flex:1"></span>
-    <span id="saveState" style="font-size:12px;color:var(--dim)"></span>
-    <button id="retryBtn" class="pri" style="display:none" title="A save failed -- your marks are still here.">Retry save</button>
-    <button id="advToggle" style="background:none;border:none;color:var(--dim);font-size:12px">Options &#9662;</button>
-    <button id="helpBtn" style="background:none;border:none;color:var(--dim)">?</button>
+  <div id="modelcard">
+    <div class="k">Model</div>
+    <select id="mpick" title="Switch models. Roll back by picking an earlier one."></select>
+    <div class="v" id="modelCard">loading&hellip;</div>
+    <div id="modelInfo" style="font-size:11px;color:var(--ink3);margin-top:6px"></div>
   </div>
+</aside>
 
-  <div id="bar">
-    <span class="grp">PAINT</span>
-    <span class="swatch red selected" id="swatchRed" title="Crack (1)"></span>
-    <span class="swatch cyan" id="swatchCyan" title="Not a crack (2)"></span>
-    <span class="swatch erase" id="swatchErase" title="Remove from candidacy (3)">&times;</span>
-    <button id="bucketBtn" title="Brush paints pixel by pixel. Whole region sets an entire connected region in one click.">Brush</button>
-    <span class="vsep"></span>
-    <span class="grp">VIEW</span>
-    <button id="zoomOut">&minus;</button>
-    <span id="zoomLabel" style="min-width:42px;text-align:center;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums">100%</span>
-    <button id="zoomIn">+</button>
-    <button id="fitBtn" title="Fit to window (F)">Fit</button>
-    <span class="vsep"></span>
-    <span class="grp">EDIT</span>
-    <button id="undoBtn">Undo <span style="opacity:.6">&#8984;Z</span></button>
-    <button id="clearBtn" title="Erase every unsaved stroke on this image.">Reset</button>
-    <span class="vsep"></span>
-    <button id="exportBtn" class="pri">Download &#9662;</button>
+<main id="main">
+  <div id="top">
+    <div class="seg" id="tools">
+      <button id="swatchRed" class="selected" title="Drag to mark crack the model missed">Add crack</button>
+      <button id="swatchCyan" title="Drag to mark something the model wrongly called crack">Not crack</button>
+      <button id="swatchErase" title="Drag to remove pixels from consideration entirely">Erase</button>
+    </div>
+
+    <div class="seg" id="scope">
+      <button id="brushModeBtn" class="on" title="Take only the pixels your brush covers">Brush</button>
+      <button id="bucketBtn" title="One click takes a whole connected region -- needed for large ones">Whole region</button>
+    </div>
+
+    <label class="fld" style="gap:7px"><input type="checkbox" id="showResult" checked> Show result</label>
+
+    <div class="sp"></div>
+
+    <button class="ghost" id="advToggle" title="Brush, zoom, re-apply, undo, reset">Advanced &#9662;</button>
+
+    <div class="menu" id="expMenu">
+      <button class="ghost" id="exportBtn">Export &#9662;</button>
+      <div class="pop">
+        <button id="dlMask">Black &amp; white mask</button>
+        <button id="dlOverlay">Overlay image</button>
+        <button id="dlCsv">Measurements (CSV)</button>
+        <hr>
+        <button id="dlAll"><b>Everything, all images (.zip)</b></button>
+        <div class="hint">Exports what you see now, with your corrections applied. Pixel units.</div>
+      </div>
+    </div>
+
+    <button class="primary" id="retrainBtn" title="Learn from every correction you have made. The new model is deployed only if it scores at least as well on held-out data.">Retrain</button>
   </div>
 
   <div id="adv">
-    <label>Brush <input type="range" id="brushSize" min="2" max="120" value="18">
-      <span id="brushSizeLabel" style="font-variant-numeric:tabular-nums">18px</span></label>
-    <label><input type="checkbox" id="useSam" checked> Use SAM on new images
-      <span style="opacity:.6">(slower &middot; f1 0.776 vs 0.715)</span></label>
-    <label style="display:none"><input type="range" id="zoom" min="10" max="800" value="100"></label>
+    <div class="advrow">
+      <div class="fld">Brush <input type="range" id="brushSize" min="2" max="120" value="18"><span class="num" id="brushSizeLabel">18px</span></div>
+      <div class="fld">Zoom <input type="range" id="zoom" min="10" max="800" value="100"><span class="num" id="zoomLabel">100%</span>
+        <button class="ghost" id="fitBtn">Fit</button></div>
+      <label class="fld" style="gap:7px"><input type="checkbox" id="useSam" checked> Use SAM on new images</label>
+      <div class="sp"></div>
+      <button class="ghost" id="reapplyBtn" title="Re-render every image with the current model">Re-apply model</button>
+      <button class="ghost" id="undoBtn">Undo <span class="kbd">&#8984;Z</span></button>
+      <button class="ghost danger" id="clearBtn" title="Discard unsaved strokes on this image">Reset image</button>
+      <button class="ghost" id="helpBtn">?</button>
+    </div>
+    <div class="note" id="advnote">SAM adds ~6% accuracy (f1 0.776 vs 0.715) and costs ~3 min per image instead of ~40 s. Marks save themselves about a second after you stop drawing &mdash; there is no Save button. <span class="kbd">&#8984;Z</span> undoes strokes, and once those run out it undoes the last saved correction.</div>
   </div>
 
   <div id="prog"></div>
@@ -181,26 +225,21 @@ INDEX_HTML = r"""<!DOCTYPE html>
   </div>
 
   <div id="foot">
-    <span id="status">Drag some images in to begin.</span>
-    <span id="modelInfo" style="font-size:11px"></span>
+    <span id="status">Drop some images in to begin.</span>
+    <span class="tag" id="curName">no image</span>
+    <span class="tag" id="curMeta"></span>
+    <span class="tag" id="saveState"></span>
+    <button class="ghost" id="retryBtn" style="display:none">Retry save</button>
   </div>
-</div>
-
-<div id="expMenu">
-  <button id="dlMask">B&amp;W mask <span style="opacity:.55">&middot; crack = black</span></button>
-  <button id="dlOverlay">Overlay <span style="opacity:.55">&middot; burned in</span></button>
-  <button id="dlCsv">Region measurements <span style="opacity:.55">&middot; CSV</span></button>
-  <div class="mdiv"></div>
-  <button id="dlAll">All images &rarr; .zip</button>
-</div>
+</main>
 
 <div id="help">
   <table>
-    <tr><td><kbd>&#8984;Z</kbd> / <kbd>Ctrl Z</kbd></td><td>Undo</td></tr>
-    <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Crack / not-crack / erase</td></tr>
-    <tr><td><kbd>F</kbd></td><td>Fit to window</td></tr>
+    <tr><td><span class="kbd">&#8984;Z</span></td><td>Undo stroke, then last saved correction</td></tr>
+    <tr><td><span class="kbd">1</span> <span class="kbd">2</span> <span class="kbd">3</span></td><td>Add crack / Not crack / Erase</td></tr>
+    <tr><td><span class="kbd">F</span></td><td>Fit to window</td></tr>
     <tr><td colspan="2" style="padding-top:7px">Red = crack &middot; Cyan = not a crack.<br>
-      Marks save themselves. Corrections override the model.</td></tr>
+      Your corrections always override the model.</td></tr>
   </table>
 </div>
 
@@ -578,8 +617,12 @@ window.addEventListener('keydown', (e) => {
   const k = (e.key || '').toLowerCase();
   if (mod && k === 'z' && !e.shiftKey) {
     e.preventDefault();
-    undo();
-    setStatus(undoStack.length > 1 ? 'undo' : 'nothing left to undo');
+    // Local stroke undo first. When that is exhausted the marks have already
+    // been committed by autosave, so fall through to the server, which keeps a
+    // bounded stack of pre-commit correction snapshots. Without this a mistake
+    // became permanent about a second after drawing it.
+    if (undo()) { setStatus('Undo'); markDirty(); }
+    else undoCommitted();
   } else if (!mod && k === 'f') {
     e.preventDefault();
     fitZoom();
@@ -892,14 +935,37 @@ function renderImageList() {
     shown++;
     const el = document.createElement('div');
     el.className = 'item' + (info.name === currentImage ? ' sel' : '');
-    const nm = document.createElement('div');
+    const ready = !!info.n_candidates;
+    const dot = document.createElement('span');
+    dot.className = 'dot' + (ready ? '' : ' busy');
+    // Thumbnail rather than pointing an <img> at the template: these templates
+    // are 6-33 MB, so 62 rows each decoding one full-resolution PNG down to a
+    // 38px box would be well over a gigabyte of transfer to draw a sidebar.
+    // /api/thumb is ~6 KB and shows the result, so a row is informative.
+    let th;
+    if (ready) {
+      th = document.createElement('img');
+      th.className = 'th'; th.loading = 'lazy';
+      th.src = '/api/thumb/' + encodeURIComponent(info.name) + '?w=128';
+      th.onerror = () => { th.style.visibility = 'hidden'; };
+    } else {
+      th = document.createElement('span'); th.className = 'th';
+    }
+    const tx = document.createElement('span');
+    tx.className = 'tx';
+    const nm = document.createElement('span');
     nm.className = 'nm'; nm.textContent = info.name; nm.title = info.name;
-    const mt = document.createElement('div');
-    mt.className = 'mt';
-    mt.textContent = (info.n_crack != null && info.n_candidates)
-      ? info.n_crack + ' crack \u00b7 ' + info.n_candidates + ' candidates'
-      : (info.n_candidates ? info.n_candidates + ' candidates' : 'not processed yet');
-    el.appendChild(nm); el.appendChild(mt);
+    const sub = document.createElement('span');
+    sub.className = 'sub';
+    sub.textContent = ready
+      ? (info.n_crack != null ? info.n_crack + ' crack \u00b7 ' : '') + info.n_candidates + ' candidates'
+      : 'not processed yet';
+    tx.appendChild(nm); tx.appendChild(sub);
+    const x = document.createElement('button');
+    x.className = 'x'; x.textContent = '\u00d7';
+    x.title = 'Remove ' + info.name + ' from the app (the file is moved, not deleted)';
+    x.onclick = (ev) => { ev.stopPropagation(); removeImage(info.name); };
+    el.appendChild(dot); el.appendChild(th); el.appendChild(tx); el.appendChild(x);
     el.addEventListener('click', () => {
       const sel = document.getElementById('imageSelect');
       sel.value = info.name;
@@ -967,8 +1033,18 @@ function bumpZoom(mult) {
   zoomEl.value = next;
   zoomEl.dispatchEvent(new Event('input', {bubbles: true}));
 }
-document.getElementById('zoomIn').addEventListener('click', () => bumpZoom(1.25));
-document.getElementById('zoomOut').addEventListener('click', () => bumpZoom(0.8));
+// Null-safe binding. The zoom +/- buttons exist in some layouts and not others
+// (the current one puts zoom in Advanced as a slider), and an unguarded
+// getElementById(...).addEventListener on a missing element throws at load,
+// which silently kills every line after it -- that is exactly what left the
+// image list empty and the model picker unpopulated after the last restyle.
+function on(id, ev, fn) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener(ev, fn);
+  return !!el;
+}
+on('zoomIn', 'click', () => bumpZoom(1.25));
+on('zoomOut', 'click', () => bumpZoom(0.8));
 
 // ---- Brush / Whole-region reads as a mode, not a toggle labelled Off ----
 const bucket = document.getElementById('bucketBtn');
@@ -1041,6 +1117,127 @@ refreshModelInfo = async function () {
   } catch (e) { }
 };
 
+async function undoCommitted() {
+  if (!currentImage) return;
+  try {
+    const r = await (await fetch('/api/undo_correction/' + encodeURIComponent(currentImage),
+                                 {method: 'POST'})).json();
+    if (!r.ok) { setStatus(r.error || 'Nothing left to undo.'); return; }
+    const res = await pollJob(r.job, 'Undoing last saved correction');
+    savePending = false; setSaveState('idle');
+    await loadImage(currentImage);
+    await loadImageList(true);
+    setStatus((res && res.message ? res.message : 'Undone') +
+              (res && res.undo_depth != null ? '  (' + res.undo_depth + ' more available)' : ''));
+  } catch (err) {
+    setStatus('Undo failed: ' + err.message, true);
+  }
+}
+
+// ---- image count in the sidebar label ----
+const _origRender = renderImageList;
+renderImageList = function () {
+  _origRender();
+  const n = document.getElementById('ncount');
+  if (n) n.textContent = _imgCache.length ? '(' + _imgCache.length + ')' : '';
+};
+
+// ---- remove an image (moved, not deleted) ----
+async function removeImage(name) {
+  if (!confirm('Remove ' + name + " from the app?\n\nThe file is MOVED to removed_images/, not deleted, and your corrections for it are kept.")) return;
+  try {
+    const r = await (await fetch('/api/remove/' + encodeURIComponent(name), {method: 'POST'})).json();
+    if (!r.ok) throw new Error(r.error || 'failed');
+    setStatus(name + ' removed — ' + (r.note || ''));
+    if (currentImage === name) currentImage = null;
+    await loadImageList(false);
+  } catch (e) { setStatus('Remove failed: ' + e.message, true); }
+}
+
+// ---- scope segment: Brush vs Whole region ----
+// bucketBtn already toggles `tool`; these two buttons are the visible state of
+// that one variable, so the label can never disagree with what a click does.
+function syncScope() {
+  const isRegion = (typeof tool !== 'undefined') && tool === 'bucket';
+  document.getElementById('bucketBtn').classList.toggle('on', isRegion);
+  document.getElementById('brushModeBtn').classList.toggle('on', !isRegion);
+}
+document.getElementById('brushModeBtn').addEventListener('click', () => {
+  if (typeof setBucketActive === 'function') setBucketActive(false);
+  syncScope();
+});
+document.getElementById('bucketBtn').addEventListener('click', () => setTimeout(syncScope, 0));
+syncScope();
+
+// ---- Show result: swap the overlay for the plain image ----
+// The base canvas normally holds the template (image + overlay burned in).
+// Unticking draws /api/raw instead, so the microstructure can be inspected
+// without the model's opinion on top of it.
+const rawCache = {};
+document.getElementById('showResult').addEventListener('change', async (e) => {
+  if (!currentImage) return;
+  const show = e.target.checked;
+  try {
+    if (show) { await loadImage(currentImage); return; }
+    const img = rawCache[currentImage] || await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i); i.onerror = rej;
+      i.src = '/api/raw/' + encodeURIComponent(currentImage);
+    });
+    rawCache[currentImage] = img;
+    baseCtx.clearRect(0, 0, nativeW, nativeH);
+    baseCtx.drawImage(img, 0, 0, nativeW, nativeH);
+    setStatus('Result hidden — showing the plain image');
+  } catch (err) { setStatus('Could not load the plain image: ' + err.message, true); }
+});
+
+// ---- model picker / rollback ----
+async function refreshModelPicker() {
+  try {
+    const r = await (await fetch('/api/models')).json();
+    const sel = document.getElementById('mpick');
+    sel.innerHTML = '';
+    for (const m of (r.models || [])) {
+      const o = document.createElement('option');
+      o.value = m.file;
+      const auc = m.held_out_auc != null ? '  held-out AUC ' + m.held_out_auc : '';
+      o.textContent = (m.is_current ? '● ' : '   ') + m.file.replace('crack_classifier', 'model')
+                      + '  · thr ' + (m.threshold != null ? m.threshold.toFixed(3) : '?') + auc;
+      if (m.is_current) o.selected = true;
+      sel.appendChild(o);
+    }
+  } catch (e) { /* non-fatal */ }
+}
+document.getElementById('mpick').addEventListener('change', async (e) => {
+  const file = e.target.value;
+  if (!confirm('Switch to ' + file + '?\n\nThe model currently in use is backed up first. Overlays stay stale until you press Re-apply model.')) {
+    refreshModelPicker(); return;
+  }
+  try {
+    const r = await (await fetch('/api/model/select', {method: 'POST',
+      headers: {'Content-Type': 'application/json'}, body: JSON.stringify({file})})).json();
+    if (!r.ok) throw new Error(r.error || 'failed');
+    setStatus(r.message || 'model switched');
+    await refreshModelInfo(); await refreshModelPicker();
+  } catch (err) { setStatus('Switch failed: ' + err.message, true); }
+});
+
+// ---- re-apply the current model to every image ----
+document.getElementById('reapplyBtn').addEventListener('click', async () => {
+  if (!confirm('Re-render every image with the current model?')) return;
+  const b = document.getElementById('reapplyBtn'); b.disabled = true;
+  try {
+    const r = await (await fetch('/api/reapply', {method: 'POST'})).json();
+    if (!r.ok) throw new Error(r.error || 'could not start');
+    const res = await pollJob(r.job, 'Re-applying the model to every image');
+    setStatus(res && res.message ? res.message : 're-applied');
+    await loadImageList(true);
+    if (currentImage) await loadImage(currentImage);
+  } catch (e) { setStatus('Re-apply failed: ' + e.message, true); }
+  finally { b.disabled = false; }
+});
+
+refreshModelPicker();
 refreshModelInfo();
 loadImageList();
 </script>
