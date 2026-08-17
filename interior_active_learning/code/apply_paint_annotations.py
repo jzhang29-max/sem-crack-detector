@@ -141,14 +141,24 @@ def _find_next_label():
 
 
 def _color_mask(painted, template, color):
-    dist = np.linalg.norm(painted.astype(np.float32) - color, axis=-1)
-    mask = dist < COLOR_TOLERANCE
-    # exclude anything already close to this color in the unpainted
-    # template -- this is what makes "new red paint" unambiguous: it can
-    # only be freshly-painted pixels, never pixels that were already part
-    # of an existing red/crack region.
-    template_dist = np.linalg.norm(template.astype(np.float32) - color, axis=-1)
-    mask &= template_dist >= COLOR_TOLERANCE
+    """Pixels freshly painted `color`, excluding any that were already that
+    colour in the template -- which is what makes "new red paint" unambiguous.
+
+    Compares SQUARED integer distances rather than float Euclidean norms.
+    dist < T and dist**2 < T**2 are equivalent for non-negative values, but the
+    float version converted a (H, W, 3) uint8 array to float32 first: on a
+    6144x4096 image that is a 300 MB temporary, allocated twice per call and
+    called three times per ingest. That was the single largest cost in saving a
+    correction -- ~2.2s of a 7s save, before counting the memory pressure.
+    int16 is wide enough: channel differences are within +/-255 and the squared
+    sum of three of them fits in int32.
+    """
+    tol2 = int(COLOR_TOLERANCE) ** 2
+    col = np.asarray(color, dtype=np.int16)
+    d = painted.astype(np.int16) - col
+    mask = np.einsum("ijk,ijk->ij", d, d) < tol2
+    dt = template.astype(np.int16) - col
+    mask &= np.einsum("ijk,ijk->ij", dt, dt) >= tol2
     return mask
 
 
@@ -421,8 +431,11 @@ def ingest(image_name, min_area=20, stage=None):
     new_template_arr = np.array(new_template_img)
     consumed = red_mask | cyan_mask | erase_mask
     painted[consumed] = new_template_arr[consumed]
-    Image.fromarray(painted).save(painted_path)
-    new_template_img.save(template_path)
+    # compress_level=1: these are ~23 MB overlays rewritten on every single
+    # correction, and the default level 6 spends seconds squeezing a file that
+    # is read back locally milliseconds later.
+    Image.fromarray(painted).save(painted_path, compress_level=1)
+    new_template_img.save(template_path, compress_level=1)
 
     n_pos = sum(1 for r in records if r["IsCrack"])
     n_neg = len(records) - n_pos
