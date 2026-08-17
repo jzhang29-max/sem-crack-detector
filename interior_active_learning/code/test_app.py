@@ -332,6 +332,10 @@ def main():
           "warm_stage_async" in srv2 and "def stage_ready" in srv2)
     check("readiness is queryable so a save cannot look like a hang",
           "/api/stage_ready/" in srv2)
+    ae = open(os.path.join(os.path.dirname(__file__), "app_endpoints.py")).read()
+    check("a freshly processed image is warmed too",
+          "warm_stage_async" in ae,
+          "otherwise the first correction on a new upload pays the full pipeline")
     apa = open(os.path.join(os.path.dirname(__file__), "apply_paint_annotations.py")).read()
     check("colour masks avoid the 300MB float32 temporary",
           "np.linalg.norm(painted.astype(np.float32)" not in apa and "einsum" in apa)

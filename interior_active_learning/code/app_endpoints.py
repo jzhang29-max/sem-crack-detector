@@ -215,6 +215,16 @@ def register(app, get_stage, invalidate_stage=None):
             json.dump(counts, open(COUNTS_PATH, "w"), indent=2)
             if invalidate_stage:
                 invalidate_stage(image_name)
+            # Warm the stage right after processing. A freshly uploaded image is
+            # the one a user corrects first, and without this that first
+            # correction pays the full pipeline cost (up to ~204s on a large
+            # image) -- the same trap that made every session's first save slow
+            # before opening an image started warming it.
+            try:
+                import paint_server
+                paint_server.warm_stage_async(image_name)
+            except Exception:
+                pass
             return {"image": image_name, "n_candidates": int(len(df)),
                     "n_crack": int(df["IsCrack"].sum()),
                     "n_sam_regions": int(stage.get("n_sam_regions", 0)),
