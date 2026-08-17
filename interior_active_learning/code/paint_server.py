@@ -78,6 +78,48 @@ def _model_mtime():
     return os.path.getmtime(p) if os.path.exists(p) else None
 
 
+_warming = set()
+_warm_lock = __import__("threading").Lock()
+
+
+def warm_stage_async(image_name):
+    """Build the pipeline stage for an image in the background.
+
+    Autosave is only fast when this cache is warm. Measured on
+    260622_316_H_b2_back_CBS_01 (6144x4096): with a warm stage an ingest is
+    ~1.5s, but on a cache MISS run_unified_pipeline costs 203s -- and opening an
+    image for viewing did not warm it, because api_template only builds a stage
+    when the template file is missing or stale. So the first correction of every
+    session paid a 3.5-minute pipeline run while the user waited.
+
+    Warming starts the moment an image is opened, which is dead time anyway --
+    nobody paints before looking. Guarded by a set so two rapid opens do not
+    start two pipeline runs for the same image.
+    """
+    import threading
+    with _warm_lock:
+        if image_name in _stage_cache or image_name in _warming:
+            return False
+        _warming.add(image_name)
+
+    def work():
+        try:
+            get_stage(image_name)
+            print(f"stage warm: {image_name}")
+        except Exception as e:
+            print(f"stage warm failed for {image_name}: {type(e).__name__}: {e}")
+        finally:
+            with _warm_lock:
+                _warming.discard(image_name)
+
+    threading.Thread(target=work, daemon=True).start()
+    return True
+
+
+def stage_ready(image_name):
+    return image_name in _stage_cache
+
+
 def get_stage(image_name, force=False):
     cached = _stage_cache.get(image_name)
     current_model_mtime = _model_mtime()
@@ -193,6 +235,10 @@ def api_template(image_name):
         # entry and skip recomputing, leaving this stale file untouched.
         stage = get_stage(image_name, force=is_stale)
         build_simple_overlay(stage).save(template_path)
+    # Opening an image is the right moment to start building its stage: the
+    # user needs seconds to look before painting, and autosave is 130x faster
+    # with a warm cache (1.5s vs 203s on the largest images).
+    warm_stage_async(image_name)
     resp = send_file(template_path, mimetype="image/png")
     # Tells the frontend whether THIS load reflects a freshly retrained
     # model, purely so it can say so instead of silently swapping the
@@ -392,6 +438,14 @@ def api_ingest(image_name):
         return jsonify({"ok": True, **(result or {})})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/stage_ready/<image_name>")
+def api_stage_ready(image_name):
+    """Whether a correction on this image will commit fast. The UI uses it to
+    say "preparing" rather than letting the first save look like a hang."""
+    return jsonify({"ok": True, "ready": stage_ready(image_name),
+                    "warming": image_name in _warming})
 
 
 @app.route("/api/model_status")

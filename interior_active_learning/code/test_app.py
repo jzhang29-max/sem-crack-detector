@@ -322,6 +322,28 @@ def main():
         check("./run sets the OpenMP workaround", "KMP_DUPLICATE_LIB_OK" in rs)
     check("Makefile provides bare `make`", os.path.exists(os.path.join(root, "Makefile")))
 
+    # ---- autosave has to be fast, not just automatic ----
+    # Measured on 260622_316_H_b2_back_CBS_01 (6144x4096): a correction took
+    # 208.8s because opening an image never warmed the pipeline stage, so the
+    # first save of every session paid a full 203s run. Warm-on-open plus an
+    # integer colour-mask and cheaper PNG encoding brought it to 6.2s.
+    srv2 = open(os.path.join(os.path.dirname(__file__), "paint_server.py")).read()
+    check("opening an image warms the pipeline stage",
+          "warm_stage_async" in srv2 and "def stage_ready" in srv2)
+    check("readiness is queryable so a save cannot look like a hang",
+          "/api/stage_ready/" in srv2)
+    apa = open(os.path.join(os.path.dirname(__file__), "apply_paint_annotations.py")).read()
+    check("colour masks avoid the 300MB float32 temporary",
+          "np.linalg.norm(painted.astype(np.float32)" not in apa and "einsum" in apa)
+    check("overlays are re-encoded at low compression on every save",
+          "compress_level=1" in apa)
+    try:
+        rr = requests.get(f"{BASE}/api/stage_ready/{target}", timeout=30).json()
+        check("stage_ready responds", rr.get("ok") is True,
+              f"ready={rr.get('ready')} warming={rr.get('warming')}")
+    except Exception as e:
+        check("stage_ready responds", False, str(e))
+
     # Editing the frontend used to require restarting the server, because
     # INDEX_HTML is bound at import time -- which made two working UI fixes look
     # broken. The server now restats the module per page load.
