@@ -3,13 +3,11 @@
 #
 #   ./make_package.sh [dest]        default: ~/Desktop/sem-crack-detector
 #
-# Why a separate repo rather than slimming this one: this project's git history is
-# ~4.7 GB because paint templates and result images were committed early on.
-# .gitignore cannot help -- it does not apply to already-tracked files -- and the
-# only way to shrink the history is to rewrite it, which is destructive. So this
-# copies out the parts a user needs into a fresh repo, and leaves this folder as
-# the lab's full data archive. That archive repo is now archived on GitHub
-# (read-only); THIS script's output is the one live repo.
+# Why a separate repo rather than slimming this one: this working project's git
+# history carries every paint template and result image ever committed, and
+# .gitignore cannot retroactively untrack them -- the only fix is rewriting
+# history, which is destructive. So this copies out the parts a user needs into a
+# fresh repo with a clean history, and leaves this folder as the working area.
 #
 # Included: all live code, the trained models, the human correction masks and
 # label log (the irreplaceable part), the docs, the analysis/benchmark scripts
@@ -21,6 +19,31 @@ DEST="${1:-$HOME/Desktop/sem-crack-detector}"
 
 echo "==> packaging from $SRC"
 echo "    into           $DEST"
+
+# REFUSE to run when the destination is the source, or when this is not the
+# research project at all. This script wipes the destination working tree, and
+# DEST defaults to ~/Desktop/sem-crack-detector -- exactly the directory the
+# README's clone command creates. So a cloner who ran ./make_package.sh with no
+# argument deleted their own checkout: tracked files are recoverable with
+# `git checkout .`, but gitignored work (results/, figures/, paint templates,
+# removed_images/) is gone for good. The script cannot even succeed from a clone,
+# because the docs it copies live at the research project's top level, so its only
+# reachable effect there was destruction.
+if [ "$SRC" = "$DEST" ]; then
+  echo "    ERROR: source and destination are the same directory." >&2
+  echo "           This script builds the distributable FROM the research project" >&2
+  echo "           INTO a separate directory, and it wipes the destination." >&2
+  echo "           You are probably running it from a clone of the package, where" >&2
+  echo "           it has nothing to do. Nothing has been changed." >&2
+  exit 1
+fi
+for required in PACKAGE_README.md MODEL_VALIDATION_BENCHMARK.md original; do
+  if [ ! -e "$SRC/$required" ]; then
+    echo "    ERROR: $SRC does not look like the research project" >&2
+    echo "           (missing $required). Refusing to wipe $DEST." >&2
+    exit 1
+  fi
+done
 
 # Scripts superseded by something else in the live tree. They stay in the package
 # under archive/superseded_code/ -- deleted would lose provenance, but left in
@@ -37,10 +60,14 @@ SUPERSEDED_IAL=(build_fusion_cache.py eval_fusion.py render_final_overlays.py
 STASH="$(mktemp -d)"
 [ -d "$DEST/.git" ]      && mv "$DEST/.git" "$STASH/git"           && echo "    (preserving git history and remote)"
 [ -d "$DEST/original" ]  && mv "$DEST/original" "$STASH/original"  && echo "    (preserving packaged images)"
+# .venv too: it is gitignored, so wiping it is invisible in git but costs a full
+# pip reinstall on the next launch -- about 75 seconds for nothing.
+[ -d "$DEST/.venv" ]     && mv "$DEST/.venv" "$STASH/venv"          && echo "    (preserving virtualenv)"
 rm -rf "$DEST"
 mkdir -p "$DEST"
 [ -d "$STASH/git" ]      && mv "$STASH/git" "$DEST/.git"
 [ -d "$STASH/original" ] && mv "$STASH/original" "$DEST/original"
+[ -d "$STASH/venv" ]     && mv "$STASH/venv" "$DEST/.venv"
 rm -rf "$STASH"
 mkdir -p "$DEST"/{code,interior_active_learning/code,interior_active_learning/paint,interior_active_learning/labels,models,original,training_data,figures,docs}
 mkdir -p "$DEST"/archive/superseded_code
@@ -67,11 +94,25 @@ done
 # a fresh clone ran a weaker detector than the benchmarked one, silently.
 #
 # crack_classifier_v3_weighted.joblib and crack_classifier_PRE_V3_BACKUP.joblib
-# are NOT copied: both were byte-identical to crack_classifier.joblib, so the
-# model dropdown listed the same model three times under three names. The first
-# is a build artifact that every retrain rewrites; the second is a stale backup
-# whose job belongs to crack_classifier_PREV.joblib, which the retrain gate
-# writes itself.
+# stay out of models/, but NOT because they are duplicates. An earlier version of
+# this comment said they were byte-identical to crack_classifier.joblib; that was
+# wrong. The check behind it compared two empty strings -- zsh does not word-split
+# an unquoted variable, so `set -- $pair` put the whole pair in $1 and left $2
+# empty, and md5 of a missing file equalled md5 of a missing file. The three files
+# are 4159, 3339 and 1653 bytes and are three different fits.
+#
+# They are excluded because neither belongs in the live model directory, where
+# every .joblib shows up in the app's model picker:
+#   v3_weighted    is the candidate train_v3_weighted.py writes on each retrain,
+#                  overwritten every time. This copy is the 4128-row candidate the
+#                  retrain gate REJECTED (held-out AUC 0.9153 vs 0.9252) -- which
+#                  makes it evidence, so it is kept under
+#                  archive/superseded_models/ with a name that says so.
+#   PRE_V3_BACKUP  is the fit from before per-image weighting (no threshold, no
+#                  n_train recorded) -- the model whose held-out AUC was 0.729.
+#                  Also archived, as the counterexample it is.
+# The app's own rollback file is crack_classifier_PREV.joblib, which the retrain
+# gate writes itself, so nothing depends on either of these being in models/.
 mkdir -p "$DEST"/interior_active_learning/models
 for f in "$SRC"/models/*.joblib; do
   case "$(basename "$f")" in
@@ -179,6 +220,11 @@ IMGPY
 # run_app.sh is not copied: it was a one-line `exec ./run` shim, byte-identical in
 # effect, so the repo shipped two ways to start the same app.
 cp "$SRC"/requirements.txt "$SRC"/run "$SRC"/Makefile "$DEST"/
+# Two licenses, deliberately: MIT for the software, CC BY 4.0 for the
+# micrographs, masks, label CSVs and the models derived from them. Without
+# any license a public repo is "all rights reserved" -- readable but not
+# legally reusable, which defeats the point of publishing the dataset.
+cp "$SRC"/LICENSE "$SRC"/LICENSE-DATA "$DEST"/ 2>/dev/null || true
 cp "$SRC"/MODEL_VALIDATION_BENCHMARK.md "$SRC"/PIPELINE_DEEP_DIVE.md "$SRC"/APP_COMPARISON.md "$DEST"/docs/ 2>/dev/null || true
 # The app README's source of truth is PACKAGE_README.md HERE -- edit that, not the
 # copy in the package, which every rebuild overwrites. It is written only as
@@ -235,6 +281,17 @@ cp "$SRC"/interior_active_learning/code/experiments/*.py \
    "$DEST"/interior_active_learning/code/experiments/ 2>/dev/null || true
 # and the packager itself, so the single repo can rebuild its own distribution
 cp "$SRC"/make_package.sh "$DEST"/ 2>/dev/null || true
+
+# README figures. These are demonstration images -- the one thing a reader looks at
+# before deciding whether the detector works -- so they are a SOURCE artifact kept
+# in docs/figures/ of this project, not something regenerated per rebuild (they
+# involve a hand-picked crop). Budgeted small: the repo already carries 1.17 GB of
+# images and nobody should pay megabytes to look at a README.
+# docs/img/, NOT docs/figures/: .gitignore has a bare `figures/` rule, which git
+# applies at EVERY depth, so a figure written to docs/figures/ is silently never
+# committed and the public README renders a broken-image icon for every reader.
+mkdir -p "$DEST"/docs/img
+cp -R "$SRC"/docs/img/. "$DEST"/docs/img/ 2>/dev/null || true
 
 # The diagram sources, but only the CURRENT architecture's. The pre-unified
 # workflow SVG and command_guide.svg (a guide to commands this app no longer has,

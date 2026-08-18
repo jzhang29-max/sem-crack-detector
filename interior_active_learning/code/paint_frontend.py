@@ -78,6 +78,13 @@ button:disabled{opacity:.4;cursor:default}
 #modelcard .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3)}
 #modelcard .v{font-size:12px;margin-top:3px}
 #modelcard .v b{font-weight:600}
+/* The card's rows are built as <span>label</span><b>value</b>, with no layout rule
+   until now -- so they rendered butted together as "TypeLogisticRegression".
+   Note the two ids differ only in case: #modelcard is the section, #modelCard the
+   value block inside it. Both exist; HTML ids are case-sensitive. */
+#modelcard .v .row{display:flex;justify-content:space-between;gap:12px;line-height:1.6}
+#modelcard .v .row span{color:var(--ink3)}
+#modelcard .v .row b{text-align:right}
 #mpick{width:100%;margin:6px 0 7px;padding:6px 8px;font:inherit;font-size:12px;
   color:var(--ink);background:var(--surface2);border:1px solid var(--line2);
   border-radius:6px;cursor:pointer}
@@ -162,7 +169,6 @@ button:disabled{opacity:.4;cursor:default}
     <div class="k">Model</div>
     <select id="mpick" title="Switch models. Roll back by picking an earlier one."></select>
     <div class="v" id="modelCard">loading&hellip;</div>
-    <div id="modelInfo" style="font-size:11px;color:var(--ink3);margin-top:6px"></div>
   </div>
 </aside>
 
@@ -907,11 +913,6 @@ async function refreshModelInfo() {
   try {
     const i = await (await fetch('/api/pipeline_info')).json();
     const m = i.model;
-    document.getElementById('modelInfo').textContent = m
-      ? ('model: ' + m.family + '  ·  threshold ' + m.threshold.toFixed(3) +
-         '  ·  trained on ' + m.n_train + ' reviewed regions from ' + m.n_images +
-         ' images' + (i.sam_available ? '  ·  SAM available' : '  ·  SAM not installed'))
-      : 'no model loaded';
     if (!i.sam_available) document.getElementById('useSam').checked = false;
   } catch (e) { /* non-fatal */ }
 }

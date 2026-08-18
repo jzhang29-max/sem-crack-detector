@@ -1,0 +1,62 @@
+Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+Copyright (c) 2026 Jiaming Zhang
+
+WHAT THIS COVERS
+
+Everything in this repository that is data rather than software:
+
+  original/*.tif                                   the 62 SEM micrographs
+  interior_active_learning/paint/*_correction_mask.png   human crack verdicts
+  interior_active_learning/paint/candidate_counts.json
+  interior_active_learning/labels/*.csv
+  training_data/labeled_regions.csv
+  manual_corrections_ledger.csv
+  models/*.joblib, interior_active_learning/models/*.joblib
+  docs/img/**                                      figures
+
+The trained models are included here rather than under the MIT license because
+they are derived from the micrographs and the human labels: a model is a
+compressed statement about this dataset, not an independent piece of software.
+
+The source code is licensed separately under the MIT License. See LICENSE.
+
+WHAT YOU MAY DO
+
+Share and adapt this material for any purpose, including commercially,
+provided you give appropriate credit, link to the license, and indicate if
+changes were made. You may not apply legal or technological measures that
+legally restrict others from doing anything the license permits.
+
+Full legal text: https://creativecommons.org/licenses/by/4.0/legalcode
+Human-readable summary: https://creativecommons.org/licenses/by/4.0/
+
+HOW TO CITE
+
+  J. Zhang, SEM Crack Detector: annotated SEM micrographs of cracking in
+  additively manufactured and cast 316H stainless steel and MAR superalloy,
+  with a human-in-the-loop crack detection pipeline, 2026.
+  https://github.com/jzhang29-max/sem-crack-detector
+
+WHAT THE DATA IS, SO IT IS NOT MISREAD
+
+62 scanning electron micrographs, uint16 TIFF, up to 6144x4376 px, of 316H
+stainless steel (as-built, HIP'd, and cast) and MAR superalloy specimens,
+imaged with CBS, ETD, SE and BSE detectors.
+
+Two caveats that matter for reuse:
+
+  - The images are stored zlib-compressed inside the TIFF. This is LOSSLESS:
+    pixel values are bit-identical to the microscope's originals, verified
+    per image. They are not resampled, contrast-adjusted, or cropped.
+
+  - Only 35 of the 62 images carry human correction masks, and those masks
+    adjudicate only 1.8-4% of each image's pixels. A mask value of 0 means
+    "never reviewed", NOT "not a crack". Treating unreviewed pixels as
+    negatives will produce badly optimistic specificity -- this is a real
+    hazard and it bit this project's own early measurements. See
+    docs/MODEL_VALIDATION_BENCHMARK.md.
+
+The scale bar sits in the SEM databar, which this pipeline crops before
+analysis, so no micrometres-per-pixel factor is recoverable from these files.
+All measurements in this repository are in pixels.

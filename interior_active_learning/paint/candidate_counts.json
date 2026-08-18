@@ -8,12 +8,12 @@
     "n_crack": 237
   },
   "AS_24hr_BSE_Side_008": {
-    "n_candidates": 1781,
-    "n_crack": 758
+    "n_candidates": 1953,
+    "n_crack": 930
   },
   "MAR_Amb_AS_CBS_0002": {
-    "n_candidates": 1921,
-    "n_crack": 1663
+    "n_candidates": 2251,
+    "n_crack": 1993
   },
   "MAR_Amb_AS_CBS_0003": {
     "n_candidates": 1088,
@@ -36,20 +36,20 @@
     "n_crack": 444
   },
   "Cast_24hr_SE_Side_006": {
-    "n_candidates": 2358,
-    "n_crack": 2091
+    "n_candidates": 2417,
+    "n_crack": 2150
   },
   "MAR_Amb_AS_ETD_0003": {
     "n_candidates": 268,
     "n_crack": 259
   },
   "HIP_24hr_SE_Side_006": {
-    "n_candidates": 331,
-    "n_crack": 297
+    "n_candidates": 391,
+    "n_crack": 357
   },
   "MAR_Amb_AS_CBS_0001": {
-    "n_candidates": 1180,
-    "n_crack": 906
+    "n_candidates": 1303,
+    "n_crack": 1029
   },
   "MAR_Amb_Cast_ETD_0001": {
     "n_candidates": 285,
@@ -208,43 +208,43 @@
     "n_crack": 145
   },
   "260708_316_H_b2_front_CBS_007": {
-    "n_candidates": 178,
-    "n_crack": 119
+    "n_candidates": 219,
+    "n_crack": 160
   },
   "260708_316_H_b2_front_CBS_008": {
-    "n_candidates": 292,
-    "n_crack": 135
+    "n_candidates": 337,
+    "n_crack": 180
   },
   "260708_316_H_b2_front_CBS_009": {
-    "n_candidates": 175,
-    "n_crack": 84
+    "n_candidates": 214,
+    "n_crack": 123
   },
   "260708_316_H_b2_front_CBS_010": {
-    "n_candidates": 282,
-    "n_crack": 90
+    "n_candidates": 304,
+    "n_crack": 112
   },
   "260708_316_H_b2_front_CBS_011": {
-    "n_candidates": 249,
-    "n_crack": 138
+    "n_candidates": 291,
+    "n_crack": 180
   },
   "260708_316_H_b2_front_CBS_012": {
-    "n_candidates": 262,
-    "n_crack": 131
+    "n_candidates": 309,
+    "n_crack": 178
   },
   "260708_316_H_b2_front_CBS_013": {
-    "n_candidates": 288,
-    "n_crack": 171
+    "n_candidates": 348,
+    "n_crack": 231
   },
   "260708_316_H_b2_front_CBS_014": {
-    "n_candidates": 80,
-    "n_crack": 61
+    "n_candidates": 96,
+    "n_crack": 77
   },
   "260708_316_H_b2_front_CBS_015": {
-    "n_candidates": 117,
-    "n_crack": 99
+    "n_candidates": 144,
+    "n_crack": 126
   },
   "260708_316_H_b2_front_CBS_016": {
-    "n_candidates": 120,
-    "n_crack": 111
+    "n_candidates": 163,
+    "n_crack": 154
   }
 }

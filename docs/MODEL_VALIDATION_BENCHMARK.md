@@ -22,7 +22,7 @@ shuffled fold-splits, mean ± std reported.
 
 *(Analogous to the paper's Fig. 4a / Fig. 9a)*
 
-![Model comparison](interior_active_learning/benchmark_figures/model_comparison_bars.png)
+![Model comparison](img/benchmark/model_comparison_bars.png)
 
 | Model | Accuracy | AUC-ROC |
 |---|---|---|
@@ -52,7 +52,7 @@ quality, and that's where the deployed model actually wins.
 
 *(Analogous to the paper's Fig. 8)*
 
-![ROC curves](interior_active_learning/benchmark_figures/roc_curves.png)
+![ROC curves](img/benchmark/roc_curves.png)
 
 From one representative fold-split's pooled out-of-fold predictions: **Logistic Regression: AUC =
 0.849**, Random Forest: 0.835, k-NN: 0.814, SVC: 0.812. All four curves sit well above the diagonal
@@ -67,7 +67,7 @@ cracks).
 
 *(Analogous to the paper's Fig. 10d-f)*
 
-![Confusion matrix](interior_active_learning/benchmark_figures/confusion_matrix.png)
+![Confusion matrix](img/benchmark/confusion_matrix.png)
 
 Pooled out-of-fold predictions, proportions within each true class:
 - **True cracks correctly caught: 75.6%** (recall on the positive class)
@@ -87,7 +87,7 @@ trusting a classifier trained on an imbalanced dataset.
 the deployed model's actual weights, which the paper's Random-Forest-only approach doesn't
 directly provide)*
 
-![Feature importance](interior_active_learning/benchmark_figures/feature_importance.png)
+![Feature importance](img/benchmark/feature_importance.png)
 
 Random Forest ranks `LogArea` highest, followed by `MeanVesselness`; the deployed Logistic
 Regression ranks them in the *opposite* order (`MeanVesselness` highest). Both methods agree these
@@ -103,7 +103,7 @@ choice.
 
 *(Analogous to the paper's Fig. 11b)*
 
-![Learning curve](interior_active_learning/benchmark_figures/learning_curve.png)
+![Learning curve](img/benchmark/learning_curve.png)
 
 | Training set size | AUC-ROC |
 |---|---|
@@ -129,7 +129,7 @@ tuning).
 
 *(Analogous to the paper's Fig. 10a-c)*
 
-![Decision boundary](interior_active_learning/benchmark_figures/decision_boundary.png)
+![Decision boundary](img/benchmark/decision_boundary.png)
 
 Using only the two most important features (`MeanVesselness`, `LogArea`) and fitting a fresh 2D
 Logistic Regression *for visualization purposes only* — the real deployed model uses all 11
@@ -160,7 +160,7 @@ That's the version to trust and the one to show in a presentation.
 
 ### (a) Side-by-side + a raw-brightness-preserving version
 
-![Alignment side by side](interior_active_learning/benchmark_figures/overlay_alignment_sidebyside.png)
+![Alignment side by side](img/benchmark/overlay_alignment_sidebyside.png)
 
 Panel (a) is the untouched raw crop. Panel (b) is the standard overlay. **Panel (c) is the key
 proof:** it draws only a *thin boundary line* on top of the completely unmodified raw pixels —
@@ -182,7 +182,7 @@ generating the mask and rendering it.
 
 ### (c) Quantitative brightness check across the whole image, not a cherry-picked crop
 
-![Brightness validation](interior_active_learning/benchmark_figures/overlay_brightness_validation.png)
+![Brightness validation](img/benchmark/overlay_brightness_validation.png)
 
 Across all 330,319 crack-marked pixels, 39,271 artifact-marked pixels, and an equal-sized random
 background sample in this one image: background pixels cluster sharply around 235–250 (bright,
@@ -269,14 +269,14 @@ so any difference is attributable to the model and not to sampling.
 *SAM 2.1 exposes no automatic mask-generation pipeline in `transformers`, so Test A could
 not be run for it. Its prompted performance is reported and is indistinguishable from SAM 1.
 
-![SAM model comparison](interior_active_learning/benchmark_figures_unified/sam_model_comparison.png)
+![SAM model comparison](img/benchmark/sam_model_comparison.png)
 
 *Same crop, three panels. Left: 22 human-confirmed cracks (red) — the answer key. Centre:
 SAM 1 `vit-base` finds 6/22, colouring mostly specks and background while the long cracks
 stay unsegmented. Right: SAM 1 `vit-huge` finds 18/22 — a genuine, large improvement — but
 emits 47 masks total, with no signal as to which of them are cracks.*
 
-![SAM automatic mode](interior_active_learning/benchmark_figures_unified/sam_automatic_mode.png)
+![SAM automatic mode](img/benchmark/sam_automatic_mode.png)
 
 *Detail view, SAM 1 `vit-base` automatic mode.*
 

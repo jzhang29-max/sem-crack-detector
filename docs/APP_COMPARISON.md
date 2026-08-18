@@ -27,9 +27,12 @@ warning when the Pass-2 model is missing, because a silent 27% loss is worse tha
 a crash.
 
 **2. A fresh clone could not retrain at all.** `build_training_data.py` rebuilt
-the training CSV from local images only. The package ships 35 correction masks but
-no source images (they are gigabytes), so on a clone it found 0 usable images,
-printed `NO ROWS PRODUCED`, exited 1 — and the Retrain button failed. It now
+the training CSV from local images only. At the time the package shipped 35
+correction masks but no source images, so on a clone it found 0 usable images,
+printed `NO ROWS PRODUCED`, exited 1 — and the Retrain button failed. (The package
+now ships all 62 images too, which removes the trigger; the fix below still
+matters, because a user who clones and works on their OWN images hits exactly the
+same path.) It now
 MERGES: rows for images present locally are recomputed, rows for absent images are
 carried over. A user who clones, adds their own images and corrects them now ADDS
 to the shipped 4,128 labels instead of destroying them. Verified on a clone with
@@ -87,6 +90,6 @@ protect against; a full registry is a nice-to-have, not a gap.
 - **A retrain gate that refuses regressions** rather than warning. It earned its
   keep during development: 18 extra training rows moved held-out AUC from 0.9252
   to 0.9153, and the gate declined to deploy.
-- **A 31-check end-to-end test suite** (`interior_active_learning/code/test_app.py`)
+- **An 84-check end-to-end test suite** (`interior_active_learning/code/test_app.py`)
   covering upload, detection, export, correction precedence, region isolation,
   threshold plumbing and the retrain guard.

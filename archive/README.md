@@ -34,6 +34,19 @@ Earlier versions replaced by something better, not broken code:
 - `mar_crack_classifier.joblib` — from when MAR was a separate project, before the
   datasets were merged
 - `crack_classifier_v2_metrics.json` — its metrics
+- `crack_classifier_v3_weighted_REJECTED_BY_GATE.joblib` — the retrain candidate the
+  deployment gate turned down: 4,128 training rows against production's 4,110, and
+  held-out AUC 0.9153 against 0.9252. Kept because it is the concrete artifact behind
+  the README's claim that retraining will not deploy a worse model. Threshold 0.628,
+  which is also why a threshold must never be hardcoded at a call site.
+- `crack_classifier_pre_per_image_weighting.joblib` — the fit from before per-image
+  sample weighting, the change that moved held-out AUC from 0.729 to 0.925. It records
+  neither a threshold nor a training-row count, which is itself the tell: those fields
+  were added when the weighting was.
+
+  Both of these were briefly deleted outright on the mistaken belief that they were
+  byte-identical copies of the production model. They are 3,339 and 1,653 bytes against
+  production's 4,159, and are three different fits.
 
 ## superseded_diagrams/
 - `full_workflow_260708_316_H_b2_front_CBS_002.svg` — the pre-unified,
