@@ -355,6 +355,38 @@ def main():
           "np.linalg.norm(painted.astype(np.float32)" not in apa and "einsum" in apa)
     check("overlays are re-encoded at low compression on every save",
           "compress_level=1" in apa)
+    # A behavioural check, not a string check. The int16 version of _color_mask
+    # silently wrapped (255**2 = 65025 > 32767, and einsum accumulates in the
+    # input dtype), so red paint on a white template was classified as cyan and
+    # only 418 of 3200 painted pixels registered as red -- paint quietly did not
+    # save. An equality test on a real painted/template pair MISSED this because
+    # that pair differed in 2,159 of 25,165,824 px, so both masks were empty and
+    # "identical" meant nothing. This drives the actual function on the worst case.
+    try:
+        import apply_paint_annotations as _apa
+        _rng = np.random.RandomState(7)
+        _T = _rng.randint(0, 256, (200, 200, 3)).astype(np.uint8)
+        _P = _T.copy()
+        _P[20:80, 20:80] = _apa.RED
+        _red = _apa._color_mask(_P, _T, _apa.RED)
+        _cy = _apa._color_mask(_P, _T, _apa.CYAN)
+        # Not 3600: _color_mask excludes pixels ALREADY within tolerance of that
+        # colour in the template, which is what makes "new red paint"
+        # unambiguous. With uniform random RGB a handful of the 3600 qualify, so
+        # the expected count is computed rather than assumed -- asserting 3600
+        # failed on correct behaviour.
+        _tol = int(_apa.COLOR_TOLERANCE) ** 2
+        _dt = _T[20:80, 20:80].astype(np.int32) - np.asarray(_apa.RED, np.int32)
+        _excluded = int((np.einsum("ijk,ijk->ij", _dt, _dt) < _tol).sum())
+        _inside = int(_red[20:80, 20:80].sum())
+        check("colour mask detects the whole painted block bar template-red pixels",
+              _inside == 3600 - _excluded,
+              f"{_inside} detected, {_excluded} correctly excluded as already-red")
+        check("red paint is not misread as cyan (int overflow regression)",
+              int(_cy[20:80, 20:80].sum()) == 0,
+              f"{int(_cy[20:80, 20:80].sum())} px of red block read as cyan")
+    except Exception as _e:
+        check("colour mask overflow regression check ran", False, str(_e))
     try:
         rr = requests.get(f"{BASE}/api/stage_ready/{target}", timeout=30).json()
         check("stage_ready responds", rr.get("ok") is True,

@@ -153,11 +153,16 @@ def _color_mask(painted, template, color):
     int16 is wide enough: channel differences are within +/-255 and the squared
     sum of three of them fits in int32.
     """
-    tol2 = int(COLOR_TOLERANCE) ** 2
-    col = np.asarray(color, dtype=np.int16)
-    d = painted.astype(np.int16) - col
+    # int32, NOT int16. A channel difference reaches 255, whose square is 65025 --
+    # already past int16's 32767 -- and np.einsum accumulates in the INPUT dtype,
+    # so an int16 version silently wrapped negative and reported far-apart colours
+    # as matches. Observed: pure red paint on a white template was classified as
+    # cyan, and only 418 of 3200 painted pixels were seen as red.
+    tol2 = np.int32(int(COLOR_TOLERANCE) ** 2)
+    col = np.asarray(color, dtype=np.int32)
+    d = painted.astype(np.int32) - col
     mask = np.einsum("ijk,ijk->ij", d, d) < tol2
-    dt = template.astype(np.int16) - col
+    dt = template.astype(np.int32) - col
     mask &= np.einsum("ijk,ijk->ij", dt, dt) >= tol2
     return mask
 
@@ -348,13 +353,39 @@ def ingest(image_name, min_area=20, stage=None):
     red_correct_mask, red_touched = _filter_by_overlap(red_over_existing, labeled, MIN_ERASE_OVERLAP_PX)
     cyan_correct_mask, cyan_touched = _filter_by_overlap(cyan_over_existing, labeled, MIN_ERASE_OVERLAP_PX)
     erase_correct_mask, erase_touched = _filter_by_overlap(erase_over_existing, labeled, MIN_ERASE_OVERLAP_PX)
-    if red_correct_mask.any() or cyan_correct_mask.any() or erase_correct_mask.any() or red_blank_touching.any():
+    # Brand-new regions painted on BLANK background are recorded here too.
+    #
+    # They were previously handled only by _new_candidates_from_mask, which
+    # stamps them into `labeled` and appends a row to the candidates CSV -- so
+    # they rendered correctly and were clickable, but never entered the
+    # correction mask. build_training_data.py builds training rows exclusively
+    # from that mask, so a crack the model missed ENTIRELY -- exactly the case a
+    # user most wants to teach it -- contributed nothing to the next retrain.
+    # Corrections to regions the model already proposed always worked; only
+    # from-scratch paint was silently non-teaching.
+    #
+    # Recording them as verdicts is consistent with what the mask means: a
+    # per-pixel human judgement, independent of whether the pipeline happened to
+    # propose that pixel. It also makes them survive a re-render, which the CSV
+    # row alone did not guarantee.
+    any_write = (red_correct_mask.any() or cyan_correct_mask.any()
+                 or erase_correct_mask.any() or red_blank_touching.any()
+                 or red_blank_isolated.any() or cyan_over_blank.any())
+    if any_write:
         merged = load_correction_mask(image_name, labeled.shape)
         merged = merged.copy() if merged is not None else np.zeros(labeled.shape, dtype=np.uint8)
         merged[red_correct_mask] = 1
         merged[cyan_correct_mask] = 2
         merged[erase_correct_mask] = 3
         merged[red_blank_touching] = 1
+        # Order is irrelevant here, and the earlier claim that it made
+        # corrections "win" was wrong: _split_new_vs_correction partitions each
+        # painted mask by label != 0 vs label == 0, so the correction masks and
+        # these blank-background masks are disjoint by construction. Red and
+        # cyan cannot overlap either -- _color_mask requires a pixel to be
+        # within tolerance of one colour, and the two are far apart.
+        merged[red_blank_isolated] = 1
+        merged[cyan_over_blank] = 2
         save_correction_mask(image_name, merged)
     _log_touched_labels(image_name, red_touched, True)
     _log_touched_labels(image_name, cyan_touched, False)

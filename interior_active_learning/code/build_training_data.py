@@ -33,6 +33,7 @@ from common import ORIGINAL_DIR, PAINT_DIR, PROJECT_ROOT, contrast_kwargs_for, l
 from detect_cracks import (
     load_as_uint8, find_field_of_view, flatten_background, segment_dark_regions,
     clean_mask, compute_vesselness, exclude_border_background, extract_candidates,
+    region_features_from_labeled,
 )
 
 OUT_CSV = os.path.join(PROJECT_ROOT, "training_data", "labeled_regions.csv")
@@ -87,10 +88,51 @@ def process(image_name):
                          "Label": lbl, "Area": int(r["Area"])})
             rows.append(rec)
 
+        # Human-painted regions the SEGMENTER never proposed.
+        #
+        # The loop above iterates extract_candidates' output, so a verdict only
+        # becomes a training row if the darkness threshold happened to propose
+        # that region. A crack painted from scratch on blank background has no
+        # candidate -- apply_pixel_corrections deliberately leaves an isolated
+        # blank force-crack patch alone ("the genuinely-new-candidate case") --
+        # so the single most informative annotation a user can make, "you missed
+        # this entirely", produced no training data at all.
+        #
+        # This matters more now that SAM is in the pipeline: SAM proposes regions
+        # the darkness threshold misses, and the same classifier scores them, so
+        # teaching it these shapes directly improves that path.
+        uncovered = np.isin(mask, (1, 2)) & (labeled == 0)
+        n_extra = 0
+        if uncovered.any():
+            from skimage import measure as _measure
+            comp = _measure.label(uncovered, connectivity=2)
+            for pr in _measure.regionprops(comp):
+                if pr.area < 40:
+                    continue
+                sl = pr.slice
+                sub = pr.image
+                vals = mask[sl][sub]
+                counts = np.bincount(vals, minlength=4)
+                if counts[1:].sum() == 0:
+                    continue
+                verdict = int(counts[1:].argmax() + 1)
+                if verdict not in (1, 2):
+                    continue
+                _, fd = region_features_from_labeled(
+                    sub.astype(np.int32), flat[sl], ves[sl], min_area_px=40)
+                if not len(fd):
+                    continue
+                r = fd.iloc[0]
+                rec = {f: float(r[f]) for f in FEATURES}
+                rec.update({"IsCrack": verdict == 1, "SourceImage": image_name,
+                            "Label": -int(pr.label), "Area": int(pr.area)})
+                rows.append(rec)
+                n_extra += 1
+
         out = pd.DataFrame(rows)
         n_pos = int(out["IsCrack"].sum()) if len(out) else 0
-        print(f"{image_name:32s} {len(out):5d} rows ({n_pos} crack / {len(out)-n_pos} not-crack)",
-              flush=True)
+        print(f"{image_name:32s} {len(out):5d} rows ({n_pos} crack / {len(out)-n_pos} not-crack"
+              + (f", {n_extra} painted-from-scratch" if n_extra else "") + ")", flush=True)
         return image_name, out
     except Exception as e:
         import traceback
