@@ -91,9 +91,9 @@ cp -R "$SRC"/archive/. "$DEST"/archive/ 2>/dev/null || true
 # curves, model comparisons, and the rejected alternatives (per-type models,
 # synthetic negatives, margin maximisation). Without these the documented numbers
 # have no reproducible source.
-mkdir -p "$DEST"/interior_active_learning/experiments
-cp "$SRC"/interior_active_learning/experiments/*.py \
-   "$DEST"/interior_active_learning/experiments/ 2>/dev/null || true
+mkdir -p "$DEST"/interior_active_learning/code/experiments
+cp "$SRC"/interior_active_learning/code/experiments/*.py \
+   "$DEST"/interior_active_learning/code/experiments/ 2>/dev/null || true
 # and the packager itself, so the single repo can rebuild its own distribution
 cp "$SRC"/make_package.sh "$DEST"/ 2>/dev/null || true
 
