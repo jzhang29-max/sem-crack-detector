@@ -12,6 +12,9 @@ dependencies, and opens the browser. The first run takes a few minutes to
 install; afterwards it starts in seconds. `make` does the same. Nothing to
 configure, no paths to edit.
 
+The clone is **~1.2 GB** because the 62 source SEM images ship with it, so the
+detector and every number below can be reproduced rather than taken on trust.
+
 ## The loop
 
 1. **Drop images** anywhere on the window — `.tif .tiff .png .jpg`. Each is
@@ -109,9 +112,11 @@ Which means it only applies where it is actually run:
 | the re-render after **Retrain** | only if you ask for it |
 | the overlays shipped in this repo | **no** — pipeline only, f1 0.715 |
 
-Including SAM costs ~3 min per image instead of ~40 s, so a 62-image re-render is
-~3 hours rather than ~15 minutes. Re-apply asks which you want and shows the
-estimate for your image count.
+Including SAM costs **~8 min per image** instead of ~40 s, so a 62-image
+re-render is **~8.5 hours** rather than ~15 minutes. (Measured on an Apple M-series
+GPU via MPS at 6144×4096; an earlier estimate of ~3 min/image was taken from a
+smaller image and was optimistic by roughly 3×.) Re-apply asks which you want and
+shows the estimate for your image count.
 
 SAM adds +0.061 f1 over the full pipeline, improving 4 of 5 images. The gain is
 entirely recall (+8.1 points) traded against specificity (−8.1), precision flat —
@@ -146,13 +151,68 @@ pip install torch transformers torchvision   # torchvision is required, not extr
 
 ## What ships here
 
-Code, the trained models, and the human correction masks — the labels are the
-only part nobody can regenerate. Source images, overlays and results are excluded:
-they are large and reproducible from the images plus the labels. A clone with no
-images still retrains, using the shipped labels.
+Code, the trained models, the human correction masks, and **the 62 source
+images**. The masks are the part nobody can regenerate; the images are what makes
+every result here checkable instead of merely claimed.
+
+The images are **losslessly compressed** — zlib inside the TIFF, 2.55 GB down to
+1.17 GB, pixel values bit-identical (asserted per image at packaging time, not
+assumed). The pipeline reads exactly the same numbers it would from the
+uncompressed originals.
+
+Derived outputs are excluded because they are regenerable and large: overlays,
+results, figures, caches. Retraining also works in a clone with no images at all,
+from the shipped labels alone.
 
 Removing an image from the list **moves** it to `removed_images/` rather than
 deleting it, and keeps its corrections, so a misclick is recoverable.
+
+## Where things are
+
+Every `.py` in this repo is in exactly one of three categories. Nothing is left
+unexplained, and nothing that the app does not use sits next to code that it does.
+
+**The app — 18 modules, this is the whole live path:**
+
+| file | what it is |
+|---|---|
+| `interior_active_learning/code/paint_server.py` | the Flask app; `./run` starts this |
+| `…/paint_frontend.py` | the entire UI, one file, hot-reloads on save |
+| `…/app_endpoints.py` | upload, detect, retrain, job polling |
+| `…/app_exports.py` | mask / overlay / region CSV / zip |
+| `…/app_extras.py` | thumbnails, model picker, re-apply, remove, SAM install |
+| `…/app_undo.py` | the server-side correction-mask undo stack |
+| `…/apply_paint_annotations.py` | painted PNG → per-pixel correction mask |
+| `…/build_training_data.py` | correction masks → training rows |
+| `…/train_v3_weighted.py` | trains Pass 1 with per-image weighting |
+| `…/regenerate_templates.py` | batch re-render; **the only** overlay renderer |
+| `…/hybrid_detect.py` | Pass 1 + Pass 2 + SAM, as one call |
+| `…/unified_pipeline.py` | orchestrates the two passes |
+| `…/interior_candidates.py` | Pass 2 candidate generation |
+| `…/common.py` | paths and per-image contrast settings |
+| `…/labeling_overlay.py`, `…/active_learning_select.py` | overlay drawing, image ranking |
+| `…/test_app.py` | the test suite |
+| `code/detect_cracks.py` | Pass 1 segmentation and the 8 features |
+
+**Kept because they regenerate something that ships here.** Not imported by the
+app, so nothing breaks if you ignore them — but delete them and an artifact in
+this repo becomes unreproducible:
+
+- `train_unified_model.py`, `unified_data.py`, `build_original_ledger_unified_features.py`
+  → rebuild the Pass 2 model, `interior_active_learning/models/unified_model.joblib`
+- `train_interior_model.py`, `apply_interior_model.py` → rebuild and inspect
+  `interior_model.joblib`, which `interior_candidates.py` loads at runtime
+- `code/pipeline_stages_unified.py`, `code/generate_full_workflow_diagram_unified.py`
+  → rebuild `docs/diagram/full_workflow_unified_*.svg`
+- `crack_measurements.py`, `extended_features.py` → the extended-feature study
+- `ingest_labels.py`, `ingest_marginal_verdicts.py` → the CSV-era label ingest paths
+- `interior_active_learning/code/experiments/` (25 scripts) → produced every figure
+  and table in the benchmark doc
+
+**`archive/` — nothing imports it, and nothing should.** Superseded code, models
+kept as counterexamples, and one-off analyses that are the evidence behind the
+numbers above. `archive/README.md` says what each item proved. Safe to delete
+wholesale if you don't care about reproducing the reasoning.
 
 ## Testing
 

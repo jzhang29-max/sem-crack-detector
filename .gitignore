@@ -1,29 +1,26 @@
-# Data and outputs -- these are 12 GB and belong in the lab's storage, not git.
-# Everything here is regenerable from original/ plus the correction masks.
-original/*.tif
-original/*.tiff
+# Derived outputs -- all regenerable from original/ plus the correction masks.
 results/
 figures/
-training_data/*.png
-training_data/*_cracks.csv
 fusion_cache/
 removed_images/
-round4_original_backup/
-pipeline_diagram/*.png
-
-# Keep the human labels: they are the irreplaceable part. Everything else can be
-# recomputed, but nobody can recreate a person's crack verdicts.
-!interior_active_learning/labels/
-!interior_active_learning/paint/*_correction_mask.png
-# Templates are derived from the model, so they are not worth versioning.
+training_data/*.png
+training_data/*_cracks.csv
 interior_active_learning/paint/*_paint_template.png
 interior_active_learning/paint/*_painted.png
+interior_active_learning/candidates/*_quicklook.png
+
+# Build artifacts of a retrain: train_v3_weighted.py writes the candidate model,
+# and the retrain gate writes the rollback copy. Committing them meant the model
+# dropdown showed three names for one identical file.
+models/crack_classifier_v3_weighted.joblib
+models/crack_classifier_PREV.joblib
+models/crack_classifier_PRE_V3_BACKUP.joblib
+
+# original/ IS tracked here, unlike in the research project: without the images a
+# clone can retrain from the shipped labels but cannot reproduce a single overlay.
 
 .venv/
 __pycache__/
 *.pyc
 .DS_Store
 .upload_*
-
-# Quicklook renders -- derived previews, tens of MB each
-interior_active_learning/candidates/*_quicklook.png

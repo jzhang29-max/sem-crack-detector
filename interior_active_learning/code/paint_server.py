@@ -215,6 +215,17 @@ def api_images():
             import pandas as pd
             n_candidates = len(pd.read_csv(candidates_csv))
         info.append({"name": name, "n_candidates": n_candidates, "n_crack": None})
+
+    # Which images have no overlay yet. The package ships the source images but
+    # NOT the templates (derived, and ~30 MB each), so on a fresh clone every
+    # image is unrendered. /api/template would build one on demand inside the
+    # request -- correct, but it blocks 40 s to 200 s with no progress, and
+    # loadImageList opens the first image automatically, so the app looked hung
+    # on first launch. The frontend uses this flag to run the background
+    # detection job instead, which reports progress.
+    for row in info:
+        row["has_template"] = os.path.exists(
+            os.path.join(PAINT_DIR, f"{row['name']}_paint_template.png"))
     return jsonify(info)
 
 
