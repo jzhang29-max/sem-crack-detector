@@ -1,0 +1,140 @@
+"""
+Regenerate every paint template with the STEEL project's 8-feature
+classifier applied, so the app opens showing real proposals to correct
+rather than a blank all-cyan slate.
+
+Why the steel model and not this project's own mar_crack_classifier:
+measured on the 1285 hand-labeled candidates of AS_24hr_BSE_Side_008, the
+steel model -- which has never seen a single MAR image -- scores AUC 0.862
+(89.3% of cracks caught, 74.1% of non-cracks cleared). That is the only
+honest number available for any model on this dataset. The MAR model's
+apparent 0.9998 is in-sample on the very rows it trained on, and it is
+knowingly circular besides (94.6% of its training data came from one image
+whose labels a plain length threshold reproduces exactly). Seeding with the
+MAR model would just echo my own labelling rule back; the steel model is an
+independent second opinion.
+
+Its ~26% false-positive rate is a feature here, not a flaw: correcting
+those produces exactly the negative examples this dataset is missing (every
+label collected so far has been positive, which is why grouped
+cross-validation is currently unreportable).
+
+Hand corrections always win -- the per-pixel correction mask is applied
+AFTER scoring, so nothing already reviewed gets overwritten by a guess.
+
+    python3 seed_templates_with_steel_model.py [--only IMAGE_NAME]
+"""
+import os
+import sys
+import warnings
+from multiprocessing import Pool
+
+warnings.filterwarnings("ignore")
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, "/Users/jiamingzhang/Desktop/MAR_Superalloy_Crack_Detection_Pipeline/code")
+
+import joblib
+import numpy as np
+
+from common import PAINT_DIR, ORIGINAL_DIR, contrast_kwargs_for, load_correction_mask
+from detect_cracks import (
+    load_as_uint8, find_field_of_view, flatten_background, segment_dark_regions,
+    clean_mask, compute_vesselness, exclude_border_background, extract_candidates,
+    merge_large_cracks,
+)
+from interior_candidates import apply_pixel_corrections, build_simple_overlay
+
+STEEL_MODEL = "/Users/jiamingzhang/Desktop/SEM_Crack_Detection_Pipeline/models/crack_classifier.joblib"
+FORCE_KEEP_AREA = 50000  # same safety net production uses: a dark region this
+                          # large is essentially always a real crack/void
+
+
+def process(image_name):
+    out_path = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
+    try:
+        bundle = joblib.load(STEEL_MODEL)
+        feats = bundle["feature_names"]
+
+        img8 = load_as_uint8(os.path.join(ORIGINAL_DIR, f"{image_name}.tif"),
+                             **contrast_kwargs_for(image_name))
+        x0, y0, x1, y1 = find_field_of_view(img8)
+        img8 = img8[y0:y1, x0:x1]
+        flat = flatten_background(img8)
+        dark = segment_dark_regions(flat, img8=img8)
+        clean = clean_mask(dark, min_area_px=13)
+        ves = compute_vesselness(flat)
+        clean = exclude_border_background(clean, ves)
+        labeled, df = extract_candidates(clean, flat, ves, min_area_px=40)
+
+        if len(df):
+            proba = bundle["clf"].predict_proba(bundle["scaler"].transform(df[feats].values))[:, 1]
+            df = df.copy()
+            df["CrackProbability"] = proba
+            df["IsCrack"] = proba >= 0.5
+            df.loc[df["Area"] >= FORCE_KEEP_AREA, "IsCrack"] = True
+        else:
+            df = df.copy()
+            df["IsCrack"] = False
+            df["CrackProbability"] = 0.0
+
+        n_model = int(df["IsCrack"].sum())
+
+        # Hand corrections applied last so a reviewed verdict always beats a guess.
+        mask = load_correction_mask(image_name, labeled.shape)
+        if mask is not None:
+            labeled, df = apply_pixel_corrections(labeled, df, mask)
+        df, _bridge = merge_large_cracks(labeled, df, flat, min_area_px=1000, max_gap_px=80)
+
+        build_simple_overlay(dict(img8=img8, labeled=labeled, df=df)).save(out_path)
+        n_final = int(df["IsCrack"].sum())
+        print(f"OK   {image_name:32s} {len(df):5d} cand | model said {n_model} crack "
+              f"| after corrections {n_final}", flush=True)
+        return (image_name, "ok", len(df), n_model, n_final)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"FAIL {image_name:32s} {e}", flush=True)
+        return (image_name, f"FAILED: {e}", 0, 0, 0)
+
+
+if __name__ == "__main__":
+    if "--only" in sys.argv:
+        names = [sys.argv[sys.argv.index("--only") + 1]]
+    else:
+        names = sorted(os.path.splitext(f)[0] for f in os.listdir(ORIGINAL_DIR)
+                        if f.lower().endswith(".tif"))
+    print(f"Seeding {len(names)} template(s) with the steel model\n")
+    with Pool(3) as pool:
+        results = pool.map(process, names)
+    ok = [r for r in results if r[1] == "ok"]
+
+    # Sidecar the paint app's image list reads, so the dropdown can report a
+    # real candidate count instead of the 0 it showed when it looked for
+    # interior-candidate CSVs this project never generates. Merged rather
+    # than overwritten so a --only run updates one image without wiping the
+    # other 44.
+    import json
+    counts_path = os.path.join(PAINT_DIR, "candidate_counts.json")
+    counts = {}
+    if os.path.exists(counts_path):
+        try:
+            with open(counts_path) as f:
+                counts = json.load(f)
+        except Exception:
+            counts = {}
+    for name, status, n_cand, _n_model, n_final in ok:
+        counts[name] = {"n_candidates": n_cand, "n_crack": n_final}
+    with open(counts_path, "w") as f:
+        json.dump(counts, f, indent=2)
+    print(f"wrote candidate counts for {len(counts)} image(s) -> {counts_path}")
+
+    print(f"\n{len(ok)}/{len(names)} regenerated")
+    if ok:
+        print(f"total candidates {sum(r[2] for r in ok)}, "
+              f"model proposed {sum(r[3] for r in ok)} crack, "
+              f"final after hand corrections {sum(r[4] for r in ok)}")
+    for r in results:
+        if r[1] != "ok":
+            print(" ", r[0], r[1])
+    print("DONE")
