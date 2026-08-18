@@ -12,8 +12,10 @@ dependencies, and opens the browser. The first run takes a few minutes to
 install; afterwards it starts in seconds. `make` does the same. Nothing to
 configure, no paths to edit.
 
-The clone is **~1.2 GB** because the 62 source SEM images ship with it, so the
-detector and every number below can be reproduced rather than taken on trust.
+The clone downloads **~1.2 GB** and occupies **~2.2 GB** on disk once checked out
+(git keeps its own compressed copy alongside the working files). That is because
+the 62 source SEM images ship with it, so the detector and every number below can
+be reproduced rather than taken on trust.
 
 ## The loop
 
@@ -221,9 +223,9 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 python3 interior_active_learning/code/test_app.py
 ```
 
-67+ checks covering upload, detection, exports, correction precedence, region
-isolation, threshold plumbing, the retrain gate, autosave, undo, and the
-performance fixes. `make test` runs the same thing.
+84 checks covering upload, detection, exports, correction precedence, region
+isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
+routing, and the performance fixes. `make test` runs the same thing.
 
 ## Notes for maintainers
 
