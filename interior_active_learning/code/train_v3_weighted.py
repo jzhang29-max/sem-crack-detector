@@ -179,7 +179,13 @@ def main():
         tn = int((~yt & ~pr).sum()); fp = int((~yt & pr).sum())
         return tp / max(tp + fn, 1), tn / max(tn + fp, 1), fp
 
-    prod_rec, prod_spec, prod_fp = at(0.5, pp)
+    # Production's OWN threshold, not 0.5. The deployed model carries the
+    # threshold it was calibrated at (0.4 today), so measuring its recall at 0.5
+    # described a model nobody runs -- and every candidate threshold below is
+    # chosen to match that recall, so the whole calibration hung off a baseline
+    # that did not exist.
+    PROD_THR = float(pb.get("threshold", 0.5))
+    prod_rec, prod_spec, prod_fp = at(PROD_THR, pp)
     fpr_h, tpr_h, thr_h = roc_curve(yt, pH)
     thr_match_rec = float(thr_h[int(np.argmin(np.abs(tpr_h - prod_rec)))])
     thr_match_spec = float(thr_h[int(np.argmin(np.abs(fpr_h - (1 - prod_spec))))])
@@ -191,7 +197,29 @@ def main():
     for nm, t in ops.items():
         r, s, fp = at(t)
         print(f"  {nm:20s} thr {t:.3f}  recall {r:6.1%}  spec {s:6.1%}  FP {fp:>5d}")
-    DEPLOY_THR = thr_match_rec
+    # thr_match_rec lives on clfH's score scale -- clfH is trained on everything
+    # EXCEPT the held-out image. The model actually deployed below is refit on ALL
+    # rows, so its scores are distributed differently and the same numeric
+    # threshold is a different operating point. This project shipped exactly that
+    # mistake once: 0.578 picked on a held-out-trained model gave 74.4% recall in
+    # production instead of the intended 89.3%.
+    #
+    # Transfer by QUANTILE rather than by value: take where thr_match_rec sits in
+    # clfH's held-out score distribution and use the same position in the deployed
+    # model's pooled out-of-fold scores. Out-of-fold, so it is not the in-sample
+    # optimism that re-sweeping on the held-out image would give.
+    _q = float((pH < thr_match_rec).mean())
+    _oof_best = oof_store.get(best)
+    if _oof_best is not None and np.isfinite(_oof_best).any():
+        DEPLOY_THR = float(np.nanquantile(_oof_best, _q))
+        print(f"\nthreshold transferred by quantile: {thr_match_rec:.3f} on the "
+              f"held-out-trained model sits at q={_q:.4f}, which is "
+              f"{DEPLOY_THR:.3f} on the deployed model's out-of-fold scores")
+    else:
+        DEPLOY_THR = thr_match_rec
+        print(f"\nWARNING: no out-of-fold scores for {best}; deploying "
+              f"{DEPLOY_THR:.3f} straight from the held-out-trained model, whose "
+              f"score scale differs from the deployed model's")
     r, s, fp = at(DEPLOY_THR)
     delta = prod_fp - fp
     # Report the direction correctly. This previously printed "N fewer false
@@ -301,6 +329,11 @@ def main():
                   "scaler": sc, "clf": clf, "feature_names": FEATURES,
                   "model_family": best,
                   "per_image_weights": True, "threshold": DEPLOY_THR,
+                  "threshold_provenance": {
+                      "method": "quantile transfer of matched-recall threshold",
+                      "production_threshold_compared": PROD_THR,
+                      "held_out_model_threshold": thr_match_rec,
+                      "quantile": _q, "held_out_image": HELD},
                   "operating_points": ops, "n_train": len(df),
                   "n_pos": int(y.sum()), "n_neg": int((~y).sum()),
                   "images": sorted(df.SourceImage.unique().tolist()),

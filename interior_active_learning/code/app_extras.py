@@ -170,9 +170,20 @@ def register(app, list_images, invalidate_stage):
         if os.path.basename(f) == "crack_classifier.joblib":
             return jsonify({"ok": True, "message": "already current"})
         # keep the outgoing model recoverable
+        # Second-resolution stamps collide: two selects inside the same second
+        # produced the same backup name, so the second overwrote the first and the
+        # model being replaced stopped being recoverable. Also refuse to write the
+        # backup over the file we are about to read.
         stamp = time.strftime("%Y%m%d_%H%M%S")
-        shutil.copy2(PROD_MODEL_PATH,
-                     os.path.join(MODELS_TOP, f"crack_classifier_replaced_{stamp}.joblib"))
+        backup = os.path.join(MODELS_TOP, f"crack_classifier_replaced_{stamp}.joblib")
+        _n = 1
+        while os.path.exists(backup):
+            backup = os.path.join(MODELS_TOP, f"crack_classifier_replaced_{stamp}_{_n}.joblib")
+            _n += 1
+        if os.path.realpath(backup) == os.path.realpath(src):
+            return jsonify({"ok": False,
+                            "error": "refusing to overwrite the model being selected"}), 400
+        shutil.copy2(PROD_MODEL_PATH, backup)
         shutil.copy2(src, PROD_MODEL_PATH)
         if invalidate_stage:
             invalidate_stage(None)

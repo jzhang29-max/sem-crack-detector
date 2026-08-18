@@ -224,7 +224,12 @@ def register(app, get_stage, invalidate_stage=None):
                                    timeout=7200)
                 out[cmd[1]] = (r.stdout or "")[-3000:]
                 if r.returncode != 0:
-                    raise RuntimeError(f"{cmd[1]} failed: {(r.stderr or '')[-600:]}")
+                    # build_training_data.py prints its diagnostic ("NO ROWS
+                    # PRODUCED ...") to stdout, so reporting stderr alone gave the
+                    # user an empty reason for the failure.
+                    _why = ((r.stderr or "").strip() or (r.stdout or "").strip()
+                            or f"exit code {r.returncode}")
+                    raise RuntimeError(f"{cmd[1]} failed: {_why[-600:]}")
 
             # train_v3_weighted writes a candidate model but deliberately does
             # NOT overwrite production. Promote it only if it is at least as
@@ -268,6 +273,16 @@ def register(app, get_stage, invalidate_stage=None):
                 r = subprocess.run(cmd, cwd=CODE_DIR,
                                    capture_output=True, text=True, timeout=86400)
                 out["regenerate_templates.py"] = (r.stdout or "")[-2000:]
+                # regenerate_templates.py exits 0 even when individual images fail,
+                # and this never checked the status either, so a re-render that
+                # rendered nothing reported success and left every overlay stale.
+                _failed = [ln for ln in (r.stdout or "").splitlines()
+                           if "FAIL" in ln or "Traceback" in ln]
+                if r.returncode != 0 or _failed:
+                    out["regenerate_warning"] = (
+                        f"re-render reported {len(_failed)} failure(s)"
+                        + (f", exit code {r.returncode}" if r.returncode else "")
+                        + "; some overlays may still be stale")
                 if invalidate_stage:
                     invalidate_stage(None)
             return out

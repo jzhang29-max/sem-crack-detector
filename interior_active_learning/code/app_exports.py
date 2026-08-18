@@ -90,7 +90,14 @@ def region_table(image_name, m):
             "Solidity": round(float(p.solidity), 4),
             "Perimeter_px": round(float(p.perimeter), 2),
         })
-    df = pd.DataFrame(rows)
+    # Explicit columns so an image with no crack regions still writes a header.
+    # pd.DataFrame([]) has no columns, so regions.csv came out as a single newline
+    # -- 1 byte, no header -- which a reader treats as malformed rather than as
+    # "zero regions found".
+    _COLS = ["Region", "Area_px", "CentroidY_px", "CentroidX_px", "BBoxY0", "BBoxX0",
+             "BBoxY1", "BBoxX1", "Length_px", "Width_px", "AspectRatio",
+             "Eccentricity", "Orientation_deg", "Solidity", "Perimeter_px"]
+    df = pd.DataFrame(rows) if rows else pd.DataFrame(columns=_COLS)
     if len(df):
         df = df.sort_values("Area_px", ascending=False).reset_index(drop=True)
     return df
@@ -183,7 +190,11 @@ def register(app, list_images):
                         "MeanRegion_px": round(float(df["Area_px"].mean()), 1) if len(df) else 0.0,
                         "TotalLength_px": round(float(df["Length_px"].sum()), 1) if len(df) else 0.0,
                     })
-                sdf = pd.DataFrame(summary)
+                # Same for the cross-image summary: a zip in which nothing was
+                # detected should still carry a readable summary.csv.
+                sdf = (pd.DataFrame(summary) if summary else pd.DataFrame(
+                    columns=["Image", "Regions", "CrackArea_px", "ImageArea_px",
+                             "CrackAreaPct", "MeanRegion_px", "TotalLength_px"]))
                 z.writestr("summary.csv", sdf.to_csv(index=False))
                 z.writestr("README.txt",
                            "Crack detection export\n"
