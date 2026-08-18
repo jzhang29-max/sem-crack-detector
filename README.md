@@ -35,6 +35,14 @@ be reproduced rather than taken on trust.
 
 ## The loop
 
+The 62 images ship **without their overlays** — those are derived, and at ~30 MB
+each they would quadruple the download. So the first time you click an image, the
+detector runs on it right then, with a progress bar and a running note of which
+stage it is in. Measured: **20 s for a 5.8-megapixel frame, 94 s for a
+26.9-megapixel one**. After that the overlay is cached on disk and the same image
+reopens in under a second. The counts in the sidebar come from the repo, so you can see what is worth
+opening before anything is rendered.
+
 1. **Drop images** anywhere on the window — `.tif .tiff .png .jpg`. Each is
    converted to greyscale and run through the current model automatically.
 2. **Look at the result.** Red = crack, cyan = a candidate the model rejected.
@@ -55,10 +63,13 @@ be reproduced rather than taken on trust.
    is not: read this one as what a finished image looks like, not as unaided
    accuracy.
 
-4. **Nothing to save.** Marks commit by themselves about a second after you stop
+4. **The status bar is the source of truth.** Every long action — detecting,
+   saving, retraining, re-applying — reports there and on the thin progress bar
+   under the toolbar, naming the stage rather than just spinning.
+5. **Nothing to save.** Marks commit by themselves about a second after you stop
    drawing; the status bar says *All changes saved*. Switching images flushes
    first, and closing the tab with unsaved marks warns you.
-5. **Retrain** rebuilds the training set from every correction you have ever
+6. **Retrain** rebuilds the training set from every correction you have ever
    made, retrains, and re-renders every image.
 
 Corrections are stored per-pixel and **always override the model**. Retraining
