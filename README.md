@@ -40,8 +40,8 @@ each they would quadruple the download. So the first time you click an image, th
 detector runs on it right then, with a progress bar and a running note of which
 stage it is in. Measured: **20 s for a 5.8-megapixel frame, 94 s for a
 26.9-megapixel one**. After that the overlay is cached on disk and the same image
-reopens in under a second. The counts in the sidebar come from the repo, so you can see what is worth
-opening before anything is rendered.
+reopens in under a second. The counts in the sidebar come from the repo, so you
+can see what is worth opening before anything is rendered.
 
 1. **Drop images** anywhere on the window — `.tif .tiff .png .jpg`. Each is
    converted to greyscale and run through the current model automatically.
