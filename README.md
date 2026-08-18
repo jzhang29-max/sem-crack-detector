@@ -277,6 +277,26 @@ BASE=http://127.0.0.1:8799 python3 interior_active_learning/code/test_app.py
 isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
 routing, and the performance fixes. `make test` runs the same thing.
 
+## Working on this repo
+
+This repo is the whole project: edit here, commit, push. There is no build or
+packaging step — earlier there was a separate research folder that a
+`make_package.sh` assembled this repo from, and the two have been merged, so that
+script is gone. `docs/APP_COMPARISON.md` and a comment in `hybrid_detect.py` still
+mention it in the past tense, describing bugs it once caused.
+
+Two consequences worth knowing:
+
+- **The overlays and per-image results are not here.** They are derived: the app
+  rebuilds an image's overlay the first time you open it, and **Download → all**
+  regenerates masks, overlays and per-region CSVs. An earlier archive of them
+  lives in the private `CBS_Crack_Detection_All` repo, which is archived
+  (read-only) on GitHub.
+- **`interior_active_learning/paint/candidate_counts.json` is a cached count**,
+  not ground truth. 34 of the 62 entries were measured with SAM enabled and the
+  rest with the pipeline alone, so the sidebar understates those 28. Each entry is
+  rewritten the next time that image is processed, so it self-corrects as you work.
+
 ## Notes for maintainers
 
 - **The threshold lives in the model bundle**, not in call sites.

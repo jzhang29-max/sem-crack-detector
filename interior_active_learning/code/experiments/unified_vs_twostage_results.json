@@ -1,0 +1,83 @@
+{
+  "pooled_class_balance": {
+    "total": 314,
+    "n_pos": 169,
+    "n_neg": 145,
+    "n_source_images": 25,
+    "interior_n": 243,
+    "interior_pos": 168,
+    "interior_neg": 75,
+    "original_ledger_n": 71,
+    "original_ledger_pos": 1,
+    "original_ledger_neg": 70
+  },
+  "unified_model": {
+    "per_run_acc": [
+      0.784804380768701,
+      0.7763347379681429,
+      0.7999050882860397,
+      0.8033985559032997,
+      0.806127996046454
+    ],
+    "per_run_auc": [
+      0.8928064475738499,
+      0.8908780253673092,
+      0.8806697432520384,
+      0.8807431584845904,
+      0.8988560205226872
+    ],
+    "acc_mean": 0.7941141517945274,
+    "acc_std": 0.011548566589637141,
+    "auc_mean": 0.8887906790400949,
+    "auc_std": 0.0071064294259864345
+  },
+  "interior_fill_loo": {
+    "unified_pooled": [
+      {
+        "negative_id": "260622_316_H_b2_back_CBS_01_Label1331",
+        "loo_proba": 0.594004289718427
+      },
+      {
+        "negative_id": "260622_316_H_b2_front_CBS_02_Label1206",
+        "loo_proba": 0.7416708416673687
+      }
+    ],
+    "deployed_current": [
+      {
+        "negative_id": "260622_316_H_b2_back_CBS_01_Label1331",
+        "loo_proba": 0.7903034767085109
+      },
+      {
+        "negative_id": "260622_316_H_b2_front_CBS_02_Label1206",
+        "loo_proba": 0.8724341451045868
+      }
+    ],
+    "deployed_rule": {
+      "dist_thr": 12.901030955813528,
+      "bri_thr": 129.2250619730375,
+      "floor": 0.8,
+      "N_pct": 70,
+      "M_pct": 85,
+      "recall_on_known_positives": 0.6153846153846154,
+      "full_pool_accept_rate": 0.4336134453781513
+    }
+  },
+  "status_quo": {
+    "crack_classifier_on_original": {
+      "acc": 0.352112676056338,
+      "auc": 0.1428571428571429,
+      "n": 71
+    },
+    "interior_model_on_interior": {
+      "acc": 0.7654320987654321,
+      "auc": 0.9008730158730158,
+      "n": 243
+    },
+    "combined": {
+      "acc": 0.6719745222929936,
+      "auc": 0.7585798816568047,
+      "n": 314
+    },
+    "darkness_mapping_used": "255 - MeanFlatBrightness (exact match to detect_cracks.py's MeanDarkness formula)"
+  }
+}
