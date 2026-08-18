@@ -80,7 +80,7 @@ from skimage import measure
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (
     CANDIDATES_DIR, PAINT_DIR, PAINT_LABEL_OFFSET, ORIGINAL_PAINT_CORRECTIONS_PATH,
-    load_correction_mask, save_correction_mask,
+    load_correction_mask, save_correction_mask, mask_lock,
 )
 from interior_candidates import (
     run_production_pipeline, build_simple_overlay,
@@ -372,21 +372,25 @@ def ingest(image_name, min_area=20, stage=None):
                  or erase_correct_mask.any() or red_blank_touching.any()
                  or red_blank_isolated.any() or cyan_over_blank.any())
     if any_write:
-        merged = load_correction_mask(image_name, labeled.shape)
-        merged = merged.copy() if merged is not None else np.zeros(labeled.shape, dtype=np.uint8)
-        merged[red_correct_mask] = 1
-        merged[cyan_correct_mask] = 2
-        merged[erase_correct_mask] = 3
-        merged[red_blank_touching] = 1
-        # Order is irrelevant here, and the earlier claim that it made
-        # corrections "win" was wrong: _split_new_vs_correction partitions each
-        # painted mask by label != 0 vs label == 0, so the correction masks and
-        # these blank-background masks are disjoint by construction. Red and
-        # cyan cannot overlap either -- _color_mask requires a pixel to be
-        # within tolerance of one colour, and the two are far apart.
-        merged[red_blank_isolated] = 1
-        merged[cyan_over_blank] = 2
-        save_correction_mask(image_name, merged)
+        # Serialised per image: the same read-modify-write as flip_region. Two saves
+        # landing together used to read one mask, both write, and drop the earlier
+        # set of verdicts.
+        with mask_lock(image_name):
+            merged = load_correction_mask(image_name, labeled.shape)
+            merged = merged.copy() if merged is not None else np.zeros(labeled.shape, dtype=np.uint8)
+            merged[red_correct_mask] = 1
+            merged[cyan_correct_mask] = 2
+            merged[erase_correct_mask] = 3
+            merged[red_blank_touching] = 1
+            # Order is irrelevant here, and the earlier claim that it made
+            # corrections "win" was wrong: _split_new_vs_correction partitions each
+            # painted mask by label != 0 vs label == 0, so the correction masks and
+            # these blank-background masks are disjoint by construction. Red and
+            # cyan cannot overlap either -- _color_mask requires a pixel to be
+            # within tolerance of one colour, and the two are far apart.
+            merged[red_blank_isolated] = 1
+            merged[cyan_over_blank] = 2
+            save_correction_mask(image_name, merged)
     _log_touched_labels(image_name, red_touched, True)
     _log_touched_labels(image_name, cyan_touched, False)
     _log_touched_labels(image_name, erase_touched, "erased")

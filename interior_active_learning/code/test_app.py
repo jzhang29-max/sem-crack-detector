@@ -23,6 +23,7 @@ be inspected.
 """
 import io
 import json
+import glob
 import os
 import sys
 import time
@@ -40,6 +41,7 @@ from PIL import Image
 from common import ORIGINAL_DIR, PAINT_DIR, PROJECT_ROOT, PROD_MODEL_PATH
 
 Image.MAX_IMAGE_PIXELS = None
+CODE = os.path.dirname(os.path.abspath(__file__))
 BASE = os.environ.get("BASE", "http://127.0.0.1:8767")
 TMP = os.path.join(PROJECT_ROOT, ".test_tmp")
 results = []
@@ -139,8 +141,7 @@ def main():
                           timeout=60).json()
     check("rejects an unsupported file type", not r.get("added") and r.get("failed"),
           str(r.get("failed")))
-
-    # ---------- 3. detection ----------
+# ---------- 3. detection ----------
     print("\n[3] detection")
     if not created:
         check("have an uploaded image to detect on", False); return 1
@@ -448,6 +449,36 @@ def main():
           "importlib.reload(paint_frontend)" in srv and "_frontend_mtime" in srv)
 
     # ---------- cleanup ----------
+    # A correction mask painted against a differently sized render must never be
+    # silently replaced. Two of the 35 shipped masks are in that state, holding
+    # 371,227 hand-marked pixels that contributed nothing to training and that a
+    # single flip_region click used to overwrite with zeros. Checked directly
+    # against common.save_correction_mask rather than over HTTP, because the
+    # guarantee lives there and every writer goes through it.
+    print("\n[12] the correction mask is never silently destroyed")
+    from common import save_correction_mask as _save, _correction_mask_path
+    _probe = "MASKGUARD_PROBE"
+    _pp = _correction_mask_path(_probe)
+    for _f in glob.glob(_pp.replace(".png", "*")):
+        os.remove(_f)
+    try:
+        _old = np.zeros((37, 41), dtype=np.uint8)
+        _old[5:15, 5:20] = 1                                  # 150 hand-marked px
+        Image.fromarray(_old).save(_pp)
+        _save(_probe, np.zeros((80, 90), dtype=np.uint8))      # a differently sized render
+        _aside = glob.glob(_pp.replace(".png", ".stale-*"))
+        _kept = max([int((np.array(Image.open(f)) == 1).sum()) for f in _aside], default=0)
+        check("a mask that does not fit the render is preserved, not overwritten",
+              _kept == 150, f"{_kept}/150 hand-marked px kept as {[os.path.basename(f) for f in _aside]}")
+        check("and the new mask is still written",
+              np.array(Image.open(_pp)).shape == (80, 90))
+        check("the write is atomic (temp-and-rename)",
+              "os.replace" in open(os.path.join(CODE, "common.py")).read())
+        check("no temp files left behind", not glob.glob(os.path.join(PAINT_DIR, "*.tmp")))
+    finally:
+        for _f in glob.glob(_pp.replace(".png", "*")):
+            os.remove(_f)
+
     print("\n[cleanup]")
     removed = 0
     for n in created:
