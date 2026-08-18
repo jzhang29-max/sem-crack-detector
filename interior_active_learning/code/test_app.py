@@ -129,12 +129,32 @@ def main():
     if not created:
         check("have an uploaded image to detect on", False); return 1
     target = created[0]
+
+    # has_template drives the frontend's choice between the background detection
+    # job (progress bar) and /api/template's blocking in-request build. It matters
+    # most on a fresh clone: the package ships all 62 source images but no
+    # overlays, and loadImageList opens the first image automatically -- so
+    # without this flag the app's first launch blocked 40-200 s looking hung.
+    imgs = requests.get(f"{BASE}/api/images", timeout=60).json()
+    row = next((i for i in imgs if i["name"] == target), None)
+    check("/api/images reports has_template for every image",
+          bool(imgs) and all("has_template" in i for i in imgs), f"{len(imgs)} rows")
+    check("an image with no overlay is flagged has_template=false",
+          row is not None and row.get("has_template") is False,
+          "so the frontend runs the progress-reporting job instead of blocking")
+
     r = requests.post(f"{BASE}/api/process/{target}", json={"use_sam": False}, timeout=60).json()
     res = poll(r["job"]) if r.get("ok") else None
     check("detect without SAM", bool(res) and res.get("n_candidates", 0) > 0,
           f"{(res or {}).get('n_candidates')} candidates, {(res or {}).get('n_crack')} crack")
     check("template written", os.path.exists(
         os.path.join(PAINT_DIR, f"{target}_paint_template.png")))
+
+    imgs = requests.get(f"{BASE}/api/images", timeout=60).json()
+    row = next((i for i in imgs if i["name"] == target), None)
+    check("has_template flips to true once the overlay exists",
+          row is not None and row.get("has_template") is True,
+          "otherwise the frontend would re-detect an image it already rendered")
 
     if sam_ok:
         r = requests.post(f"{BASE}/api/process/{target}", json={"use_sam": True},

@@ -1,0 +1,374 @@
+{
+ "260622_316_H_b2_back_CBS_01.tif": {
+  "dst_md5": "5faf89d1f5728d40869735d98b0a2dae",
+  "dst_size": 26272452,
+  "src_mtime_ns": 1786051590385175860,
+  "src_size": 53846398
+ },
+ "260622_316_H_b2_front_CBS_01.tif": {
+  "dst_md5": "1335bc0798272e53acd9848765a9ccb0",
+  "dst_size": 26206798,
+  "src_mtime_ns": 1786051590669235223,
+  "src_size": 53846396
+ },
+ "260622_316_H_b2_front_CBS_02.tif": {
+  "dst_md5": "d0b580b6d9231f7cf27d9f95ebf93b4f",
+  "dst_size": 25703215,
+  "src_mtime_ns": 1786051590482026105,
+  "src_size": 53846405
+ },
+ "260622_316_H_b2_front_CBS_03.tif": {
+  "dst_md5": "42f2747de7275966e20412b00c5ca627",
+  "dst_size": 24611629,
+  "src_mtime_ns": 1786051590605991209,
+  "src_size": 53846405
+ },
+ "260622_316_H_b2_front_CBS_04.tif": {
+  "dst_md5": "1a7085d02595f02657f32bd16d703b14",
+  "dst_size": 14422483,
+  "src_mtime_ns": 1786051590831462663,
+  "src_size": 53846407
+ },
+ "260622_316_H_b4_CBS_01.tif": {
+  "dst_md5": "37541868f26f5fd04d85c4b85f2bdf56",
+  "dst_size": 21133637,
+  "src_mtime_ns": 1786051591267973592,
+  "src_size": 53846430
+ },
+ "260622_316_H_b4_CBS_02.tif": {
+  "dst_md5": "dca95c4b4c3303e81810fec3a5ffc246",
+  "dst_size": 21980162,
+  "src_mtime_ns": 1786051591204200543,
+  "src_size": 53846437
+ },
+ "260622_316_amb_b3_CBS_01.tif": {
+  "dst_md5": "049b38c73f8db9766edbd64aa32e74b9",
+  "dst_size": 20547331,
+  "src_mtime_ns": 1786051591050977653,
+  "src_size": 53846435
+ },
+ "260622_316_amb_b3_CBS_02.tif": {
+  "dst_md5": "b0649e0d4fcd2ca713fd5b13d3bb0c38",
+  "dst_size": 21406805,
+  "src_mtime_ns": 1786051590896380739,
+  "src_size": 53846445
+ },
+ "260708_316_H_b2_front_CBS_001.tif": {
+  "dst_md5": "dc9ce2a5d7ee1a8b4102714960e14d16",
+  "dst_size": 8064910,
+  "src_mtime_ns": 1786051590925781900,
+  "src_size": 13482177
+ },
+ "260708_316_H_b2_front_CBS_002.tif": {
+  "dst_md5": "59ff2bf86832da9eb9c2ff688af3383a",
+  "dst_size": 4217593,
+  "src_mtime_ns": 1786051591140698699,
+  "src_size": 12543510
+ },
+ "260708_316_H_b2_front_CBS_003.tif": {
+  "dst_md5": "644e760075629e29267c8de22a4563f6",
+  "dst_size": 9208578,
+  "src_mtime_ns": 1786051591067173277,
+  "src_size": 12547598
+ },
+ "260708_316_H_b2_front_CBS_004.tif": {
+  "dst_md5": "c601480d7a941a75d8f053750074195d",
+  "dst_size": 6948503,
+  "src_mtime_ns": 1786051590752973930,
+  "src_size": 12570094
+ },
+ "260708_316_H_b2_front_CBS_005.tif": {
+  "dst_md5": "5834222f951b8ece378929cf04812702",
+  "dst_size": 10466376,
+  "src_mtime_ns": 1786051590737393548,
+  "src_size": 50261964
+ },
+ "260708_316_H_b2_front_CBS_006.tif": {
+  "dst_md5": "4c14209ac5e7b97b1d78f039394b6cbb",
+  "dst_size": 8380564,
+  "src_mtime_ns": 1786051590497224451,
+  "src_size": 12559862
+ },
+ "260708_316_H_b2_front_CBS_007.tif": {
+  "dst_md5": "0e33f6d219af88b119efbaa1ef1ec6b9",
+  "dst_size": 10241971,
+  "src_mtime_ns": 1786051590542402824,
+  "src_size": 12578288
+ },
+ "260708_316_H_b2_front_CBS_008.tif": {
+  "dst_md5": "49bc09811c9f53b235a04868b465b5b3",
+  "dst_size": 11073597,
+  "src_mtime_ns": 1786051590420162448,
+  "src_size": 12570094
+ },
+ "260708_316_H_b2_front_CBS_009.tif": {
+  "dst_md5": "8e4e4a47ee25a7afb229d950d9d10462",
+  "dst_size": 10855581,
+  "src_mtime_ns": 1786051590403753953,
+  "src_size": 12527086
+ },
+ "260708_316_H_b2_front_CBS_010.tif": {
+  "dst_md5": "ac7775bd4cb164015064b7d71fa301dd",
+  "dst_size": 10870078,
+  "src_mtime_ns": 1786051590770172915,
+  "src_size": 12520934
+ },
+ "260708_316_H_b2_front_CBS_011.tif": {
+  "dst_md5": "4e226f0a5b2d902e3c48df48bfe3e5e3",
+  "dst_size": 10911088,
+  "src_mtime_ns": 1786051590680529743,
+  "src_size": 12545518
+ },
+ "260708_316_H_b2_front_CBS_012.tif": {
+  "dst_md5": "1771d9512a34c542f787351b7988a2cd",
+  "dst_size": 10139287,
+  "src_mtime_ns": 1786051590512558794,
+  "src_size": 12527086
+ },
+ "260708_316_H_b2_front_CBS_013.tif": {
+  "dst_md5": "d9d17fa33cad31aeb04bf4f5b2e89134",
+  "dst_size": 10041494,
+  "src_mtime_ns": 1786051590526890692,
+  "src_size": 12576238
+ },
+ "260708_316_H_b2_front_CBS_014.tif": {
+  "dst_md5": "73990c3d7b4fabf35297a7e6a074121a",
+  "dst_size": 11250809,
+  "src_mtime_ns": 1786051590912050869,
+  "src_size": 12570094
+ },
+ "260708_316_H_b2_front_CBS_015.tif": {
+  "dst_md5": "2d1b74f7f7fbdd7c6890ce81d4d740e5",
+  "dst_size": 14704485,
+  "src_mtime_ns": 1786051590984218851,
+  "src_size": 50290606
+ },
+ "260708_316_H_b2_front_CBS_016.tif": {
+  "dst_md5": "e6e4f9ddc5f1f6b4bded13295f382e9e",
+  "dst_size": 15049529,
+  "src_mtime_ns": 1786051591126342552,
+  "src_size": 50266022
+ },
+ "AS_24hr_BSE_Side_008.tif": {
+  "dst_md5": "982661e9b0173d54dbaf9bcfb9f11087",
+  "dst_size": 16533296,
+  "src_mtime_ns": 1786564975356468262,
+  "src_size": 53846371
+ },
+ "Cast_24hr_SE_Side_006.tif": {
+  "dst_md5": "fed15c244aebc9469b2bcefff5467c22",
+  "dst_size": 47133174,
+  "src_mtime_ns": 1786564975418699065,
+  "src_size": 53846384
+ },
+ "HIP_24hr_SE_Side_006.tif": {
+  "dst_md5": "95c75114a001decab0f938d441a39642",
+  "dst_size": 47603085,
+  "src_mtime_ns": 1786564975479348649,
+  "src_size": 53846384
+ },
+ "MAR_Amb_AS_CBS_0001.tif": {
+  "dst_md5": "13a68d488cda0696c2fb328fea171323",
+  "dst_size": 16716180,
+  "src_mtime_ns": 1786564975542284874,
+  "src_size": 53846380
+ },
+ "MAR_Amb_AS_CBS_0002.tif": {
+  "dst_md5": "2a32c60f3f524fdaa0d5f7d8c7aedb9c",
+  "dst_size": 23936153,
+  "src_mtime_ns": 1786564975603672463,
+  "src_size": 53846378
+ },
+ "MAR_Amb_AS_CBS_0003.tif": {
+  "dst_md5": "94b05ce2dfa56ca0222f22882dece780",
+  "dst_size": 21490753,
+  "src_mtime_ns": 1786564975668396075,
+  "src_size": 53846394
+ },
+ "MAR_Amb_AS_CBS_0004.tif": {
+  "dst_md5": "9063edecb31a53d82ac922251da340c2",
+  "dst_size": 21594954,
+  "src_mtime_ns": 1786564975734659281,
+  "src_size": 53846387
+ },
+ "MAR_Amb_AS_CBS_0005.tif": {
+  "dst_md5": "968b5d4e26ac58c07b1004d5b865b633",
+  "dst_size": 19064529,
+  "src_mtime_ns": 1786564975796285663,
+  "src_size": 53846395
+ },
+ "MAR_Amb_AS_CBS_0006.tif": {
+  "dst_md5": "7b7c6fc7e164997e7908fcf94867dc9c",
+  "dst_size": 20358105,
+  "src_mtime_ns": 1786564975860686440,
+  "src_size": 53846382
+ },
+ "MAR_Amb_AS_ETD_0001.tif": {
+  "dst_md5": "4d5d0bb46f390652ea0e92a4d98efed9",
+  "dst_size": 22264198,
+  "src_mtime_ns": 1786564975925734429,
+  "src_size": 53846406
+ },
+ "MAR_Amb_AS_ETD_0002.tif": {
+  "dst_md5": "1a9e6e6df75b23f0b536561cd067ecdf",
+  "dst_size": 25328743,
+  "src_mtime_ns": 1786564975987759231,
+  "src_size": 53846404
+ },
+ "MAR_Amb_AS_ETD_0003.tif": {
+  "dst_md5": "48d88dd92ea0d92de306f8d3b42ee392",
+  "dst_size": 24617760,
+  "src_mtime_ns": 1786564976052489177,
+  "src_size": 53846419
+ },
+ "MAR_Amb_AS_ETD_0004.tif": {
+  "dst_md5": "ccb1a21750fc66fe38327c3e6e2b9a52",
+  "dst_size": 21976641,
+  "src_mtime_ns": 1786564976119985391,
+  "src_size": 53846412
+ },
+ "MAR_Amb_AS_ETD_0006.tif": {
+  "dst_md5": "693fac1122a126db5d00a132187f29c1",
+  "dst_size": 20664606,
+  "src_mtime_ns": 1786564976257614088,
+  "src_size": 53846407
+ },
+ "MAR_Amb_Cast_CBS_0001.tif": {
+  "dst_md5": "c363826b76e70276637a34bda38f5591",
+  "dst_size": 15285524,
+  "src_mtime_ns": 1786564976331616181,
+  "src_size": 53846379
+ },
+ "MAR_Amb_Cast_CBS_0002.tif": {
+  "dst_md5": "f111c0b5af9d6b9479fd82a2375e24b5",
+  "dst_size": 22049346,
+  "src_mtime_ns": 1786564976410278597,
+  "src_size": 53846385
+ },
+ "MAR_Amb_Cast_CBS_0003.tif": {
+  "dst_md5": "1f9d6350e410046d8af2c96039af13c7",
+  "dst_size": 26754092,
+  "src_mtime_ns": 1786564976474932459,
+  "src_size": 53846384
+ },
+ "MAR_Amb_Cast_CBS_0004.tif": {
+  "dst_md5": "e0977bde8a1b54b72627e20a1dc284ea",
+  "dst_size": 23544202,
+  "src_mtime_ns": 1786564976542220922,
+  "src_size": 53846400
+ },
+ "MAR_Amb_Cast_CBS_0005.tif": {
+  "dst_md5": "fe55df68a3ddf2c49b6c4df23b160102",
+  "dst_size": 21607692,
+  "src_mtime_ns": 1786564976601229328,
+  "src_size": 53846398
+ },
+ "MAR_Amb_Cast_ETD_0001.tif": {
+  "dst_md5": "90c586128fde85efd6965dac91215685",
+  "dst_size": 17467492,
+  "src_mtime_ns": 1786564976671413144,
+  "src_size": 53846404
+ },
+ "MAR_Amb_Cast_ETD_0002.tif": {
+  "dst_md5": "6df27771d73a4aed4992ce8deea76ba9",
+  "dst_size": 24960985,
+  "src_mtime_ns": 1786564976737815060,
+  "src_size": 53846410
+ },
+ "MAR_Amb_Cast_ETD_0003.tif": {
+  "dst_md5": "bff4bd80f76ca42bf4e632fb4ac44f91",
+  "dst_size": 28772473,
+  "src_mtime_ns": 1786564976803493887,
+  "src_size": 53846409
+ },
+ "MAR_Amb_Cast_ETD_0004.tif": {
+  "dst_md5": "4a66502c2130d13aec8b5669b0ed7294",
+  "dst_size": 29373248,
+  "src_mtime_ns": 1786564976864305180,
+  "src_size": 53846425
+ },
+ "MAR_Amb_Cast_ETD_0005.tif": {
+  "dst_md5": "d9f0395ea91ee7e2ea82fd8c4d465ef2",
+  "dst_size": 24568077,
+  "src_mtime_ns": 1786564976937708935,
+  "src_size": 53846423
+ },
+ "MAR_Amb_HIP_CBS_0003.tif": {
+  "dst_md5": "13fa50b309d30297003193eadfd201d4",
+  "dst_size": 21565786,
+  "src_mtime_ns": 1786564977145118779,
+  "src_size": 53846389
+ },
+ "MAR_Amb_HIP_CBS_0004.tif": {
+  "dst_md5": "348390479b13e05253c5cdc731f6e615",
+  "dst_size": 20686038,
+  "src_mtime_ns": 1786564977210432146,
+  "src_size": 53846381
+ },
+ "MAR_Amb_HIP_CBS_0005.tif": {
+  "dst_md5": "750fdeff6e46d2a586c1079710cd8a62",
+  "dst_size": 21460683,
+  "src_mtime_ns": 1786564977279902749,
+  "src_size": 53846388
+ },
+ "MAR_Amb_HIP_CBS_0006.tif": {
+  "dst_md5": "9dd908121bb5820526da66951350dc4b",
+  "dst_size": 19602166,
+  "src_mtime_ns": 1786564977360686555,
+  "src_size": 53846394
+ },
+ "MAR_Amb_HIP_CBS_0007.tif": {
+  "dst_md5": "5d0f1b74bb2b9d8fe855c2fa38cbe07b",
+  "dst_size": 11777262,
+  "src_mtime_ns": 1786564977375715866,
+  "src_size": 13482166
+ },
+ "MAR_Amb_HIP_CBS_0008.tif": {
+  "dst_md5": "289300fd0bb8d1ca4f15fb82605f4a41",
+  "dst_size": 11822093,
+  "src_mtime_ns": 1786564977390588010,
+  "src_size": 13482173
+ },
+ "MAR_Amb_HIP_CBS_0010.tif": {
+  "dst_md5": "c864d6633b789b44259bfaa0d2b80f34",
+  "dst_size": 11107982,
+  "src_mtime_ns": 1786564977428723440,
+  "src_size": 13482165
+ },
+ "MAR_Amb_HIP_ETD_0003.tif": {
+  "dst_md5": "82b08d8d0510ca96080b2cb2782600c9",
+  "dst_size": 24216508,
+  "src_mtime_ns": 1786564977624468203,
+  "src_size": 53846415
+ },
+ "MAR_Amb_HIP_ETD_0005.tif": {
+  "dst_md5": "a9cb541d6d975e1b9a533af0113a8344",
+  "dst_size": 24082974,
+  "src_mtime_ns": 1786564977744437529,
+  "src_size": 53846414
+ },
+ "MAR_Amb_HIP_ETD_0006.tif": {
+  "dst_md5": "7801b13b5634a8dbd95bf4958c12863c",
+  "dst_size": 22779080,
+  "src_mtime_ns": 1786564977804770194,
+  "src_size": 53846420
+ },
+ "MAR_Amb_HIP_ETD_0007.tif": {
+  "dst_md5": "a0485f9f0bf9f4ac767fc7b9f056a010",
+  "dst_size": 12212887,
+  "src_mtime_ns": 1786564977825560046,
+  "src_size": 13482190
+ },
+ "MAR_Amb_HIP_ETD_0008.tif": {
+  "dst_md5": "46cbd14733796476cc9bf66d1e42c247",
+  "dst_size": 11888236,
+  "src_mtime_ns": 1786564977842730414,
+  "src_size": 13482197
+ },
+ "MAR_Amb_HIP_ETD_0010.tif": {
+  "dst_md5": "eb8fbb59aea8d04f3c469038c8378f68",
+  "dst_size": 12080597,
+  "src_mtime_ns": 1786564977872752787,
+  "src_size": 13482191
+ }
+}

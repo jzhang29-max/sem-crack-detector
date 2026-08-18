@@ -286,6 +286,7 @@ async function loadImageList(keepCurrent) {
   const sel = document.getElementById('imageSelect');
   const previousSelection = keepCurrent ? currentImage : null;
   sel.innerHTML = '';
+  needsDetect = new Set(images.filter(i => i.has_template === false).map(i => i.name));
   for (const info of images) {
     const opt = document.createElement('option');
     opt.value = info.name;
@@ -329,6 +330,10 @@ function fitZoom() {
 }
 
 let loadRequestId = 0;
+// Images that ship without an overlay (a fresh clone: every one of them). Filled
+// from /api/images so loadImage can run detection as a progress-reporting job
+// rather than blocking inside a single /api/template request for minutes.
+let needsDetect = new Set();
 
 async function loadImage(name) {
   // Guards against a slow load (e.g. the largest images need multiple
@@ -359,6 +364,24 @@ async function loadImage(name) {
   // instead of silently (see the status message set below).
   let wasRegenerated = false;
   const img = new Image();
+
+  // No overlay on disk yet: build it through the background job so the progress
+  // bar moves, instead of letting /api/template do it inside the fetch below,
+  // where the only feedback is the 8-second "still loading" message above.
+  if (needsDetect.has(name)) {
+    clearTimeout(slowLoadTimer);
+    const samBox = document.getElementById('useSam');
+    try {
+      await processImage(name, !!(samBox && samBox.checked && !samBox.disabled));
+      needsDetect.delete(name);
+    } catch (e) {
+      // Fall through to /api/template, which builds it the blocking way. A
+      // failed job should not leave the image unopenable.
+      setStatus('detection job failed (' + e.message + '); building directly...');
+    }
+    if (!stillCurrent()) return;
+  }
+
   try {
     const templateRes = await fetch('/api/template/' + name + '?t=' + Date.now());
     if (!stillCurrent()) return;

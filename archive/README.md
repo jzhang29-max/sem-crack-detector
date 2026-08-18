@@ -17,6 +17,15 @@ Earlier versions replaced by something better, not broken code:
   `regenerate_templates.py`, which calls the app's own pipeline
 - `train_and_evaluate.py` — superseded by `train_v3_weighted.py`, which adds the
   per-image weighting that turned held-out AUC 0.729 into 0.925
+- `train_classifier.py`, `batch_apply.py` — the pre-app CLI pair, each referenced
+  only by the other. Training is now `train_v3_weighted.py` and batch rendering is
+  `regenerate_templates.py`
+- `render_final_overlays.py`, `render_v3_overlays.py`, `sam_union_overlays.py` —
+  three more overlay renderers. All superseded by `regenerate_templates.py`, which
+  is the only one that calls the app's own pipeline. Four scripts whose docstrings
+  all said "render the overlays" was the single most misleading thing in the tree
+- `build_fusion_cache.py`, `eval_fusion.py` — the score-fusion experiment, which
+  did not beat the plain union and was dropped
 
 ## superseded_models/
 - `crack_classifier_v2.joblib` — SVC. Best AUC of any model tried (0.946) and
@@ -25,6 +34,13 @@ Earlier versions replaced by something better, not broken code:
 - `mar_crack_classifier.joblib` — from when MAR was a separate project, before the
   datasets were merged
 - `crack_classifier_v2_metrics.json` — its metrics
+
+## superseded_diagrams/
+- `full_workflow_260708_316_H_b2_front_CBS_002.svg` — the pre-unified,
+  two-model architecture. `docs/diagram/` keeps only the `_unified` one, which is
+  what the code actually does now
+- `command_guide.svg` — a guide to a multi-command workflow that no longer
+  exists; setup is one command
 
 ## analysis_scripts/
 One-off measurements whose *results* are in the benchmark doc. Rerunnable if you
