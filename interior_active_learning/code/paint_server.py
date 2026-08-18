@@ -33,7 +33,9 @@ from PIL import Image
 from flask import Flask, request, jsonify, send_file, Response
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import PAINT_DIR, ORIGINAL_DIR, CANDIDATES_DIR, MODELS_DIR, load_correction_mask, save_correction_mask
+from common import (PAINT_DIR, ORIGINAL_DIR, CANDIDATES_DIR, MODELS_DIR,
+                    load_correction_mask, save_correction_mask, mask_lock,
+                    save_png_atomic)
 from apply_paint_annotations import (
     make_template as _make_template, ingest as _ingest, RED, CYAN, ERASE_MARKER, _color_mask,
     _log_touched_labels, _log_interior_origin_corrections,
@@ -343,10 +345,15 @@ def api_flip_region(image_name):
     stage["labeled"], stage["df"] = new_labeled, new_df
 
     # persist so ingest/quicklook/training (each a fresh pipeline run) see it too
-    existing = load_correction_mask(image_name, labeled.shape)
-    merged = existing.copy() if existing is not None else np.zeros(labeled.shape, dtype=np.uint8)
-    merged[label_mask] = correction_value
-    save_correction_mask(image_name, merged)
+    # Under the lock: this is a read-modify-write, and the frontend calls
+    # flip_region straight from mousedown with no in-flight flag, so two quick
+    # clicks arrive concurrently. Both used to read the same mask and both write,
+    # so the second silently discarded the first click's verdict.
+    with mask_lock(image_name):
+        existing = load_correction_mask(image_name, labeled.shape)
+        merged = existing.copy() if existing is not None else np.zeros(labeled.shape, dtype=np.uint8)
+        merged[label_mask] = correction_value
+        save_correction_mask(image_name, merged)
     _log_touched_labels(image_name, [label], "erased" if mode == "erase" else forced_is_crack)
     if mode != "erase":
         _log_interior_origin_corrections(image_name, stage.get("interior_origin", {}), [label], forced_is_crack)
