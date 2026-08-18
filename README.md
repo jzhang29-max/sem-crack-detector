@@ -133,18 +133,15 @@ held-out AUC from 0.9252 to 0.9153 and the gate declined to deploy.
 
 Left is the micrograph as acquired. Right is the model's own output: red where it
 calls crack, cyan where it proposed a region and then turned it down. This image
-carries no human labels and contributed no training rows, so nothing in it was
-fitted. The cyan discs are the informative part — those are round pores, and the
-classifier rejected them while keeping the elongated dark features beside them.
+has no correction mask and contributes no training rows, so every red pixel is the
+model's own -- none of it is hand-painted.
 
-Now the failure in the same frame. The broad red patch in the upper third, the one
-straddling the centre line, has a dead-straight horizontal top edge — and that edge
-is a **SAM tile boundary**. SAM runs on 1024 px tiles at 896 px stride and scores
-each tile independently, so a crack accepted in one tile can fall below threshold in
-the next and the region is cut off mid-crack. At y = 2688, which is exactly 3 x 896,
-86% of that patch's width is red; one pixel row above it, 0% is. Three of this
-image's eight largest regions end exactly on a tile line. The 128 px overlap between
-tiles softens this but plainly does not remove it.
+And the honest part, in the same frame: **the model marks 2.5% of the area, while
+12.3% of the frame is clearly dark, so only about a fifth of the dark features are
+called crack.** Ten unmarked dark regions are larger than 2,000 px. Some of those
+are voids and pull-outs that are genuinely not cracks, which is the right call --
+but telling those apart from a crack the model missed is exactly the judgement the
+review tools exist for. Expect to add as well as remove.
 
 Measured on the 5 images with enough human not-crack marks for specificity to
 mean anything. Pixel-level, scored only on pixels a human actually adjudicated,
