@@ -19,15 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-NOTE ON SCOPE
-
-This MIT license covers the SOFTWARE in this repository only: the Python
-source, the shell entry points, and the documentation.
-
-The DATA -- the SEM micrographs in original/, the human correction masks, the
-label and training CSVs, and the trained model files derived from them -- is
-licensed separately under Creative Commons Attribution 4.0 International.
-See LICENSE-DATA.
