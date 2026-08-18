@@ -9,6 +9,11 @@ interior_active_learning/paint/*_paint_template.png
 interior_active_learning/paint/*_painted.png
 interior_active_learning/candidates/*_quicklook.png
 
+# Sidebar thumbnail cache -- regenerated on demand from the paint templates,
+# which are themselves derived. Without this rule every image you open leaves an
+# untracked file behind in git status.
+interior_active_learning/paint/.thumbs/
+
 # Build artifacts of a retrain: train_v3_weighted.py writes the candidate model,
 # and the retrain gate writes the rollback copy. Committing them meant the model
 # dropdown showed three names for one identical file.
