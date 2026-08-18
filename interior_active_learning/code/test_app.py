@@ -103,6 +103,22 @@ def main():
         check("server responds to /api/pipeline_info", False, str(e))
         print("\nserver unreachable -- aborting"); return 1
 
+    # The models are pickled sklearn estimators. sklearn compares the version that
+    # saved a model against the running one on every load and warns that results
+    # may be invalid when they differ -- and every module here calls
+    # warnings.filterwarnings("ignore"), so that warning was swallowed. The shipped
+    # models were built on 1.7.2 while `scikit-learn>=1.7` installs the newest, so
+    # every clone silently ran a mismatch. The API must now state both versions.
+    m_ = (info or {}).get("model") or {}
+    check("model reports the sklearn version it was built with",
+          bool(m_.get("sklearn_built")), str(m_.get("sklearn_built")))
+    check("model reports the sklearn version now running",
+          bool(m_.get("sklearn_running")), str(m_.get("sklearn_running")))
+    _mism = m_.get("version_mismatch")
+    _consistent = (m_.get("sklearn_built") == m_.get("sklearn_running")) == (_mism is None)
+    check("a version mismatch is surfaced, never silent", _consistent,
+          _mism or "built == running, so reporting no warning is correct")
+
     # ---------- 2. uploads ----------
     print("\n[2] upload")
     for fmt in ("tif", "png", "jpg"):

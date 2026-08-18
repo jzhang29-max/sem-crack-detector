@@ -291,7 +291,15 @@ def main():
     sc = StandardScaler().fit(X)
     clf = MODELS[best]()
     clf.fit(sc.transform(X), y, sample_weight=W)
-    joblib.dump({"scaler": sc, "clf": clf, "feature_names": FEATURES, "model_family": best,
+    # sklearn_version: a bundle is a pickled estimator, and sklearn compares this
+    # against the running version on every load, warning that results may be
+    # invalid when they differ. Every module here silences warnings, so without
+    # recording it the app cannot report the mismatch -- and leaving it out would
+    # undo that on the first retrain a user runs.
+    import sklearn as _sklearn
+    joblib.dump({"sklearn_version": _sklearn.__version__,
+                  "scaler": sc, "clf": clf, "feature_names": FEATURES,
+                  "model_family": best,
                   "per_image_weights": True, "threshold": DEPLOY_THR,
                   "operating_points": ops, "n_train": len(df),
                   "n_pos": int(y.sum()), "n_neg": int((~y).sum()),

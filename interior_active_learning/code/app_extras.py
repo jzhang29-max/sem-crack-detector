@@ -139,9 +139,6 @@ def register(app, list_images, invalidate_stage):
         be wrong for reasons the held-out image cannot see.
         """
         import joblib
-        cur_sig = None
-        if os.path.exists(PROD_MODEL_PATH):
-            cur_sig = (os.path.getsize(PROD_MODEL_PATH),)
         out = []
         for f in sorted(os.listdir(MODELS_TOP)):
             if not f.endswith(".joblib"):
