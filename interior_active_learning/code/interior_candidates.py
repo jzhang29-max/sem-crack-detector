@@ -599,7 +599,6 @@ def interior_fill_candidates(labeled, df, img8, crack_mask, dist_from_crack, bg_
     touched_group_ids.discard(0)
 
     out = []
-    crack_group_labeled = measure.label(crack_mask, connectivity=2)
     for gid in touched_group_ids:
         blob = (loose_labeled == gid)
         new_area_mask = blob & ~crack_mask

@@ -141,6 +141,23 @@ def register(app, get_stage, invalidate_stage=None):
                 "per_image_weights": bool(b.get("per_image_weights", False)),
                 "mtime": os.path.getmtime(PROD_MODEL_PATH),
             }
+            # A model is a pickled scikit-learn estimator, and sklearn compares the
+            # version it was pickled under against the running one on EVERY load,
+            # warning "this might lead to breaking code or invalid results". Every
+            # module here calls warnings.filterwarnings("ignore"), so that warning
+            # was swallowed: the shipped models were built on 1.7.2 while
+            # requirements.txt's `scikit-learn>=1.7` installs whatever is newest,
+            # so every clone silently ran a mismatch. Report it instead of hiding
+            # it -- the bundles now record the version they were saved under.
+            import sklearn
+            built = b.get("sklearn_version")
+            info["model"]["sklearn_built"] = built
+            info["model"]["sklearn_running"] = sklearn.__version__
+            if built and built != sklearn.__version__:
+                info["model"]["version_mismatch"] = (
+                    f"model pickled with scikit-learn {built}, running "
+                    f"{sklearn.__version__} -- predictions may differ; re-save with "
+                    f"python3 code/resave_models.py")
         except Exception as e:
             info["error"] = str(e)
         return jsonify(info)
