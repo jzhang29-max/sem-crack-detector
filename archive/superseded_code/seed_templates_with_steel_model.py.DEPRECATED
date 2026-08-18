@@ -32,7 +32,7 @@ from multiprocessing import Pool
 warnings.filterwarnings("ignore")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, "/Users/jiamingzhang/Desktop/MAR_Superalloy_Crack_Detection_Pipeline/code")
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "code")  # was an absolute path on the author's machine)
 
 import joblib
 import numpy as np
@@ -45,7 +45,7 @@ from detect_cracks import (
 )
 from interior_candidates import apply_pixel_corrections, build_simple_overlay
 
-STEEL_MODEL = "/Users/jiamingzhang/Desktop/SEM_Crack_Detection_Pipeline/models/crack_classifier.joblib"
+STEEL_MODEL = os.path.join(os.path.dirname(__file__), "..", "..", "models", "crack_classifier.joblib")
 FORCE_KEEP_AREA = 50000  # same safety net production uses: a dark region this
                           # large is essentially always a real crack/void
 

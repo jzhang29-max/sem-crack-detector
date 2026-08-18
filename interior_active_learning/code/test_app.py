@@ -256,7 +256,8 @@ def main():
                         ("retrain button present", "retrainBtn"),
                         ("SAM toggle present", "useSam"),
                         ("progress bar present", "jobFill"),
-                        ("model banner present", "modelInfo"),
+                        ("model identity is stated in the UI", "<span>Threshold</span>"),
+                        ("model training size is stated", "<span>Trained on</span>"),
                         ("Cmd-Z/Ctrl-Z undo bound", "metaKey"),
                         ("undo prevents browser default", "preventDefault")]:
         check(name, token in html)
@@ -270,15 +271,24 @@ def main():
     # replaced them, and their absence is asserted separately below. This check
     # failing is how that removal was caught, which is the point of listing them
     # explicitly rather than sampling.
+    #
+    # modelInfo is likewise gone, replaced by modelCard. It was a leftover from
+    # before the sidebar was restyled around a card, and both were being filled
+    # from /api/pipeline_info -- so the sidebar printed the live model's family,
+    # threshold, row count and SAM state twice.
     LOGIC_IDS = ["baseCanvas", "paintCanvas", "canvasInner", "canvasWrap", "status",
                  "imageSelect", "swatchRed", "swatchCyan", "swatchErase", "brushSize",
                  "brushSizeLabel", "bucketBtn", "zoom", "zoomLabel", "fitBtn", "undoBtn",
                  "clearBtn", "dropZone", "jobBar", "jobFill",
-                 "jobLabel", "jobNote", "modelInfo", "retrainBtn", "useSam",
+                 "jobLabel", "jobNote", "modelCard", "retrainBtn", "useSam",
                  "dlMask", "dlOverlay", "dlCsv", "dlAll"]
     missing = [i for i in LOGIC_IDS if f'id="{i}"' not in html]
     check("every id the paint logic depends on survived the redesign",
           not missing, f"missing: {missing}" if missing else f"all {len(LOGIC_IDS)} present")
+
+    check("the duplicated model line is not back",
+          'id="modelInfo"' not in html,
+          "modelCard already states family, threshold, rows and SAM state")
 
     for name, token in [("sidebar image list", 'id="imageList"'),
                         ("image filter box", 'id="imgSearch"'),

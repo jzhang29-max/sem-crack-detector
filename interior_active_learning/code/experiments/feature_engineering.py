@@ -31,10 +31,12 @@ from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings("ignore")
 
-CANDIDATES_GLOB = (
-    "/Users/jiamingzhang/Desktop/SEM_Crack_Detection_Pipeline/"
-    "interior_active_learning/candidates/*_interior.csv"
-)
+# Project root derived from this file's location, not hardcoded: this script
+# shipped with an absolute /Users/... path and could only run on the machine that
+# wrote it, while archive/README.md advertises these as rerunnable.
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+CANDIDATES_GLOB = os.path.join(
+    _ROOT, "interior_active_learning", "candidates", "*_interior.csv")
 
 BASE_FEATURES = [
     "LogArea", "Elongation", "Solidity", "Eccentricity", "Extent", "Circularity",

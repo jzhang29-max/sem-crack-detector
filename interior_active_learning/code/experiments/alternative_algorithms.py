@@ -36,7 +36,11 @@ from sklearn.pipeline import Pipeline
 from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.metrics import balanced_accuracy_score, accuracy_score
 
-CANDIDATES_GLOB = "/Users/jiamingzhang/Desktop/SEM_Crack_Detection_Pipeline/interior_active_learning/candidates/*_interior.csv"
+# Project root derived from this file's location, not hardcoded: these scripts
+# shipped with an absolute /Users/... path and could only run on the machine that
+# wrote them, while archive/README.md advertises them as rerunnable.
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+CANDIDATES_GLOB = os.path.join(_ROOT, "interior_active_learning", "candidates", "*_interior.csv")
 
 FEATURES = ["LogArea", "Elongation", "Solidity", "Eccentricity", "Extent", "Circularity",
             "MeanRawBrightness", "MeanFlatBrightness", "MeanVesselness",

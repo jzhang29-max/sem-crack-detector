@@ -3,6 +3,22 @@
 Drop SEM images into a browser window, see cracks detected, fix what's wrong by
 painting. Corrections save themselves. One button retrains the model on them.
 
+## What it looks like
+
+![The app: a sidebar of SEM images with crack counts, and a large through-crack marked in red on the open image](docs/img/app.png)
+
+The sidebar lists every image with how much of it is flagged; the toolbar is the
+entire workflow. The card at the bottom names the model that is actually live —
+family, threshold, how many reviewed regions it was trained on — so the number on
+screen is never ambiguous about which model produced it.
+
+The image open here is `260622_316_H_b2_back_CBS_01`, where 14.9% of the frame is
+marked crack. **13.2 of those 14.9 points the detector found on its own**; a human
+forced only 10.9% of the red. Nothing in that image was marked *not*-crack, so the
+review there ran one way only — the reviewer added, and never overruled.
+
+## Install
+
 ```bash
 git clone https://github.com/jzhang29-max/sem-crack-detector.git && cd sem-crack-detector && ./run
 ```
@@ -28,6 +44,17 @@ be reproduced rather than taken on trust.
    **Brush** to **Whole region** to set an entire connected region in one
    click — essential for large ones, where brushing would take hundreds of
    strokes.
+
+![The same frame before and after human review, cracks in red and hand-marked not-crack regions in cyan](docs/img/review.png)
+
+   Left, the micrograph; right, the result after review. This is
+   `AS_24hr_BSE_Side_008`, the most heavily adjudicated image in the set — 1,285 of
+   the 4,128 training rows come from it, and 134,039 pixels in it were marked
+   not-crack by hand. Red tracks the cracks closely here precisely *because* it was
+   reviewed, which is why this figure is labelled "after review" and the one above
+   is not: read this one as what a finished image looks like, not as unaided
+   accuracy.
+
 4. **Nothing to save.** Marks commit by themselves about a second after you stop
    drawing; the status bar says *All changes saved*. Switching images flushes
    first, and closing the tab with unsaved marks warns you.
@@ -88,6 +115,25 @@ That is not hypothetical — during development 18 extra training rows moved
 held-out AUC from 0.9252 to 0.9153 and the gate declined to deploy.
 
 ## How well it works
+
+### A crack it finds on an image it has never seen
+
+![An SEM micrograph beside the same frame with detected cracks in red and rejected candidates in cyan](docs/img/detection.png)
+
+Left is the micrograph as acquired. Right is the model's own output: red where it
+calls crack, cyan where it proposed a region and then turned it down. This image
+carries no human labels and contributed no training rows, so nothing in it was
+fitted. The cyan discs are the informative part — those are round pores, and the
+classifier rejected them while keeping the elongated dark features beside them.
+
+Now the failure in the same frame. The broad red patch in the upper third, the one
+straddling the centre line, has a dead-straight horizontal top edge — and that edge
+is a **SAM tile boundary**. SAM runs on 1024 px tiles at 896 px stride and scores
+each tile independently, so a crack accepted in one tile can fall below threshold in
+the next and the region is cut off mid-crack. At y = 2688, which is exactly 3 x 896,
+86% of that patch's width is red; one pixel row above it, 0% is. Three of this
+image's eight largest regions end exactly on a tile line. The 128 px overlap between
+tiles softens this but plainly does not remove it.
 
 Measured on the 5 images with enough human not-crack marks for specificity to
 mean anything. Pixel-level, scored only on pixels a human actually adjudicated,
@@ -206,6 +252,10 @@ this repo becomes unreproducible:
   `interior_model.joblib`, which `interior_candidates.py` loads at runtime
 - `code/pipeline_stages_unified.py`, `code/generate_full_workflow_diagram_unified.py`
   → rebuild `docs/diagram/full_workflow_unified_*.svg`
+- `code/build_figures.py` → rebuilds the two composite figures above. The crop is
+  picked from the data (the densest crack window), not by eye, so the figures can be
+  regenerated after a model change without re-deciding what to show.
+  `docs/img/README.md` records the exact command behind each one
 - `crack_measurements.py`, `extended_features.py` → the extended-feature study
 - `ingest_labels.py`, `ingest_marginal_verdicts.py` → the CSV-era label ingest paths
 - `interior_active_learning/code/experiments/` (25 scripts) → produced every figure
@@ -247,3 +297,14 @@ routing, and the performance fixes. `make test` runs the same thing.
   `paint_frontend.py` when its mtime changes.
 - **Editing a correction mask by hand needs a server restart.** The per-image
   pipeline cache does not watch that file, so the old verdict survives in memory.
+
+## License
+
+The **software** is MIT — see [LICENSE](LICENSE).
+
+The **data** — the 62 micrographs, the human correction masks, the label and
+training CSVs, and the models derived from them — is
+[CC BY 4.0](LICENSE-DATA): reuse it, including commercially, with attribution.
+`LICENSE-DATA` also records what the dataset is and the two ways it is easy to
+misread, the important one being that a correction mask value of 0 means *never
+reviewed*, not *not a crack*.

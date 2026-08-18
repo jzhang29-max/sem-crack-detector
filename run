@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Start the SEM crack-detection app. Nothing to configure.
 #
-#   ./run_app.sh
+#   ./run
 #
 # Creates a virtualenv on first run, installs dependencies, then serves the app
 # at http://127.0.0.1:8767 -- drag images in, correct them, press Retrain.
