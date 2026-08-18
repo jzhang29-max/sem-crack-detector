@@ -29,3 +29,15 @@ __pycache__/
 *.pyc
 .DS_Store
 .upload_*
+
+# Test scratch. The suite uploads synthetic images named apptest_*, and other
+# probes use SELFTEST_/MASKGUARD_ prefixes. A `git add -A` after a test run
+# committed three fake 400x600 images into original/ and published them, where
+# they showed up in every user's image list as if they were data.
+original/apptest*
+original/SELFTEST*
+original/MASKGUARD*
+interior_active_learning/paint/apptest*
+interior_active_learning/paint/SELFTEST*
+interior_active_learning/paint/MASKGUARD*
+.test_tmp/

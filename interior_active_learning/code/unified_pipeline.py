@@ -188,12 +188,28 @@ def run_unified_pipeline(image_name, stage=None):
         df = df.copy()
         next_label = int(df["Label"].max()) + 1 if len(df) else 1
         new_rows = []
+
+        # Pixels the human took off the table: 3 = erased from candidacy,
+        # 2 = marked not-crack. Erasing sets labeled to 0, and cyan painted onto
+        # blank background is not-crack at labeled 0 too -- so Pass 2's "claim any
+        # unlabeled pixel" rule below re-proposed exactly those pixels as fresh
+        # crack candidates, and the human's verdict silently flipped back on the
+        # next re-render. The README promises corrections always override the
+        # model; this is the one place that was not true.
+        #
+        # Re-read here rather than relying on the variable above, because that is
+        # only assigned on the path that computes the stage from scratch; when a
+        # caller passes stage= it was never defined.
+        _cm = load_correction_mask(image_name, labeled.shape)
+        protected = (np.isin(_cm, (2, 3)) if _cm is not None
+                     else np.zeros(labeled.shape, dtype=bool))
+
         for mask_bool, ctype, parent in raw:
             feats = _region_features(mask_bool, flat, img8, vesselness, crack_mask, dil_crack, dist_to_crack)
             accepted, proba = _score(bundle, [feats], ctype)[0]
             if not accepted:
                 continue
-            claimable = mask_bool & (labeled == 0)
+            claimable = mask_bool & (labeled == 0) & ~protected
             if not claimable.any():
                 continue
             labeled[claimable] = next_label
