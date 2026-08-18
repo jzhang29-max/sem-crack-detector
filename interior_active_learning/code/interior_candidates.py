@@ -200,6 +200,30 @@ def _merge_blank_force_crack_into_touching_cracks(labeled, df, mask):
         touching_crack = [lbl for lbl in touching
                            if not df.loc[df["Label"] == lbl].empty and bool(df.loc[df["Label"] == lbl, "IsCrack"].iloc[0])]
         if not touching_crack:
+            # An isolated patch: the user painted a crack the model never proposed,
+            # and it touches nothing the model did. This used to `continue`, on the
+            # basis that the "genuinely-new-candidate case" was handled elsewhere.
+            # It was not: the patch stayed at label 0, so it had no row in df, and
+            # every export and region CSV built from df omitted it -- the one thing
+            # a reviewer most wants recorded, "the model missed this", disappeared
+            # on the next re-render.
+            #
+            # The model-feature columns are copied from an existing row and are NOT
+            # measured for this region; only Label/Area/X/Y/IsCrack are real, and
+            # CandidateType says "painted" so that is visible. Training is
+            # unaffected either way -- build_training_data computes features from
+            # the correction mask itself, never from these columns.
+            if not len(df):
+                continue
+            new_label = int(df["Label"].max()) + 1
+            labeled[comp_mask] = new_label
+            ys, xs = np.where(comp_mask)
+            nr = df.iloc[0].to_dict()
+            nr.update({"Label": new_label, "Area": int(comp_mask.sum()),
+                       "X": float(xs.mean()), "Y": float(ys.mean()),
+                       "IsCrack": True, "CrackProbability": 1.0,
+                       "CandidateType": "painted", "ParentLabels": ""})
+            df = pd.concat([df, pd.DataFrame([nr])], ignore_index=True)
             continue
         survivor = touching_crack[0]
         combined = comp_mask.copy()

@@ -101,31 +101,35 @@ def process(image_name):
         # This matters more now that SAM is in the pipeline: SAM proposes regions
         # the darkness threshold misses, and the same classifier scores them, so
         # teaching it these shapes directly improves that path.
-        uncovered = np.isin(mask, (1, 2)) & (labeled == 0)
+        # Labelled PER VERDICT, not over both at once. Labelling
+        # isin(mask, (1, 2)) together merges a red patch and a cyan patch that
+        # touch into ONE component, and the majority vote below then assigns the
+        # whole thing whichever verdict has more pixels -- so painting "not crack"
+        # next to "crack" could produce a training row claiming the not-crack area
+        # IS a crack. Each component now contains one verdict by construction, so
+        # the vote is a formality kept only for robustness.
         n_extra = 0
-        if uncovered.any():
-            from skimage import measure as _measure
+        from skimage import measure as _measure
+        for verdict in (1, 2):
+            uncovered = (mask == verdict) & (labeled == 0)
+            if not uncovered.any():
+                continue
             comp = _measure.label(uncovered, connectivity=2)
             for pr in _measure.regionprops(comp):
                 if pr.area < 40:
                     continue
                 sl = pr.slice
                 sub = pr.image
-                vals = mask[sl][sub]
-                counts = np.bincount(vals, minlength=4)
-                if counts[1:].sum() == 0:
-                    continue
-                verdict = int(counts[1:].argmax() + 1)
-                if verdict not in (1, 2):
-                    continue
                 _, fd = region_features_from_labeled(
                     sub.astype(np.int32), flat[sl], ves[sl], min_area_px=40)
                 if not len(fd):
                     continue
                 r = fd.iloc[0]
                 rec = {f: float(r[f]) for f in FEATURES}
+                # Labels must not collide between the two verdict passes, which
+                # both number their components from 1.
                 rec.update({"IsCrack": verdict == 1, "SourceImage": image_name,
-                            "Label": -int(pr.label), "Area": int(pr.area)})
+                            "Label": -(int(pr.label) * 10 + verdict), "Area": int(pr.area)})
                 rows.append(rec)
                 n_extra += 1
 

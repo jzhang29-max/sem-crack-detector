@@ -233,6 +233,11 @@ def api_images():
 
 @app.route("/api/template/<image_name>")
 def api_template(image_name):
+    # Every sibling endpoint answers a bad name with a JSON 404; this one fell
+    # through into the pipeline and returned a 500 traceback, which reads as "the
+    # app is broken" rather than "no such image".
+    if not os.path.exists(os.path.join(ORIGINAL_DIR, f"{image_name}.tif")):
+        return jsonify({"ok": False, "error": "no such image"}), 404
     template_path = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
     model_mtime = _model_mtime()
     is_stale = os.path.exists(template_path) and model_mtime is not None and \
