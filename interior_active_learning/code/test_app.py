@@ -455,6 +455,55 @@ def main():
     # single flip_region click used to overwrite with zeros. Checked directly
     # against common.save_correction_mask rather than over HTTP, because the
     # guarantee lives there and every writer goes through it.
+    # Erasing must survive a re-render. Pass 2 claims any unlabeled pixel, and
+    # erasing sets labeled to 0, so it used to re-propose exactly the pixels the
+    # human had taken off the table: measured 99 of 487 erased pixels coming back
+    # as crack on the next run. Uses a real image because the synthetic test image
+    # does not produce Pass 2 candidates.
+    print("\n[11b] an erasure survives a re-render")
+    # real shipped images only: the suite's own synthetic uploads are 400x600
+    # and produce no Pass 2 candidates, and a leftover one from an aborted run
+    # would otherwise be picked as "smallest" and silently skip this check.
+    _real = [n for n in os.listdir(ORIGINAL_DIR)
+             if n.endswith(".tif") and not n.startswith(("apptest", "SELFTEST", "MASKGUARD"))]
+    if not _real:
+        check("erase test has an image to run on", False, "no images present")
+    else:
+        import numpy as _np
+        sys.path.insert(0, CODE)
+        from unified_pipeline import run_unified_pipeline as _rup
+        from common import save_correction_mask as _sv, load_correction_mask as _ld
+        # smallest image: this runs the pipeline twice, and picking the
+        # alphabetically-first one grabbed a 25 MP frame at ~90 s a run,
+        # which pushed the whole suite past ten minutes.
+        _n2 = min(_real, key=lambda f: os.path.getsize(os.path.join(ORIGINAL_DIR, f)))[:-4]
+        _st = _rup(_n2)
+        _lab, _df = _st["labeled"], _st["df"]
+        _origin = _st.get("interior_origin") or {}
+        _tgt = next((L for L in _origin if int((_lab == L).sum()) > 200), None)
+        if _tgt is None:
+            check("erase test found a Pass 2 region", True,
+                  f"{_n2} has none big enough; nothing to protect, skipped")
+        else:
+            _keep = _ld(_n2, _lab.shape)
+            _sel = (_lab == _tgt)
+            _m = _np.zeros(_lab.shape, dtype=_np.uint8)
+            _m[_sel] = 3
+            try:
+                _sv(_n2, _m)
+                _st2 = _rup(_n2)
+                _c2 = _np.isin(_st2["labeled"], _st2["df"].loc[_st2["df"]["IsCrack"], "Label"].tolist())
+                _back = int((_c2 & _sel).sum())
+                check("erased pixels do not come back as crack", _back == 0,
+                      f"{_back}/{int(_sel.sum())} returned; Pass 2 must not re-claim them")
+            finally:
+                if _keep is not None:
+                    _sv(_n2, _keep)
+                else:
+                    _p = os.path.join(PAINT_DIR, f"{_n2}_correction_mask.png")
+                    if os.path.exists(_p):
+                        os.remove(_p)
+
     print("\n[12] the correction mask is never silently destroyed")
     from common import save_correction_mask as _save, _correction_mask_path
     _probe = "MASKGUARD_PROBE"
