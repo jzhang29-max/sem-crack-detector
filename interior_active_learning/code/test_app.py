@@ -504,6 +504,45 @@ def main():
                     if os.path.exists(_p):
                         os.remove(_p)
 
+    # An (H,W,3) TIFF must be stored as (H,W) greyscale. `while arr.ndim > 2:
+    # arr = arr[0]` treated the colour axis as a page axis, so a 6.3-megapixel RGB
+    # frame was stored as (W,3) -- row 0 only, 0.15% of the image -- and detection
+    # then reported success on that strip.
+    print("\n[11c] uploads keep their pixels")
+    _rgb = os.path.join(TMP, "apptest_rgb.tif")
+    _g = (np.random.RandomState(3).normal(140, 12, (61, 83)).clip(0, 255)).astype(np.uint8)
+    tifffile.imwrite(_rgb, np.dstack([_g, _g, _g]))
+    with open(_rgb, "rb") as fh:
+        _r = requests.post(f"{BASE}/api/upload", files={"files": ("apptest_rgb.tif", fh)},
+                           timeout=180).json()
+    _nm = (_r.get("added") or [None])[0]
+    if _nm:
+        created.append(_nm)
+        _stored = tifffile.imread(os.path.join(ORIGINAL_DIR, f"{_nm}.tif"))
+        check("a colour TIFF is stored as greyscale at full size",
+              _stored.shape == (61, 83), f"stored {_stored.shape}, expected (61, 83)")
+    else:
+        check("colour TIFF upload accepted", False, str(_r))
+
+    # /api/remove keeps the correction mask so a misclick is recoverable, so an
+    # upload must not seize a name that still owns one -- that would transplant a
+    # stranger's hand-marked labels onto different pixels.
+    _probe = "apptest_nameguard"
+    _mp = os.path.join(PAINT_DIR, f"{_probe}_correction_mask.png")
+    Image.fromarray(np.zeros((9, 11), dtype=np.uint8)).save(_mp)
+    try:
+        with open(_rgb, "rb") as fh:
+            _r2 = requests.post(f"{BASE}/api/upload",
+                                files={"files": (f"{_probe}.tif", fh)}, timeout=180).json()
+        _got = (_r2.get("added") or [None])[0]
+        if _got:
+            created.append(_got)
+        check("an upload will not take a name that still owns a correction mask",
+              _got is not None and _got != _probe, f"stored as {_got}")
+    finally:
+        if os.path.exists(_mp):
+            os.remove(_mp)
+
     print("\n[12] the correction mask is never silently destroyed")
     from common import save_correction_mask as _save, _correction_mask_path
     _probe = "MASKGUARD_PROBE"

@@ -74,10 +74,24 @@ def _model_path():
 
 
 def _model_mtime():
-    """None if no model has been trained yet -- callers treat that as
-    "nothing to compare against, so nothing can be stale because of it"."""
-    p = _model_path()
-    return os.path.getmtime(p) if os.path.exists(p) else None
+    """Newest mtime across every model a render depends on, or None if none exist.
+
+    This watched only unified_model.joblib (Pass 2). But an overlay also depends on
+    the Pass 1 classifier, models/crack_classifier.joblib, which is what Retrain
+    replaces and what the model picker swaps on a rollback -- so after switching
+    models the cached stage and the on-disk template still looked fresh, and the
+    next click rewrote the template from the OLD model's output.
+
+    Rollback made that worse: api_model_select uses shutil.copy2, which preserves
+    the source file's mtime, so restoring an older model could move the mtime
+    BACKWARDS and nothing looked stale at all. Hence max() over both, and the
+    select endpoint now touches the file it deploys.
+    """
+    times = []
+    for p in (_model_path(), PROD_MODEL_PATH):
+        if p and os.path.exists(p):
+            times.append(os.path.getmtime(p))
+    return max(times) if times else None
 
 
 _warming = set()
@@ -105,8 +119,15 @@ def warm_stage_async(image_name):
         _warming.add(image_name)
 
     def work():
+        started_gen = _stage_gen
         try:
+            # Do not warm an image that has since been removed, and discard the
+            # result if anything invalidated the cache while we were building it.
+            if not os.path.exists(os.path.join(ORIGINAL_DIR, f"{image_name}.tif")):
+                return
             get_stage(image_name)
+            if _stage_gen != started_gen:
+                _stage_cache.pop(image_name, None)
             print(f"stage warm: {image_name}")
         except Exception as e:
             print(f"stage warm failed for {image_name}: {type(e).__name__}: {e}")
@@ -118,8 +139,25 @@ def warm_stage_async(image_name):
     return True
 
 
+def _stage_is_fresh(image_name):
+    """True only if get_stage would REUSE the cached entry.
+
+    stage_ready used to be a bare `in _stage_cache`, but get_stage discards an entry
+    whose model mtime has moved -- so after a retrain or a model switch the UI was
+    told the next save would be fast when it was actually about to recompute the
+    whole pipeline.
+    """
+    cached = _stage_cache.get(image_name)
+    if cached is None:
+        return False
+    m = _model_mtime()
+    if m is None:
+        return True
+    return not (cached[1] is None or m > cached[1])
+
+
 def stage_ready(image_name):
-    return image_name in _stage_cache
+    return _stage_is_fresh(image_name)
 
 
 def get_stage(image_name, force=False):
@@ -487,6 +525,9 @@ def api_model_status():
     return jsonify({"exists": os.path.exists(model_path)})
 
 
+_stage_gen = 0
+
+
 def invalidate_stage(image_name=None):
     """Drop cached pipeline results so the next load recomputes.
 
@@ -495,6 +536,12 @@ def invalidate_stage(image_name=None):
     rewritten from that stale cache on the first click, which is precisely how
     regions appeared to spontaneously change colour earlier in this project.
     Passing None clears everything (after a retrain, every image is stale)."""
+    # Bump the generation as well as clearing. A warm started before the
+    # invalidation was still running, and assigned its (now stale) result into the
+    # cache when it finished -- so a removed image's stage came back from the dead,
+    # and a retrained model's first click could still render from the old one.
+    global _stage_gen
+    _stage_gen += 1
     if image_name is None:
         _stage_cache.clear()
     else:
