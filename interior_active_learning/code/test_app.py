@@ -508,6 +508,28 @@ def main():
     # arr = arr[0]` treated the colour axis as a page axis, so a 6.3-megapixel RGB
     # frame was stored as (W,3) -- row 0 only, 0.15% of the image -- and detection
     # then reported success on that strip.
+    # The single most important endpoint: opening an existing image. A missing
+    # import in _model_mtime made /api/template throw a 500 for EVERY image, so the
+    # app showed no pictures at all -- and the suite passed 96/96 because nothing
+    # here had ever asked an existing image to render.
+    print("\n[11a] every shipped image still renders")
+    _imgs = requests.get(f"{BASE}/api/images", timeout=60).json()
+    _rendered = [i["name"] for i in _imgs if i.get("has_template")][:5]
+    if not _rendered:
+        check("at least one image has an overlay to serve", False,
+              "nothing rendered yet; skipping")
+    else:
+        _bad = []
+        for _nm in _rendered:
+            _rr = requests.get(f"{BASE}/api/template/{_nm}", timeout=300)
+            if _rr.status_code != 200 or len(_rr.content) < 1000:
+                _bad.append((_nm, _rr.status_code, len(_rr.content)))
+        check("an already-rendered image serves its overlay", not _bad,
+              f"checked {len(_rendered)}" + (f"; failed: {_bad}" if _bad else ""))
+        _rr2 = requests.get(f"{BASE}/api/template/NOPE_NOT_AN_IMAGE", timeout=60)
+        check("an unknown image is a 404, not a 500", _rr2.status_code == 404,
+              f"got {_rr2.status_code}")
+
     print("\n[11c] uploads keep their pixels")
     _rgb = os.path.join(TMP, "apptest_rgb.tif")
     _g = (np.random.RandomState(3).normal(140, 12, (61, 83)).clip(0, 255)).astype(np.uint8)
