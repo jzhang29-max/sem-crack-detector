@@ -703,12 +703,17 @@ window.addEventListener('keydown', (e) => {
   const k = (e.key || '').toLowerCase();
   if (mod && k === 'z' && !e.shiftKey) {
     e.preventDefault();
-    // Local stroke undo first. When that is exhausted the marks have already
-    // been committed by autosave, so fall through to the server, which keeps a
-    // bounded stack of pre-commit correction snapshots. Without this a mistake
-    // became permanent about a second after drawing it.
-    if (undo()) { setStatus('Undo'); markDirty(); }
-    else undoCommitted();
+    // Every stroke is committed to the server the moment it finishes, so the
+    // authoritative revert is always the server's snapshot stack. The local canvas
+    // undo only repaints -- it cannot unsay what the mask already records.
+    //
+    // This used to call markDirty() after a local undo, which queued the OLD
+    // whole-canvas autosave: /api/save, then /api/ingest at ~7 s, then a 23 MB
+    // overlay re-download. So pressing Cmd-Z right after a 24 ms stroke dragged the
+    // whole 8-second path back into the session, which is exactly what "still saving
+    // really slowly" was.
+    undo();                       // repaint the canvas
+    undoCommitted();              // and revert the committed mask
   } else if (!mod && k === 'f') {
     e.preventDefault();
     fitZoom();

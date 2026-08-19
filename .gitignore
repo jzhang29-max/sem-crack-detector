@@ -14,6 +14,11 @@ interior_active_learning/candidates/*_quicklook.png
 # untracked file behind in git status.
 interior_active_learning/paint/.thumbs/
 
+# The undo stack: per-session snapshots of the correction mask, bounded to 10 deep
+# and consumed as you press Cmd-Z. Transient by design, and it would otherwise show
+# up as untracked noise next to the labels that do matter.
+interior_active_learning/paint/.undo/
+
 # Build artifacts of a retrain: train_v3_weighted.py writes the candidate model,
 # and the retrain gate writes the rollback copy. Committing them meant the model
 # dropdown showed three names for one identical file.
