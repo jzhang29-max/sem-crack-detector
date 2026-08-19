@@ -340,6 +340,8 @@ let loadRequestId = 0;
 // from /api/images so loadImage can run detection as a progress-reporting job
 // rather than blocking inside a single /api/template request for minutes.
 let needsDetect = new Set();
+// Images with a detection job already running, so a second click cannot start one.
+let detectInFlight = new Set();
 
 async function loadImage(name) {
   // Guards against a slow load (e.g. the largest images need multiple
@@ -377,6 +379,14 @@ async function loadImage(name) {
   if (needsDetect.has(name)) {
     clearTimeout(slowLoadTimer);
     const samBox = document.getElementById('useSam');
+    // One job per image. Clicking an unrendered image twice used to POST
+    // /api/process twice and run two full pipelines over the same frame,
+    // competing for CPU and each writing the same template.
+    if (detectInFlight.has(name)) {
+      setStatus('Already detecting ' + name + '\u2026');
+      return;
+    }
+    detectInFlight.add(name);
     try {
       await processImage(name, !!(samBox && samBox.checked && !samBox.disabled));
       needsDetect.delete(name);
@@ -384,6 +394,8 @@ async function loadImage(name) {
       // Fall through to /api/template, which builds it the blocking way. A
       // failed job should not leave the image unopenable.
       setStatus('detection job failed (' + e.message + '); building directly...');
+    } finally {
+      detectInFlight.delete(name);
     }
     if (!stillCurrent()) return;
   }
@@ -602,7 +614,12 @@ paintCanvas.addEventListener('mouseleave', () => {
 
 function selectColor(id, color) {
   currentColor = color;
-  setBucketActive(false);
+  // The colour (crack / not-crack / erase) and the scope (Brush vs Whole region)
+  // are independent choices, and Whole region applies whichever colour is picked.
+  // This used to call setBucketActive(false), so choosing a colour dropped you back
+  // to Brush while the segmented control still showed "Whole region" selected --
+  // the next click then painted a dab where the user expected a whole region.
+  if (typeof syncScope === 'function') setTimeout(syncScope, 0);
   for (const otherId of SWATCH_IDS) {
     document.getElementById(otherId).classList.toggle('selected', otherId === id);
   }
@@ -669,6 +686,9 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   if (confirm('Clear all painted strokes for this image?')) {
     pushUndo(true);
     paintCtx.clearRect(0, 0, nativeW, nativeH);
+    // Persist it. Clearing only the canvas left <image>_painted.png untouched, so
+    // the strokes came back on the next load with nothing said about it.
+    markDirty();
   }
 });
 document.getElementById('imageSelect').addEventListener('change', async (e) => {
@@ -679,9 +699,12 @@ document.getElementById('imageSelect').addEventListener('change', async (e) => {
   loadImage(currentImage);
 });
 
-async function savePaint() {
+async function savePaint(img) {
+  // The image is passed in, never read from currentImage here: this runs inside
+  // commitNow after awaits, and the user can have switched images by then.
+  img = img || currentImage;
   const dataURL = paintCanvas.toDataURL('image/png');
-  const res = await fetch('/api/save/' + currentImage, {
+  const res = await fetch('/api/save/' + img, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ dataURL }),
@@ -702,10 +725,19 @@ async function savePaint() {
 // than per-stroke because ingest re-renders the overlay, and doing that between
 // two quick strokes would fight the user.
 let saveTimer = null, saveInFlight = false, savePending = false;
+// Bumped on every mark. commitNow compares it across its awaits to detect strokes
+// drawn while a commit was in flight -- those used to be wiped by the reload at the
+// end of the commit and never sent anywhere.
+let strokeSeq = 0;
+// Resolves when the in-flight commit finishes, so commitNow(true) can actually
+// wait for it instead of returning immediately and reporting a flush that did not
+// happen.
+let saveChain = null;
 const AUTOSAVE_IDLE_MS = 1100;
 
 function markDirty() {
   savePending = true;
+  strokeSeq++;
   setSaveState('pending');
   clearTimeout(saveTimer);
   saveTimer = setTimeout(commitNow, AUTOSAVE_IDLE_MS);
@@ -728,21 +760,65 @@ function setSaveState(state) {
   if (retry) retry.style.display = (state === 'error') ? '' : 'none';
 }
 
-async function commitNow(silent) {
+async function commitNow(silent, _depth) {
   clearTimeout(saveTimer);
   if (!currentImage || !savePending) return;
-  if (saveInFlight) { saveTimer = setTimeout(commitNow, 400); return; }  // coalesce
+  if (saveInFlight) {
+    // Wait for the in-flight commit, then flush what is still pending. This used
+    // to return immediately, which made `await commitNow(true)` on an image switch
+    // a no-op: the status line said "Saving before switching..." and nothing was
+    // flushed, so the outgoing image's strokes never reached its correction mask.
+    saveTimer = setTimeout(commitNow, 400);
+    if (saveChain) { try { await saveChain; } catch (e) { /* reported already */ } }
+    if ((_depth || 0) < 3 && savePending) return commitNow(silent, (_depth || 0) + 1);
+    return;
+  }
+  // Pin the image and the stroke count for the whole commit. currentImage can
+  // change while the awaits below are pending, and the ingest URL was built after
+  // them -- so switching images mid-save ingested the NEW image, pushed an undo
+  // snapshot onto it, and left the outgoing image's strokes uncommitted while the
+  // badge read "All changes saved".
+  const img = currentImage;
+  const strokesAtStart = strokeSeq;
   saveInFlight = true; savePending = false;
   setSaveState('saving');
+  let _release;
+  saveChain = new Promise((r) => { _release = r; });
   try {
-    await savePaint();
-    const res = await fetch('/api/ingest/' + currentImage, { method: 'POST' });
+    await savePaint(img);
+    const res = await fetch('/api/ingest/' + img, { method: 'POST' });
     const result = await res.json();
     if (!result.ok) throw new Error(result.error || 'ingest failed');
+    // Keep pixels drawn while this commit was in flight. The reload below clears
+    // the paint layer and repaints it from <image>_painted.png, which holds only
+    // what toDataURL captured at the START of the commit -- so any stroke finished
+    // in that window (it opens 1.1 s after a mouseup and lasts seconds) was wiped
+    // off the canvas and had never been sent anywhere.
+    // Preserve the Show-result choice across the reload: loadImage always draws
+    // the overlay template, so unticking it was silently reverted by the next
+    // autosave or region flip.
+    const _showEl = document.getElementById('showResult');
+    const _wasShowing = !_showEl || _showEl.checked;
+    const live = (strokeSeq !== strokesAtStart)
+      ? paintCanvas.toDataURL('image/png') : null;
     // reload so corrected/erased pixels show their real committed appearance
     // rather than the transient marker colour
-    await loadImage(currentImage);
-    setSaveState('saved');
+    await loadImage(img);
+    if (!_wasShowing && _showEl) {
+      _showEl.checked = false;
+      _showEl.dispatchEvent(new Event('change'));
+    }
+    if (live && currentImage === img) {
+      await new Promise((r) => {
+        const im = new Image();
+        im.onload = () => { paintCtx.drawImage(im, 0, 0); r(); };
+        im.onerror = r;
+        im.src = live;
+      });
+      markDirty();                 // and commit them on the next cycle
+    } else {
+      setSaveState('saved');
+    }
     if (!silent) setStatus(result.message || 'Saved.');
     loadImageList(true);
   } catch (err) {
@@ -751,6 +827,8 @@ async function commitNow(silent) {
     setStatus('Save failed: ' + err.message, true);
   } finally {
     saveInFlight = false;
+    if (_release) _release();
+    saveChain = null;
   }
 }
 
@@ -887,7 +965,7 @@ dz.addEventListener('click', () => {
 
 document.getElementById('retrainBtn').addEventListener('click', async () => {
   if (!confirm('Rebuild training data from every correction, retrain the model, and ' +
-               're-render all images?\\n\\nThe new model is only deployed if it scores at ' +
+               're-render all images?\n\nThe new model is only deployed if it scores at ' +
                'least as well as the current one on held-out data.')) return;
   const btn = document.getElementById('retrainBtn');
   btn.disabled = true;
@@ -1243,7 +1321,17 @@ document.getElementById('mpick').addEventListener('change', async (e) => {
       headers: {'Content-Type': 'application/json'}, body: JSON.stringify({file})})).json();
     if (!r.ok) throw new Error(r.error || 'failed');
     setStatus(r.message || 'model switched');
-    await refreshModelInfo(); await // ---- one-click SAM install, so the best detector needs no terminal ----
+    await refreshModelInfo();
+refreshModelPicker();
+  } catch (err) { setStatus('Switch failed: ' + err.message, true); }
+});
+
+// ---- one-click SAM install, so the best detector needs no terminal ----
+// This block used to sit INSIDE the model-picker change handler: the line above
+// ended with a stray `await`, which made the listener registration its operand.
+// So the Enable SAM button got no click handler on load, and the code that reveals
+// it (and disables the Use SAM checkbox) never ran -- SAM could not be turned on
+// from the UI at all.
 document.getElementById('installSamBtn').addEventListener('click', async () => {
   if (!confirm('Install PyTorch and transformers into this app\'s virtualenv?\n\n' +
                'About 2.5 GB and several minutes. It raises measured f1 from 0.715 to 0.776, ' +
@@ -1275,9 +1363,6 @@ document.getElementById('installSamBtn').addEventListener('click', async () => {
   } catch (e) { }
 })();
 
-refreshModelPicker();
-  } catch (err) { setStatus('Switch failed: ' + err.message, true); }
-});
 
 // ---- re-apply the current model to every image ----
 document.getElementById('reapplyBtn').addEventListener('click', async () => {

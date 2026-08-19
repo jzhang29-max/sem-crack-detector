@@ -355,6 +355,16 @@ def api_flip_region(image_name):
     # clicks arrive concurrently. Both used to read the same mask and both write,
     # so the second silently discarded the first click's verdict.
     with mask_lock(image_name):
+        # Snapshot first, so Cmd-Z can reverse a Whole-region click. This path never
+        # snapshotted, so the tool a reviewer uses most on large regions -- one click
+        # setting thousands of pixels -- was the one edit with no way back, and an
+        # undo pressed after it silently reverted an EARLIER brush correction instead.
+        # Guarded like api_ingest's: losing an undo step must not block the edit.
+        try:
+            import app_undo
+            app_undo.snapshot(image_name)
+        except Exception as _e:
+            print(f"undo snapshot skipped for {image_name}: {type(_e).__name__}: {_e}")
         existing = load_correction_mask(image_name, labeled.shape)
         merged = existing.copy() if existing is not None else np.zeros(labeled.shape, dtype=np.uint8)
         merged[label_mask] = correction_value

@@ -70,6 +70,20 @@ def snapshot(image_name):
         if existing:
             n = max(int(f.split(".")[0]) for f in existing) + 1
         src = _mask_path(image_name)
+        # Skip a snapshot identical to the one on top. Every commit used to push an
+        # entry even when the ingest turned out to have nothing to ingest -- which
+        # is the normal outcome of pressing Cmd-Z inside the 1.1 s autosave window --
+        # so the next Cmd-Z "restored" a byte-identical mask while the UI reported
+        # success, and ten such commits evicted the one snapshot that mattered.
+        top = existing[-1] if existing else None
+        if top is not None:
+            tp = os.path.join(d, top)
+            same = ((not os.path.exists(src) and top.endswith(".none"))
+                    or (os.path.exists(src) and top.endswith(".png")
+                        and os.path.getsize(tp) == os.path.getsize(src)
+                        and open(tp, "rb").read() == open(src, "rb").read()))
+            if same:
+                return True
         if os.path.exists(src):
             shutil.copy2(src, os.path.join(d, f"{n:04d}.png"))
         else:
@@ -85,25 +99,34 @@ def snapshot(image_name):
 
 
 def pop(image_name):
-    """Restore the most recent snapshot. Returns (ok, message)."""
-    ents = _entries(image_name)
-    if not ents:
-        return False, "nothing to undo"
-    latest = ents[-1]
-    path = os.path.join(_dir(image_name), latest)
-    dest = _mask_path(image_name)
-    try:
-        if latest.endswith(".none"):
-            if os.path.exists(dest):
-                os.remove(dest)
-            msg = "reverted to no corrections on this image"
-        else:
-            shutil.copy2(path, dest)
-            msg = "previous corrections restored"
-        os.remove(path)
-        return True, msg
-    except Exception as e:
-        return False, f"{type(e).__name__}: {e}"
+    """Restore the most recent snapshot. Returns (ok, message).
+
+    Runs under the same per-image lock the writers hold. Without it an undo that
+    overlapped an in-flight autosave could be overwritten by that save the moment
+    it finished, so the restore was silently discarded while the UI reported it had
+    worked.
+    """
+    from common import mask_lock
+    with mask_lock(image_name):
+        ents = _entries(image_name)
+        if not ents:
+            return False, "nothing to undo"
+        latest = ents[-1]
+        path = os.path.join(_dir(image_name), latest)
+        dest = _mask_path(image_name)
+        try:
+            if latest.endswith(".none"):
+                if os.path.exists(dest):
+                    os.remove(dest)
+                msg = "reverted to no corrections on this image"
+            else:
+                shutil.copy2(path, dest)
+                msg = "previous corrections restored"
+            # only now, once the restore is actually on disk
+            os.remove(path)
+            return True, msg
+        except Exception as e:
+            return False, f"{type(e).__name__}: {e}"
 
 
 def register(app, invalidate_stage):
