@@ -139,6 +139,26 @@ def warm_stage_async(image_name):
     return True
 
 
+def _deps_mtime(image_name):
+    """Newest mtime of everything a rendered overlay depends on for THIS image.
+
+    The models, plus the image's own correction mask. The mask matters because
+    /api/stroke now commits a brush stroke straight into it without re-rendering the
+    overlay -- that is what took an autosave from 8.0 s to ~0.1 s -- so the overlay
+    is only correct if "the mask is newer than the overlay" counts as stale. Without
+    this a reload showed the pre-stroke overlay and the mark looked lost, even though
+    it was safely recorded.
+    """
+    times = []
+    m = _model_mtime()
+    if m is not None:
+        times.append(m)
+    mp = os.path.join(PAINT_DIR, f"{image_name}_correction_mask.png")
+    if os.path.exists(mp):
+        times.append(os.path.getmtime(mp))
+    return max(times) if times else None
+
+
 def _stage_is_fresh(image_name):
     """True only if get_stage would REUSE the cached entry.
 
@@ -150,7 +170,7 @@ def _stage_is_fresh(image_name):
     cached = _stage_cache.get(image_name)
     if cached is None:
         return False
-    m = _model_mtime()
+    m = _deps_mtime(image_name)
     if m is None:
         return True
     return not (cached[1] is None or m > cached[1])
@@ -162,7 +182,7 @@ def stage_ready(image_name):
 
 def get_stage(image_name, force=False):
     cached = _stage_cache.get(image_name)
-    current_model_mtime = _model_mtime()
+    current_model_mtime = _deps_mtime(image_name)
     is_stale = cached is not None and current_model_mtime is not None and \
         (cached[1] is None or current_model_mtime > cached[1])
     if force or cached is None or is_stale:
@@ -277,7 +297,7 @@ def api_template(image_name):
     if not os.path.exists(os.path.join(ORIGINAL_DIR, f"{image_name}.tif")):
         return jsonify({"ok": False, "error": "no such image"}), 404
     template_path = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
-    model_mtime = _model_mtime()
+    model_mtime = _deps_mtime(image_name)
     is_stale = os.path.exists(template_path) and model_mtime is not None and \
         os.path.getmtime(template_path) < model_mtime
     regenerated = not os.path.exists(template_path) or is_stale
@@ -325,6 +345,84 @@ def _resync_painted_file(image_name, old_template_arr, new_template_arr):
         return
     painted[unpainted] = new_template_arr[unpainted]
     Image.fromarray(painted).save(painted_path)
+
+
+@app.route("/api/stroke/<image_name>", methods=["POST"])
+def api_stroke(image_name):
+    """Commit one brush stroke as GEOMETRY, not as a re-uploaded canvas.
+
+    Body: {mode: 'crack'|'not_crack'|'erase', points: [[x, y], ...], radius: int}
+
+    Why this exists. The autosave path uploaded the whole 25-megapixel paint layer
+    as a PNG dataURL, colour-matched it against the template three times to work out
+    which pixels were new, re-rendered the overlay, wrote a 35.7 MB PNG, and then had
+    the browser re-download that overlay. Measured on 6144x4096 for a single 40 px
+    dot: /api/save 1.0 s, /api/ingest 7.0 s. None of that work is proportional to the
+    stroke, which touches a few thousand pixels.
+
+    A stroke's meaning is exactly a mask value, so stamping discs straight into the
+    correction mask is both faster and more direct -- there is nothing to infer. The
+    sibling TXM app does the same thing and that is why its autosave feels instant.
+
+    The overlay is NOT re-rendered here. The user's own canvas already shows the
+    stroke, and /api/template rebuilds the overlay when the mask is newer than it,
+    so a reload still shows committed colours.
+    """
+    d = request.get_json(silent=True) or {}
+    mode = d.get("mode", "crack")
+    pts = d.get("points") or []
+    r = max(1, int(d.get("radius", 20)))
+    value = {"crack": 1, "not_crack": 2, "erase": 3}.get(mode)
+    if value is None:
+        return jsonify({"ok": False, "error": f"unknown mode {mode}"}), 400
+    if not os.path.exists(os.path.join(ORIGINAL_DIR, f"{image_name}.tif")):
+        return jsonify({"ok": False, "error": "no such image"}), 404
+    if not pts:
+        return jsonify({"ok": True, "changed": 0})
+
+    # Shape from the template header -- PIL is lazy, so .size costs no decode. Falls
+    # back to the cached stage only if there is no template yet.
+    tpl = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
+    if os.path.exists(tpl):
+        with Image.open(tpl) as im:
+            W, H = im.size
+    else:
+        lab = get_stage(image_name)["labeled"]
+        H, W = lab.shape
+
+    with mask_lock(image_name):
+        # One undo entry per stroke, taken before the change, like flip_region.
+        try:
+            import app_undo
+            app_undo.snapshot(image_name)
+        except Exception as e:
+            print(f"undo snapshot skipped for {image_name}: {type(e).__name__}: {e}")
+
+        m = load_correction_mask(image_name, (H, W))
+        m = m.copy() if m is not None else np.zeros((H, W), dtype=np.uint8)
+        yy, xx = np.ogrid[-r:r + 1, -r:r + 1]
+        disk = (xx * xx + yy * yy) <= r * r
+        changed = 0
+        for pt in pts:
+            try:
+                x, y = int(round(float(pt[0]))), int(round(float(pt[1])))
+            except Exception:
+                continue
+            y0, y1 = max(0, y - r), min(H, y + r + 1)
+            x0, x1 = max(0, x - r), min(W, x + r + 1)
+            if y0 >= y1 or x0 >= x1:
+                continue
+            sub = disk[(y0 - (y - r)):(y1 - (y - r)), (x0 - (x - r)):(x1 - (x - r))]
+            before = m[y0:y1, x0:x1][sub]
+            changed += int((before != value).sum())
+            m[y0:y1, x0:x1][sub] = value
+        save_correction_mask(image_name, m)
+
+    # The cached stage still describes the pre-stroke correction state.
+    invalidate_stage(image_name)
+    return jsonify({"ok": True, "changed": changed,
+                    "crack_px": int((m == 1).sum()), "not_crack_px": int((m == 2).sum()),
+                    "erased_px": int((m == 3).sum())})
 
 
 @app.route("/api/flip_region/<image_name>", methods=["POST"])
