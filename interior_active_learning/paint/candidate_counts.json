@@ -68,8 +68,8 @@
     "n_crack": 748
   },
   "MAR_Amb_Cast_ETD_0003": {
-    "n_candidates": 406,
-    "n_crack": 348
+    "n_candidates": 475,
+    "n_crack": 417
   },
   "MAR_Amb_AS_ETD_0006": {
     "n_candidates": 5304,
@@ -148,16 +148,16 @@
     "n_crack": 2568
   },
   "260622_316_H_b2_back_CBS_01": {
-    "n_candidates": 1057,
-    "n_crack": 980
+    "n_candidates": 1223,
+    "n_crack": 1146
   },
   "260622_316_H_b2_front_CBS_01": {
     "n_candidates": 1311,
     "n_crack": 1122
   },
   "260622_316_H_b2_front_CBS_02": {
-    "n_candidates": 841,
-    "n_crack": 763
+    "n_candidates": 1001,
+    "n_crack": 923
   },
   "260622_316_H_b2_front_CBS_03": {
     "n_candidates": 434,
@@ -176,8 +176,8 @@
     "n_crack": 1014
   },
   "260622_316_amb_b3_CBS_01": {
-    "n_candidates": 533,
-    "n_crack": 491
+    "n_candidates": 621,
+    "n_crack": 579
   },
   "260622_316_amb_b3_CBS_02": {
     "n_candidates": 355,
@@ -236,8 +236,8 @@
     "n_crack": 171
   },
   "260708_316_H_b2_front_CBS_014": {
-    "n_candidates": 78,
-    "n_crack": 59
+    "n_candidates": 94,
+    "n_crack": 75
   },
   "260708_316_H_b2_front_CBS_015": {
     "n_candidates": 117,

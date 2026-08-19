@@ -46,3 +46,7 @@ interior_active_learning/paint/apptest*
 interior_active_learning/paint/SELFTEST*
 interior_active_learning/paint/MASKGUARD*
 .test_tmp/
+
+# Experiment scratch: pickled pipeline stages, ~400 MB per image.
+# Regenerated on demand by cheap_proposers.cached_case().
+.proposal_cache/
