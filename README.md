@@ -90,14 +90,21 @@ Also: <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> pick Add crack / Not crack / Erase,
 | action | large image (6144×4096) |
 |---|---|
 | opening an image | 0.03 s |
-| a correction saving itself | **6.2 s** |
+| a brush stroke committing | **~0.1 s** |
 | background preparation after opening | ~204 s |
 
-Saving a correction needs the image's pipeline result. Building that costs ~204 s
-on the largest images, so it starts the moment you open one, in the background,
-while you are still looking. **If you open a large image and paint within the
-first few minutes, that first save waits for it to finish.** Smaller images
-prepare in ~25 s. Everything after the first save is ~6 s.
+A stroke is committed as GEOMETRY -- the points and the brush radius -- which the
+server stamps straight into the correction mask. Measured at ~0.1 s on the largest
+frames, and it does not depend on image size in any way that matters.
+
+It used to upload the whole 25-megapixel paint layer as a PNG, colour-match it
+against the overlay three times to work out which pixels were new, re-render the
+overlay, write a 35.7 MB PNG, and then re-download that overlay: **8.0 s per
+stroke**, all of it work unrelated to the few thousand pixels the stroke touched.
+
+The pipeline stage is still built in the background when you open an image (~204 s
+on the largest, ~25 s on smaller ones), because **Whole region** needs to know which
+connected region you clicked. Brush strokes do not wait for it.
 
 Whole-region clicks are immediate; they never go through this path.
 

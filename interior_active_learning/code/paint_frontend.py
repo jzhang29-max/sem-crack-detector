@@ -542,6 +542,44 @@ function strokeAt(x, y) {
   // remember what this stroke touched so undo can snapshot just that rect
   noteStrokePoint(lastX, lastY);
   noteStrokePoint(x, y);
+  // and remember the geometry itself: the stroke is committed as points, not by
+  // re-uploading the whole canvas (see commitStroke).
+  strokePts.push([Math.round(x), Math.round(y)]);
+}
+
+// Points of the stroke in progress, in image coordinates.
+let strokePts = [];
+
+// Commit one stroke by sending its geometry. The old path uploaded the entire
+// 25-megapixel paint layer as a PNG dataURL, had the server colour-match it against
+// the template three times, re-render the overlay, write a 35.7 MB PNG, and then
+// re-downloaded that overlay: measured 8.0 s per stroke on a 6144x4096 image, for a
+// stroke touching a few thousand pixels. Sending {mode, points, radius} instead is
+// ~0.1 s, and the canvas already shows the stroke so there is nothing to reload.
+async function commitStroke() {
+  const pts = strokePts;
+  strokePts = [];
+  if (!pts.length || !currentImage) return;
+  const img = currentImage;
+  const mode = currentColor === RED ? 'crack'
+             : currentColor === CYAN ? 'not_crack'
+             : 'erase';
+  setSaveState('saving');
+  try {
+    const r = await fetch('/api/stroke/' + img, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({mode, points: pts, radius: Math.max(1, Math.round(brushSize / 2))}),
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'stroke failed');
+    setSaveState('saved');
+    loadImageList(true);
+  } catch (e) {
+    // Fall back to the whole-canvas path so a mark is never lost just because the
+    // fast route failed.
+    setStatus('fast save failed (' + e.message + '); falling back', true);
+    markDirty();
+  }
 }
 
 paintCanvas.addEventListener('mousedown', (e) => {
@@ -551,6 +589,7 @@ paintCanvas.addEventListener('mousedown', (e) => {
     return;
   }
   drawing = true;
+  strokePts = [];
   [lastX, lastY] = canvasCoords(e);
   strokeAt(lastX, lastY);
 });
@@ -606,10 +645,10 @@ paintCanvas.addEventListener('mousemove', (e) => {
   lastX = x; lastY = y;
 });
 window.addEventListener('mouseup', () => {
-  if (drawing) { drawing = false; pushUndo(); markDirty(); }
+  if (drawing) { drawing = false; pushUndo(); commitStroke(); }
 });
 paintCanvas.addEventListener('mouseleave', () => {
-  if (drawing) { drawing = false; pushUndo(); markDirty(); }
+  if (drawing) { drawing = false; pushUndo(); commitStroke(); }
 });
 
 function selectColor(id, color) {

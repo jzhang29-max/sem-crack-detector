@@ -512,6 +512,55 @@ def main():
     # import in _model_mtime made /api/template throw a 500 for EVERY image, so the
     # app showed no pictures at all -- and the suite passed 96/96 because nothing
     # here had ever asked an existing image to render.
+    # A stroke commits as geometry, not by re-uploading the canvas. The old path
+    # measured 8.0 s on a 6144x4096 image for a single dot (/api/save 1.0 s +
+    # /api/ingest 7.0 s + a 35.7 MB overlay re-download); this should be well under
+    # a second, and must still land in the mask and be undoable.
+    print("\n[11d] a brush stroke commits fast and correctly")
+    _im = [i["name"] for i in requests.get(f"{BASE}/api/images", timeout=60).json()
+           if i.get("has_template")]
+    if not _im:
+        check("an image is available for the stroke test", False)
+    else:
+        _sn = _im[0]
+        _mp = os.path.join(PAINT_DIR, f"{_sn}_correction_mask.png")
+
+        def _count(v):
+            if not os.path.exists(_mp):
+                return 0
+            _a = np.array(Image.open(_mp))
+            while _a.ndim > 2:
+                _a = _a[..., 0]
+            return int((_a == v).sum())
+
+        _b4 = _count(2)
+        _d0 = requests.get(f"{BASE}/api/undo_depth/{_sn}", timeout=60).json().get("depth", 0)
+        _pts = [[300 + i * 3, 400 + i] for i in range(20)]
+        _t0 = time.time()
+        _sr = requests.post(f"{BASE}/api/stroke/{_sn}",
+                            json={"mode": "not_crack", "points": _pts, "radius": 12},
+                            timeout=300)
+        _el = time.time() - _t0
+        check("a stroke commits in under 2 s", _sr.status_code == 200 and _el < 2.0,
+              f"{_el*1000:.0f} ms, HTTP {_sr.status_code}")
+        check("the stroke reaches the correction mask", _count(2) > _b4,
+              f"not-crack px {_b4} -> {_count(2)}")
+        # >= 1, not > _d0: the stack is capped at MAX_DEPTH, so once it is full a new
+        # snapshot trims the oldest and the count stays flat. Strictly-increasing was
+        # the wrong property to assert -- what matters is that an entry exists, which
+        # the restore check below actually proves.
+        _d1 = requests.get(f"{BASE}/api/undo_depth/{_sn}", timeout=60).json().get("depth", 0)
+        check("a stroke leaves an undo entry", _d1 >= 1, f"depth {_d0} -> {_d1}")
+        _ur = requests.post(f"{BASE}/api/undo_correction/{_sn}", timeout=300).json()
+        if _ur.get("job"):
+            poll(_ur["job"])
+        check("undoing a stroke restores the previous mask", _count(2) == _b4,
+              f"not-crack px back to {_b4}? got {_count(2)}")
+        check("an unknown stroke mode is rejected",
+              requests.post(f"{BASE}/api/stroke/{_sn}",
+                            json={"mode": "nonsense", "points": [[1, 1]]},
+                            timeout=60).status_code == 400)
+
     print("\n[11a] every shipped image still renders")
     _imgs = requests.get(f"{BASE}/api/images", timeout=60).json()
     _rendered = [i["name"] for i in _imgs if i.get("has_template")][:5]
