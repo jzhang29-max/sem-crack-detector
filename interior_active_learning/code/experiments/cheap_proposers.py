@@ -38,7 +38,10 @@ from skimage import filters, measure, morphology
 
 from proposal_harness import CASES, Case, evaluate, load_case
 
-CACHE = os.path.join(_HERE, ".proposal_cache")
+# v2: v1 pickles held correction-contaminated pipeline_crack (baseline recall 1.000),
+# which is what made every proposer score exactly +0.0000. Bumping the version
+# rather than reusing them, since a stale cache would reproduce the same fake result.
+CACHE = os.path.join(_HERE, ".proposal_cache", "v2")
 
 
 # --------------------------------------------------------------------------- cases
@@ -167,6 +170,22 @@ def union_best(case):
     return hysteresis_dark(case) | vesselness_ridges(case)
 
 
+def sam_proposer(case):
+    """SAM itself, measured through THIS harness so the comparison is apples-to-apples.
+
+    The +0.0610 f1 figure quoted elsewhere in this project comes from the hybrid
+    benchmark, a different measurement path with a different baseline. Quoting it as
+    the bar for these proposers would be comparing two numbers that were never
+    computed the same way. sam_crack_mask() returns masks the production classifier
+    has already accepted, so this is passed through with already_classified=True.
+    """
+    from hybrid_detect import sam_crack_mask
+    from proposal_harness import _bundle
+    return sam_crack_mask(case.img8, case.flat, case.vesselness, _bundle())
+
+
+#: SAM is excluded from the default sweep: ~480 s/image against ~5 s for the rest.
+#: Measure it with `--only sam` when a same-harness reference is wanted.
 PROPOSERS = {
     "looser_threshold": looser_threshold,
     "hysteresis_dark": hysteresis_dark,
@@ -177,6 +196,7 @@ PROPOSERS = {
     "mser_like": mser_like,
     "elongation_gated": elongation_gated_dark,
     "union_best": union_best,
+    "sam": sam_proposer,
 }
 
 
@@ -194,10 +214,12 @@ def sweep(names=None, cases=None):
     for pname, fn in PROPOSERS.items():
         if names and pname not in names:
             continue
+        if not names and pname == "sam":
+            continue   # opt in with --only sam
         rows, t0 = [], time.time()
         for case in loaded:
             try:
-                rows.append(evaluate(case, fn(case)))
+                rows.append(evaluate(case, fn(case), already_classified=(pname == "sam")))
             except Exception as e:
                 print(f"    {pname} failed on {case.name}: {type(e).__name__}: {e}", flush=True)
         if not rows:
