@@ -129,7 +129,15 @@ def pop(image_name):
             return False, f"{type(e).__name__}: {e}"
 
 
-def register(app, invalidate_stage):
+def register(app, invalidate_stage, get_stage=None):
+    """get_stage is PASSED IN, never imported.
+
+    `import paint_server` here would load a SECOND copy of that module with its own
+    empty stage cache, because the server runs as __main__ and so is not registered
+    under the name "paint_server". Undo then rebuilt the stage from scratch every
+    time: measured 13.4 s on a 5.8-megapixel frame and ~200 s on a 25-megapixel one,
+    while the surrounding work was milliseconds.
+    """
     @app.route("/api/undo_depth/<image_name>")
     def api_undo_depth(image_name):
         return jsonify({"ok": True, "depth": depth(image_name)})
@@ -146,17 +154,26 @@ def register(app, invalidate_stage):
             ok, msg = pop(image_name)
             if not ok:
                 raise RuntimeError(msg)
-            # The cached stage and the on-disk template both describe the state
-            # we just reverted, so both must be rebuilt or the UI keeps showing
-            # the undone marks -- the same staleness that has bitten this
-            # project at three other layers.
-            if invalidate_stage:
-                invalidate_stage(image_name)
+            # The on-disk overlay still shows the marks we just reverted, so it has
+            # to be redrawn -- but NOT by re-running the pipeline. Undo only changed
+            # the correction mask; the stage is still valid for the current model, so
+            # re-applying the restored mask to the cached stage and redrawing costs
+            # about half a second. Re-running run_unified_pipeline here cost 13.8 s on
+            # a 5.8-megapixel frame and 198 s on a 25-megapixel one, which made undo
+            # 100x more expensive than the stroke it reverses.
             report(stage="undo", frac=0.5, note="re-rendering overlay")
-            from interior_candidates import build_simple_overlay
+            from interior_candidates import build_simple_overlay, apply_pixel_corrections
             from unified_pipeline import run_unified_pipeline
+            from common import load_correction_mask
             import json
-            stage = run_unified_pipeline(image_name)
+            if get_stage is None:
+                raise RuntimeError("undo needs get_stage; register() was called without it")
+            stage = get_stage(image_name)
+            _m = load_correction_mask(image_name, stage["labeled"].shape)
+            if _m is not None:
+                _lab, _df = apply_pixel_corrections(stage["labeled"].copy(),
+                                                    stage["df"].copy(), _m)
+                stage = dict(stage, labeled=_lab, df=_df)
             build_simple_overlay(stage).save(
                 os.path.join(PAINT_DIR, f"{image_name}_paint_template.png"))
             df = stage["df"]
@@ -170,8 +187,6 @@ def register(app, invalidate_stage):
             counts[image_name] = {"n_candidates": int(len(df)),
                                   "n_crack": int(df["IsCrack"].sum())}
             json.dump(counts, open(counts_path, "w"), indent=2)
-            if invalidate_stage:
-                invalidate_stage(image_name)
             return {"image": image_name, "message": msg,
                     "n_candidates": int(len(df)), "n_crack": int(df["IsCrack"].sum()),
                     "undo_depth": depth(image_name)}

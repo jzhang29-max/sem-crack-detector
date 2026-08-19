@@ -170,7 +170,10 @@ def _stage_is_fresh(image_name):
     cached = _stage_cache.get(image_name)
     if cached is None:
         return False
-    m = _deps_mtime(image_name)
+    # Model only, deliberately. A brush stroke writes the correction mask, and if
+    # that counted here every fast stroke would discard the warm stage and make the
+    # next Whole-region click or undo pay a full pipeline run.
+    m = _model_mtime()
     if m is None:
         return True
     return not (cached[1] is None or m > cached[1])
@@ -182,7 +185,7 @@ def stage_ready(image_name):
 
 def get_stage(image_name, force=False):
     cached = _stage_cache.get(image_name)
-    current_model_mtime = _deps_mtime(image_name)
+    current_model_mtime = _model_mtime()
     is_stale = cached is not None and current_model_mtime is not None and \
         (cached[1] is None or current_model_mtime > cached[1])
     if force or cached is None or is_stale:
@@ -297,10 +300,19 @@ def api_template(image_name):
     if not os.path.exists(os.path.join(ORIGINAL_DIR, f"{image_name}.tif")):
         return jsonify({"ok": False, "error": "no such image"}), 404
     template_path = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
-    model_mtime = _deps_mtime(image_name)
+    model_mtime = _model_mtime()
     is_stale = os.path.exists(template_path) and model_mtime is not None and \
         os.path.getmtime(template_path) < model_mtime
-    regenerated = not os.path.exists(template_path) or is_stale
+    # A mask newer than the overlay also makes it stale -- /api/stroke commits into
+    # the mask without re-rendering -- but that case does NOT need a pipeline run:
+    # the cached stage is still valid for the current model, so re-applying the mask
+    # to it and redrawing costs about a second instead of ~200.
+    mask_only_stale = False
+    if os.path.exists(template_path) and not is_stale:
+        _mp = os.path.join(PAINT_DIR, f"{image_name}_correction_mask.png")
+        if os.path.exists(_mp) and os.path.getmtime(template_path) < os.path.getmtime(_mp):
+            mask_only_stale = True
+    regenerated = not os.path.exists(template_path) or is_stale or mask_only_stale
     if regenerated:
         # get_stage() itself already detects "this cache entry predates the
         # current model" -- force=True here additionally covers the case
@@ -309,7 +321,16 @@ def api_template(image_name):
         # on-disk template from a PRIOR process/session is still the stale
         # artifact -- without forcing, get_stage() would see a fresh cache
         # entry and skip recomputing, leaving this stale file untouched.
-        stage = get_stage(image_name, force=is_stale)
+        if mask_only_stale and not is_stale:
+            # Cheap path: keep the stage, re-apply the current mask, redraw.
+            stage = get_stage(image_name)
+            m = load_correction_mask(image_name, stage["labeled"].shape)
+            if m is not None:
+                lab, df = apply_pixel_corrections(stage["labeled"].copy(),
+                                                  stage["df"].copy(), m)
+                stage = dict(stage, labeled=lab, df=df)
+        else:
+            stage = get_stage(image_name, force=is_stale)
         build_simple_overlay(stage).save(template_path)
     # Opening an image is the right moment to start building its stage: the
     # user needs seconds to look before painting, and autosave is 130x faster
@@ -418,8 +439,17 @@ def api_stroke(image_name):
             m[y0:y1, x0:x1][sub] = value
         save_correction_mask(image_name, m)
 
-    # The cached stage still describes the pre-stroke correction state.
-    invalidate_stage(image_name)
+    # Deliberately does NOT invalidate the cached stage. Dropping it made every
+    # fast stroke expensive for whatever came next: the stage is what Whole region
+    # and undo's re-render need, and rebuilding it costs a full pipeline run (~200 s
+    # on a 25-megapixel frame). Measured: a stroke took 0.1 s and then an undo took
+    # 198 s, purely because the stroke had discarded the warm stage.
+    #
+    # Keeping it is sound. A brush stroke writes mask values; the mask is what
+    # rendering and training read, and it is read fresh each time. The stage's
+    # `labeled` map is only used to answer "which connected region did I click",
+    # which a brush stroke does not change. The overlay itself is rebuilt on next
+    # open because staleness now includes the mask mtime.
     return jsonify({"ok": True, "changed": changed,
                     "crack_px": int((m == 1).sum()), "not_crack_px": int((m == 2).sum()),
                     "erased_px": int((m == 3).sum())})
@@ -656,7 +686,7 @@ try:
     from app_exports import register as _register_exports
     _register_exports(app, list_images)
     from app_undo import register as _register_undo
-    _register_undo(app, invalidate_stage)
+    _register_undo(app, invalidate_stage, get_stage)
     from app_extras import register as _register_extras
     _register_extras(app, list_images, invalidate_stage)
     print("app endpoints registered: /api/upload, /api/process, /api/retrain, "
