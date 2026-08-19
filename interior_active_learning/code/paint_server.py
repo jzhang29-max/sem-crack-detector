@@ -26,6 +26,7 @@ import os
 import sys
 import io
 import base64
+import threading
 import warnings
 warnings.filterwarnings("ignore")
 import numpy as np
@@ -183,18 +184,56 @@ def stage_ready(image_name):
     return _stage_is_fresh(image_name)
 
 
+_STAGE_LOCKS = {}
+_STAGE_LOCKS_GUARD = threading.Lock()
+
+
+def _stage_lock(image_name):
+    """One lock per image, created on demand.
+
+    Without this, get_stage was check-then-act with no mutual exclusion, and the app runs
+    threaded=True with a background warm thread. Opening a large image while its warm-up
+    was already in flight ran the whole ~200 s pipeline TWICE on the same frame -- the
+    click waited ~400 s instead of reusing the warm result, and peak memory doubled on a
+    6144x4096 frame, which on a laptop is an OOM kill that drops every warm stage.
+    Guarded by its own lock so two threads cannot create two locks for one image.
+    """
+    with _STAGE_LOCKS_GUARD:
+        lk = _STAGE_LOCKS.get(image_name)
+        if lk is None:
+            lk = _STAGE_LOCKS[image_name] = threading.Lock()
+        return lk
+
+
 def get_stage(image_name, force=False):
-    cached = _stage_cache.get(image_name)
-    current_model_mtime = _model_mtime()
-    is_stale = cached is not None and current_model_mtime is not None and \
-        (cached[1] is None or current_model_mtime > cached[1])
-    if force or cached is None or is_stale:
+    def _fresh():
+        cached = _stage_cache.get(image_name)
+        m = _model_mtime()
+        if cached is None:
+            return None, m
+        stale = m is not None and (cached[1] is None or m > cached[1])
+        return (None if stale else cached[0]), m
+
+    if not force:
+        hit, _ = _fresh()
+        if hit is not None:
+            return hit
+    with _stage_lock(image_name):
+        # Re-check inside the lock: while this thread waited, the holder may have
+        # installed exactly the entry it wanted, and the whole point is not to run the
+        # pipeline a second time for it.
+        if not force:
+            hit, current_model_mtime = _fresh()
+            if hit is not None:
+                return hit
+        else:
+            current_model_mtime = _model_mtime()
         # run_enhanced_pipeline (not the bare production pipeline) so
         # whatever models/interior_model.joblib currently accepts renders as
         # plain red and can be corrected exactly like any other candidate --
         # see its docstring in interior_candidates.py.
         _stage_cache[image_name] = (run_enhanced_pipeline(image_name), current_model_mtime)
-    return _stage_cache[image_name][0]
+        return _stage_cache[image_name][0]
 
 
 def list_images():

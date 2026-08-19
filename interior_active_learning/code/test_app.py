@@ -658,6 +658,75 @@ def main():
         for _f in glob.glob(_pp.replace(".png", "*")):
             os.remove(_f)
 
+    # ---------- 13. the retrain promote path ----------
+    # These exist because the previous gate was only reachable by actually retraining, so
+    # a fail-OPEN promotion gate sat in the codebase unnoticed: it read the current
+    # model's held-out AUC out of its own bundle, the deployed bundle has no cv_results,
+    # so the None branch promoted every candidate while the UI promised a comparison.
+    print("\n[13] retrain promotion is fail-closed and single-flight")
+    from app_endpoints import promotion_decision, _running_job_of_kind, _jobs, _jobs_lock
+
+    _go, _why = promotion_decision(0.90, None)
+    check("a missing baseline REFUSES promotion (this was the fail-open bug)",
+          _go is False and "NOT deployed" in (_why or ""), str(_why)[:70])
+    check("a candidate with no held-out AUC is refused",
+          promotion_decision(None, 0.86)[0] is False)
+    check("a better candidate is promoted", promotion_decision(0.90, 0.86)[0] is True)
+    check("an equal candidate is promoted", promotion_decision(0.86, 0.86)[0] is True)
+    _go, _why = promotion_decision(0.80, 0.86)
+    check("a worse candidate is refused and says so",
+          _go is False and "worse than" in (_why or ""), str(_why)[:70])
+
+    with _jobs_lock:
+        _jobs["TESTJOB_SINGLEFLIGHT"] = {"id": "TESTJOB_SINGLEFLIGHT", "kind": "retrain",
+                                         "state": "running", "stage": "training",
+                                         "frac": 0.5, "started": time.time()}
+    try:
+        busy = _running_job_of_kind("retrain", "reapply")
+        check("a running retrain is detected, so a second one can be refused",
+              busy is not None and busy["id"] == "TESTJOB_SINGLEFLIGHT")
+        # NOT tested over HTTP on purpose. _jobs above lives in THIS process; the route
+        # runs in the server process with its own _jobs, so the injected job is invisible
+        # to it and the POST would return 200 -- and actually start a real retrain over
+        # the user's deployed model. (Same two-module-copies trap as importing
+        # paint_server from a submodule.) Assert instead that the route consults the
+        # guard before creating a job, which is the part that can regress silently.
+        _src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "app_endpoints.py")).read()
+        _route = _src[_src.index('@app.route("/api/retrain"'):]
+        _route = _route[:_route.index("_new_job(")]
+        check("/api/retrain consults the single-flight guard before creating a job",
+              "_running_job_of_kind(" in _route and "409" in _route,
+              "guard call is present ahead of _new_job")
+    finally:
+        with _jobs_lock:
+            _jobs.pop("TESTJOB_SINGLEFLIGHT", None)
+
+    # get_stage was check-then-act with a background warm thread, so opening a large image
+    # mid-warm ran the whole pipeline twice and doubled peak memory.
+    import threading as _th
+    import paint_server as _ps
+    _calls = []
+    _real = _ps.run_enhanced_pipeline
+
+    def _counting(name, *a, **k):
+        _calls.append(name)
+        time.sleep(0.6)                     # long enough for the second thread to arrive
+        return {"labeled": None, "df": None, "img8": None, "flat": None,
+                "vesselness": None, "bridge_mask": None}
+    _ps.run_enhanced_pipeline = _counting
+    _ps._stage_cache.pop("LOCKPROBE", None)
+    try:
+        ts = [_th.Thread(target=lambda: _ps.get_stage("LOCKPROBE")) for _ in range(4)]
+        for t in ts: t.start()
+        for t in ts: t.join()
+        check("four concurrent get_stage calls run the pipeline ONCE, not four times",
+              len(_calls) == 1, f"pipeline ran {len(_calls)} time(s)")
+    finally:
+        _ps.run_enhanced_pipeline = _real
+        _ps._stage_cache.pop("LOCKPROBE", None)
+
+
     print("\n[cleanup]")
     removed = 0
     for n in created:
