@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="SEM Crack Detection">
+  <title>SEM Crack Detection</title>
+  <desc>A grey specimen field crossed by a red crack, with one cyan rejected region.</desc>
+  <defs>
+    <linearGradient id="field" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9aa1aa"/>
+      <stop offset="1" stop-color="#4e545d"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#field)"/>
+  <rect x="1" y="1" width="30" height="30" rx="7" fill="none" stroke="#20242b" stroke-width="1.5"/>
+  <path d="M5 8 L11 13 L9 17 L16 20 L14 24 L27 27" fill="none" stroke="#ff2222"
+        stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M5 8 L11 13 L9 17 L16 20 L14 24 L27 27" fill="none" stroke="#ff7a7a"
+        stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.65"/>
+  <circle cx="23" cy="10" r="3.1" fill="#00ccff" opacity="0.92"/>
+</svg>

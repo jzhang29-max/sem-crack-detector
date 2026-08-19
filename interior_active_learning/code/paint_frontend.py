@@ -4,6 +4,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SEM Crack Detection</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' role='img' aria-label='SEM Crack Detection'> <defs> <linearGradient id='field' x1='0' y1='0' x2='1' y2='1'> <stop offset='0' stop-color='#9aa1aa'/> <stop offset='1' stop-color='#4e545d'/> </linearGradient> </defs> <rect x='1' y='1' width='30' height='30' rx='7' fill='url(#field)'/> <rect x='1' y='1' width='30' height='30' rx='7' fill='none' stroke='#20242b' stroke-width='1.5'/> <path d='M5 8 L11 13 L9 17 L16 20 L14 24 L27 27' fill='none' stroke='#ff2222' stroke-width='4.2' stroke-linecap='round' stroke-linejoin='round'/> <path d='M5 8 L11 13 L9 17 L16 20 L14 24 L27 27' fill='none' stroke='#ff7a7a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' opacity='0.65'/> <circle cx='23' cy='10' r='3.1' fill='#00ccff' opacity='0.92'/> </svg>"> <defs> <linearGradient id="field" x1="0" y1="0" x2="1" y2="1"> <stop offset="0" stop-color="#9aa1aa"/> <stop offset="1" stop-color="#4e545d"/> </linearGradient> </defs> <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#field)"/> <rect x="1" y="1" width="30" height="30" rx="7" fill="none" stroke="#20242b" stroke-width="1.5"/> <path d="M5 8 L11 13 L9 17 L16 20 L14 24 L27 27" fill="none" stroke="#ff2222" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/> <path d="M5 8 L11 13 L9 17 L16 20 L14 24 L27 27" fill="none" stroke="#ff7a7a" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.65"/> <circle cx="23" cy="10" r="3.1" fill="#00ccff" opacity="0.92"/> </svg>"> <defs> <linearGradient id="field" x1="0" y1="0" x2="1" y2="1"> <stop offset="0" stop-color="#9aa1aa"/> <stop offset="1" stop-color="#4e545d"/> </linearGradient> </defs> <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#field)"/> <rect x="1" y="1" width="30" height="30" rx="7" fill="none" stroke="#20242b" stroke-width="1.5"/> <path d="M5 8 L11 13 L9 17 L16 20 L14 24 L27 27" fill="none" stroke="#ff2222" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/> <path d="M5 8 L11 13 L9 17 L16 20 L14 24 L27 27" fill="none" stroke="#ff7a7a" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.65"/> <circle cx="23" cy="10" r="3.1" fill="#00ccff" opacity="0.92"/> </svg>">
 <style>
 /* Ported from the sibling TXM app's current frontend (app/static/index.html) so
    the two tools are one family. Its three stated design rules are followed here
@@ -218,7 +219,7 @@ button:disabled{opacity:.4;cursor:default}
       <button class="ghost danger" id="clearBtn" title="Discard unsaved strokes on this image">Reset image</button>
       <button class="ghost" id="helpBtn">?</button>
     </div>
-    <div class="note" id="advnote">SAM adds ~6% accuracy (f1 0.776 vs 0.715) and costs ~3 min per image instead of ~40 s. Marks save themselves about a second after you stop drawing &mdash; there is no Save button. <span class="kbd">&#8984;Z</span> undoes strokes, and once those run out it undoes the last saved correction.</div>
+    <div class="note" id="advnote">SAM is switched off: this build runs the archived model on its own. Marks save themselves about a second after you stop drawing &mdash; there is no Save button. <span class="kbd">&#8984;Z</span> undoes strokes, and once those run out it undoes the last saved correction.</div>
   </div>
 
   <div id="prog"></div>
@@ -347,6 +348,10 @@ let detectInFlight = new Set();
 // in Advanced meant the app quietly ran the weaker configuration and nothing on
 // screen said which one produced the overlay you were looking at.
 let samInstalled = false;
+// SAM is intentionally OFF: the request is the archive model on its own, no
+// added SAM stage. samInstalled still reports availability for the model card,
+// but nothing runs SAM. Flip USE_SAM to re-enable it in one place.
+const USE_SAM = false;
 
 async function loadImage(name) {
   // Guards against a slow load (e.g. the largest images need multiple
@@ -393,7 +398,7 @@ async function loadImage(name) {
     }
     detectInFlight.add(name);
     try {
-      await processImage(name, samInstalled);
+      await processImage(name, USE_SAM);
       needsDetect.delete(name);
     } catch (e) {
       // Fall through to /api/template, which builds it the blocking way. A
@@ -969,7 +974,7 @@ async function handleFiles(fileList) {
   if (up.failed && up.failed.length) {
     setStatus(up.failed.length + ' file(s) rejected: ' + up.failed.map(f => f.file).join(', '));
   }
-  const useSam = samInstalled;
+  const useSam = USE_SAM;
   for (const name of up.added) {
     try {
       const res = await processImage(name, useSam);
@@ -1260,17 +1265,20 @@ refreshModelInfo = async function () {
     card.innerHTML =
       '<div class="row"><span>Type</span><b>' + m.family + '</b></div>' +
       '<div class="row"><span>Threshold</span><b>' + m.threshold.toFixed(3) + '</b></div>' +
-      '<div class="row"><span>Trained on</span><b>' + m.n_train.toLocaleString() +
-        ' regions</b></div>' +
-      '<div class="row"><span>From</span><b>' + m.n_images + ' images</b></div>' +
+      // Only rendered when the bundle actually records them. The archived model
+      // carries no n_train/n_images, and printing the .get() fallbacks rendered
+      // "Trained on 0 regions / From 0 images", which reads as an untrained model.
+      (m.n_train ? '<div class="row"><span>Trained on</span><b>' +
+        m.n_train.toLocaleString() + ' regions</b></div>' : '') +
+      (m.n_images ? '<div class="row"><span>From</span><b>' + m.n_images +
+        ' images</b></div>' : '') +
       // Says which configuration produced what you are looking at. It used to read
       // only "available / not installed", so when the overlays silently reverted to
       // the no-SAM configuration nothing on screen indicated it.
       '<div class="row"><span>Detector</span><b style="color:' +
         (i.sam_available ? 'var(--good)' : 'var(--text-faint)') + '">' +
-        (i.sam_available ? 'Pass 1 + Pass 2 + SAM' : 'Pass 1 + Pass 2, no SAM') + '</b></div>' +
-      '<div class="row"><span>measured f1</span><b>' +
-        (i.sam_available ? '0.776' : '0.715') + '</b></div>';
+        'Pass 1 + Pass 2 (archive model, no SAM)' + '</b></div>' +
+      '<div class="row"><span>model source</span><b>archive (CBS_Crack_Detection_All)</b></div>';
   } catch (e) { }
 };
 
@@ -1422,7 +1430,7 @@ document.getElementById('reapplyBtn').addEventListener('click', async () => {
   // Ask about SAM explicitly and state the cost. Re-apply used to always run
   // pipeline-only, which silently discarded SAM regions from any image that had
   // them -- a downgrade from f1 0.776 to 0.715 with nothing on screen about it.
-  const samOk = samInstalled;
+  const samOk = USE_SAM;
   let withSam = false;
   if (samOk) {
     withSam = confirm('Re-render every image.\n\n' +

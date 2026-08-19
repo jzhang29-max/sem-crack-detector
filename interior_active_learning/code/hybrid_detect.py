@@ -177,7 +177,7 @@ def sam_crack_mask(img8, flat, vesselness, bundle, progress=None):
     return accepted, n_kept
 
 
-def detect(image_name, use_sam=True, progress=None):
+def detect(image_name, use_sam=False, progress=None):
     """Run the full detector. Returns the run_unified_pipeline stage dict with
     a `sam_mask` and `crack_mask` added.
 
@@ -265,7 +265,7 @@ def fold_sam_into_candidates(stage, image_name):
     return len(rows)
 
 
-def render_and_record(image_name, use_sam=True, progress=None):
+def render_and_record(image_name, use_sam=False, progress=None):
     """Detect, fold SAM in, write the paint template, update candidate counts.
 
     The single entry point for producing an overlay, so the interactive and
