@@ -47,6 +47,46 @@ _jobs = {}
 _jobs_lock = threading.Lock()
 
 
+def promotion_decision(new_loio, cur_loio):
+    """Should a freshly trained candidate replace production? (promote, reason)
+
+    Pulled out of the retrain closure so it can be tested without a 10-minute training
+    run -- the previous version was only reachable by actually retraining, which is why
+    a fail-OPEN gate survived in the codebase unnoticed.
+
+    The rule that matters: a MISSING baseline is a refusal, not a pass. It used to read
+    `cur_loio is None or new_loio >= cur_loio`, and because the deployed bundle carries no
+    cv_results the left branch was always true, so every retrain was promoted while the UI
+    promised a held-out comparison.
+    """
+    if new_loio is None:
+        return False, "new model reported no held-out AUC; not deployed"
+    if cur_loio is None:
+        return False, ("NOT deployed: the training run did not report the current "
+                       "model's held-out AUC, so there is nothing to compare "
+                       "against; production left unchanged")
+    if new_loio >= cur_loio - 1e-9:
+        return True, None       # caller fills in the reason, it names the backup file
+    return False, (f"NOT deployed: held-out AUC {new_loio:.4f} is worse than "
+                   f"current {cur_loio:.4f}; production left unchanged")
+
+
+def _running_job_of_kind(*kinds):
+    """A job of one of these kinds that is still running, or None.
+
+    Retrain is not re-entrant: two concurrent runs share CODE_DIR and the same
+    crack_classifier_v3_weighted.joblib intermediate, so the second overwrites the
+    first's candidate mid-promotion. That also defeats the atomic promote and the
+    timestamped PREV backup, which is why this guard has to exist for those to mean
+    anything.
+    """
+    with _jobs_lock:
+        for j in _jobs.values():
+            if j.get("kind") in kinds and j.get("state") == "running":
+                return j
+    return None
+
+
 def _new_job(kind, note=""):
     jid = uuid.uuid4().hex[:12]
     with _jobs_lock:
@@ -253,6 +293,13 @@ def register(app, get_stage, invalidate_stage=None):
         body = request.get_json(silent=True) or {}
         regen = bool(body.get("regenerate", True))
         regen_sam = bool(body.get("regenerate_with_sam", False))
+        # Single-flight. A double-click, a second tab, or a Retrain fired while a
+        # Re-apply is still running previously started a second training run against the
+        # same intermediate files.
+        busy = _running_job_of_kind("retrain", "reapply")
+        if busy is not None:
+            return jsonify({"ok": False, "error": f"a {busy['kind']} job is already "
+                            f"running ({busy['stage']})", "job": busy["id"]}), 409
         jid = _new_job("retrain")
 
         def work(report):
@@ -291,22 +338,45 @@ def register(app, get_stage, invalidate_stage=None):
                 m = _json.load(open(mj))
                 cv = (m.get("cv_results") or {}).get(m.get("best", ""), {})
                 new_loio = cv.get("loio_auc_exhaustive_image")
-                cur = joblib.load(PROD_MODEL_PATH)
-                cur_loio = (cur.get("cv_results", {}).get(cur.get("model_family", ""), {})
-                            or {}).get("loio_auc_exhaustive_image")
+                # BASELINE MUST BE LIKE-FOR-LIKE, AND MISSING MUST MEAN REFUSE.
+                #
+                # This used to read the CURRENT model's score out of its own bundle and
+                # then promote when that came back None:
+                #     elif cur_loio is None or new_loio >= cur_loio - 1e-9:
+                # The deployed bundle carries only scaler/clf/feature_names/sklearn_version
+                # -- no cv_results -- so cur_loio was ALWAYS None and the gate promoted
+                # unconditionally, while the Retrain tooltip promised "deployed only if it
+                # scores at least as well on held-out data". A retrain that collapsed
+                # specificity would have shipped silently.
+                #
+                # train_v3_weighted.py scores the model that is in production at retrain
+                # time on the same held-out image, in the same run, with the same code, and
+                # records it as production_on_held_out.auc. That is the honest comparison,
+                # and it does not depend on what metadata a bundle happens to carry.
+                cur_loio = ((m.get("production_on_held_out") or {}).get("auc"))
                 out["loio_new"], out["loio_current"] = new_loio, cur_loio
-                if new_loio is None:
-                    reason = "new model reported no held-out AUC; not deployed"
-                elif cur_loio is None or new_loio >= cur_loio - 1e-9:
+                _go, _why = promotion_decision(new_loio, cur_loio)
+                if not _go:
+                    reason = _why
+                else:
+                    # Keep every superseded model. This used to write one fixed
+                    # crack_classifier_PREV.joblib, so a second Retrain overwrote the only
+                    # recoverable copy with the first retrain's output and the model the
+                    # user had been working with was gone from disk entirely.
+                    _stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime())
+                    shutil.copy2(PROD_MODEL_PATH, os.path.join(
+                        PROJECT_ROOT, "models", f"crack_classifier_PREV-{_stamp}.joblib"))
                     shutil.copy2(PROD_MODEL_PATH, os.path.join(
                         PROJECT_ROOT, "models", "crack_classifier_PREV.joblib"))
-                    shutil.copy2(cand, PROD_MODEL_PATH)
+                    # Atomic: a plain copy2 onto the live path leaves a window where
+                    # /api/pipeline_info and every pipeline run can load a truncated pickle.
+                    _tmp = PROD_MODEL_PATH + ".tmp"
+                    shutil.copy2(cand, _tmp)
+                    os.replace(_tmp, PROD_MODEL_PATH)
                     promoted = True
                     reason = (f"deployed: held-out AUC {new_loio:.4f} >= current "
-                              f"{cur_loio if cur_loio is None else round(cur_loio,4)}")
-                else:
-                    reason = (f"NOT deployed: held-out AUC {new_loio:.4f} is worse than "
-                              f"current {cur_loio:.4f}; production left unchanged")
+                              f"{round(cur_loio, 4)}; previous model kept as "
+                              f"crack_classifier_PREV-{_stamp}.joblib")
             out["promoted"], out["reason"] = promoted, reason
 
             if regen and promoted:
