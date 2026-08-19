@@ -168,12 +168,14 @@ configuration, not a different trained model.
 
 Which means it only applies where it is actually run:
 
-| action | includes SAM? |
-|---|---|
-| dropping in a new image | yes, if **Use SAM** is ticked |
-| **Re-apply model** | only if you choose it when asked |
-| the re-render after **Retrain** | only if you ask for it |
-| the overlays shipped in this repo | **no** — pipeline only, f1 0.715 |
+**There is no SAM checkbox.** If PyTorch is installed, SAM is used — for new
+uploads, for Re-apply, and for the re-render after Retrain. If it is not installed,
+the pipeline runs alone and the model card says `Pass 1 + Pass 2, no SAM` with its
+f1, so the configuration on screen is never ambiguous.
+
+That was not always true, and the cost of the old design was real: the checkbox
+defaulted off in places, so a Re-apply silently downgraded every overlay from 0.776
+to 0.715 with nothing on screen to say so.
 
 Including SAM costs **~8 min per image** instead of ~40 s, so a 62-image
 re-render is **~8.5 hours** rather than ~15 minutes. (Measured on an Apple M-series

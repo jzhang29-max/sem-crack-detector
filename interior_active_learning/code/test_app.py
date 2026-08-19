@@ -289,6 +289,8 @@ def main():
     # failing is how that removal was caught, which is the point of listing them
     # explicitly rather than sampling.
     #
+    # useSam is gone too: SAM is used whenever installed, with no checkbox.
+    #
     # modelInfo is likewise gone, replaced by modelCard. It was a leftover from
     # before the sidebar was restyled around a card, and both were being filled
     # from /api/pipeline_info -- so the sidebar printed the live model's family,
@@ -297,7 +299,7 @@ def main():
                  "imageSelect", "swatchRed", "swatchCyan", "swatchErase", "brushSize",
                  "brushSizeLabel", "bucketBtn", "zoom", "zoomLabel", "fitBtn", "undoBtn",
                  "clearBtn", "dropZone", "jobBar", "jobFill",
-                 "jobLabel", "jobNote", "modelCard", "retrainBtn", "useSam",
+                 "jobLabel", "jobNote", "modelCard", "retrainBtn",
                  "dlMask", "dlOverlay", "dlCsv", "dlAll"]
     missing = [i for i in LOGIC_IDS if f'id="{i}"' not in html]
     check("every id the paint logic depends on survived the redesign",
@@ -306,6 +308,14 @@ def main():
     check("the duplicated model line is not back",
           'id="modelInfo"' not in html,
           "modelCard already states family, threshold, rows and SAM state")
+
+    # SAM is a runtime stage, not a separate model, and it is the better-measured
+    # configuration -- so it is used whenever installed rather than hidden behind a
+    # tick box that defaulted off in places and silently downgraded overlays from
+    # f1 0.776 to 0.715.
+    check("there is no SAM checkbox", 'id="useSam"' not in html)
+    check("the model card names the detector configuration",
+          "Pass 1 + Pass 2 + SAM" in html and "measured f1" in html)
 
     for name, token in [("sidebar image list", 'id="imageList"'),
                         ("image filter box", 'id="imgSearch"'),

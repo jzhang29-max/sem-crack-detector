@@ -152,20 +152,20 @@
     "n_crack": 980
   },
   "260622_316_H_b2_front_CBS_01": {
-    "n_candidates": 1050,
-    "n_crack": 861
+    "n_candidates": 1311,
+    "n_crack": 1122
   },
   "260622_316_H_b2_front_CBS_02": {
     "n_candidates": 841,
     "n_crack": 763
   },
   "260622_316_H_b2_front_CBS_03": {
-    "n_candidates": 276,
-    "n_crack": 257
+    "n_candidates": 434,
+    "n_crack": 415
   },
   "260622_316_H_b2_front_CBS_04": {
-    "n_candidates": 398,
-    "n_crack": 280
+    "n_candidates": 481,
+    "n_crack": 363
   },
   "260622_316_H_b4_CBS_01": {
     "n_candidates": 822,
@@ -180,16 +180,16 @@
     "n_crack": 491
   },
   "260622_316_amb_b3_CBS_02": {
-    "n_candidates": 280,
-    "n_crack": 242
+    "n_candidates": 355,
+    "n_crack": 317
   },
   "260708_316_H_b2_front_CBS_001": {
     "n_candidates": 17,
     "n_crack": 15
   },
   "260708_316_H_b2_front_CBS_002": {
-    "n_candidates": 321,
-    "n_crack": 129
+    "n_candidates": 377,
+    "n_crack": 185
   },
   "260708_316_H_b2_front_CBS_003": {
     "n_candidates": 298,
