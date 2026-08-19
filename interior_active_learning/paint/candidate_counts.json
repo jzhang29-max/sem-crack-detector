@@ -246,5 +246,9 @@
   "260708_316_H_b2_front_CBS_016": {
     "n_candidates": 120,
     "n_crack": 111
+  },
+  "apptest_tif": {
+    "n_candidates": 2,
+    "n_crack": 2
   }
 }
