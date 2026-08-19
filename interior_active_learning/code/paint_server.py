@@ -34,8 +34,8 @@ from flask import Flask, request, jsonify, send_file, Response
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (PAINT_DIR, ORIGINAL_DIR, CANDIDATES_DIR, MODELS_DIR,
-                    load_correction_mask, save_correction_mask, mask_lock,
-                    save_png_atomic)
+                    PROD_MODEL_PATH, load_correction_mask, save_correction_mask,
+                    mask_lock, save_png_atomic)
 from apply_paint_annotations import (
     make_template as _make_template, ingest as _ingest, RED, CYAN, ERASE_MARKER, _color_mask,
     _log_touched_labels, _log_interior_origin_corrections,
