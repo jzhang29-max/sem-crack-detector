@@ -26,11 +26,16 @@ tifffile>=2026.7
 # runs without it.
 #   rsvg-convert
 
-# ---- optional: SAM hybrid detection ----
+# ---- SAM: used automatically when present ----
 # Without these the app still runs, using the pipeline alone. Measured on 5
 # images with human ground truth: pipeline f1 0.715, pipeline+SAM f1 0.776.
 # Costs ~8 min/image on Apple MPS vs ~40s without (measured at 6144x4096), so the
 # app exposes it as a checkbox rather than forcing it.
+# The app has no SAM checkbox: if these are installed it uses SAM, because SAM is a
+# runtime stage rather than a separate model and it is the better-measured
+# configuration. They are still not hard requirements -- ~2.5 GB plus a ~2.4 GB
+# checkpoint on first use -- so without them the app runs the pipeline alone and the
+# model card says so.
 #   pip install torch transformers torchvision
 # torchvision is genuinely required, not optional-within-optional: SAM's
 # mask-generation post-processing calls its NMS.

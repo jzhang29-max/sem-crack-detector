@@ -211,7 +211,6 @@ button:disabled{opacity:.4;cursor:default}
       <div class="fld">Brush <input type="range" id="brushSize" min="2" max="120" value="18"><span class="num" id="brushSizeLabel">18px</span></div>
       <div class="fld">Zoom <input type="range" id="zoom" min="10" max="800" value="100"><span class="num" id="zoomLabel">100%</span>
         <button class="ghost" id="fitBtn">Fit</button></div>
-      <label class="fld" style="gap:7px"><input type="checkbox" id="useSam" checked> Use SAM on new images</label>
       <button class="ghost" id="installSamBtn" style="display:none" title="Install PyTorch + transformers into this app's virtualenv, no terminal needed">Enable SAM (+6% accuracy)</button>
       <div class="sp"></div>
       <button class="ghost" id="reapplyBtn" title="Re-render every image with the current model">Re-apply model</button>
@@ -342,6 +341,12 @@ let loadRequestId = 0;
 let needsDetect = new Set();
 // Images with a detection job already running, so a second click cannot start one.
 let detectInFlight = new Set();
+// Whether SAM is installed. There is no longer a checkbox: SAM is the detector's
+// best-measured configuration (f1 0.776 vs 0.715) and it is a runtime stage, not a
+// separate model, so if it is installed it is simply used. Leaving it to a tick box
+// in Advanced meant the app quietly ran the weaker configuration and nothing on
+// screen said which one produced the overlay you were looking at.
+let samInstalled = false;
 
 async function loadImage(name) {
   // Guards against a slow load (e.g. the largest images need multiple
@@ -378,7 +383,7 @@ async function loadImage(name) {
   // where the only feedback is the 8-second "still loading" message above.
   if (needsDetect.has(name)) {
     clearTimeout(slowLoadTimer);
-    const samBox = document.getElementById('useSam');
+
     // One job per image. Clicking an unrendered image twice used to POST
     // /api/process twice and run two full pipelines over the same frame,
     // competing for CPU and each writing the same template.
@@ -388,7 +393,7 @@ async function loadImage(name) {
     }
     detectInFlight.add(name);
     try {
-      await processImage(name, !!(samBox && samBox.checked && !samBox.disabled));
+      await processImage(name, samInstalled);
       needsDetect.delete(name);
     } catch (e) {
       // Fall through to /api/template, which builds it the blocking way. A
@@ -964,7 +969,7 @@ async function handleFiles(fileList) {
   if (up.failed && up.failed.length) {
     setStatus(up.failed.length + ' file(s) rejected: ' + up.failed.map(f => f.file).join(', '));
   }
-  const useSam = document.getElementById('useSam').checked;
+  const useSam = samInstalled;
   for (const name of up.added) {
     try {
       const res = await processImage(name, useSam);
@@ -1035,7 +1040,7 @@ async function refreshModelInfo() {
   try {
     const i = await (await fetch('/api/pipeline_info')).json();
     const m = i.model;
-    if (!i.sam_available) document.getElementById('useSam').checked = false;
+    samInstalled = !!i.sam_available;
   } catch (e) { /* non-fatal */ }
 }
 
@@ -1258,9 +1263,14 @@ refreshModelInfo = async function () {
       '<div class="row"><span>Trained on</span><b>' + m.n_train.toLocaleString() +
         ' regions</b></div>' +
       '<div class="row"><span>From</span><b>' + m.n_images + ' images</b></div>' +
-      '<div class="row"><span>SAM</span><b style="color:' +
+      // Says which configuration produced what you are looking at. It used to read
+      // only "available / not installed", so when the overlays silently reverted to
+      // the no-SAM configuration nothing on screen indicated it.
+      '<div class="row"><span>Detector</span><b style="color:' +
         (i.sam_available ? 'var(--good)' : 'var(--text-faint)') + '">' +
-        (i.sam_available ? 'available' : 'not installed') + '</b></div>';
+        (i.sam_available ? 'Pass 1 + Pass 2 + SAM' : 'Pass 1 + Pass 2, no SAM') + '</b></div>' +
+      '<div class="row"><span>measured f1</span><b>' +
+        (i.sam_available ? '0.776' : '0.715') + '</b></div>';
   } catch (e) { }
 };
 
@@ -1400,9 +1410,8 @@ document.getElementById('installSamBtn').addEventListener('click', async () => {
   try {
     const i = await (await fetch('/api/pipeline_info')).json();
     if (!i.sam_available) {
+      // Only offer the install when SAM is genuinely missing.
       document.getElementById('installSamBtn').style.display = '';
-      document.getElementById('useSam').checked = false;
-      document.getElementById('useSam').disabled = true;
     }
   } catch (e) { }
 })();
@@ -1413,7 +1422,7 @@ document.getElementById('reapplyBtn').addEventListener('click', async () => {
   // Ask about SAM explicitly and state the cost. Re-apply used to always run
   // pipeline-only, which silently discarded SAM regions from any image that had
   // them -- a downgrade from f1 0.776 to 0.715 with nothing on screen about it.
-  const samOk = document.getElementById('useSam') && !document.getElementById('useSam').disabled;
+  const samOk = samInstalled;
   let withSam = false;
   if (samOk) {
     withSam = confirm('Re-render every image.\n\n' +

@@ -198,7 +198,13 @@ def register(app, list_images, invalidate_stage):
     def api_reapply():
         from app_endpoints import _new_job, _run_bg
         from hybrid_detect import sam_available
-        want_sam = bool((request.get_json(silent=True) or {}).get("use_sam", False))
+        # Defaults to SAM when SAM is installed. It used to default to False, so a
+        # Re-apply silently downgraded every overlay from f1 0.776 to 0.715 unless the
+        # user happened to opt in -- which is how the shipped overlays lost their SAM
+        # regions in the first place.
+        from hybrid_detect import sam_available as _sam_ok
+        _body = request.get_json(silent=True) or {}
+        want_sam = bool(_body.get("use_sam", _sam_ok()))
         if want_sam and not sam_available():
             return jsonify({"ok": False, "error": "SAM is not installed"}), 409
         jid = _new_job("reapply")
