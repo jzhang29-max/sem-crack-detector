@@ -145,12 +145,45 @@ def run_unified_pipeline(image_name, stage=None):
         dark_mask = segment_dark_regions(flat, img8=img8)
         clean = clean_mask(dark_mask, min_area_px=13)
         vesselness = compute_vesselness(flat)
-        # Edge/fracture-surface captures have real empty background beyond an
-        # irregular specimen boundary, which reads as "dark" exactly like a
-        # crack. Without this the app proposes that background as candidates
-        # (and it silently inflated the measured dark-area fraction on 16 of
-        # the images -- see MODEL_VALIDATION_BENCHMARK.md).
-        clean = exclude_border_background(clean, vesselness)
+        # exclude_border_background() USED TO RUN HERE. It is deliberately not
+        # called any more, and the reason is measured, not stylistic.
+        #
+        # It removed large, border-touching, low-vesselness regions as off-specimen
+        # background. But a wide open crack IS large, border-touching and smooth, so
+        # it deleted main cracks -- verified against the human masks: 2,500,241 px
+        # removed on ..._front_CBS_004 including 69,497 px the user had marked BY HAND
+        # as crack (35% of their marks on that image), and 1,189,583 px on _003
+        # including 167,607 hand-marked px (37%). Those pixels never reached the
+        # classifier, so the main crack rendered black no matter what the model did.
+        #
+        # Recalibrating max_vesselness cannot save it. Measured across all 62 images,
+        # the two populations overlap completely: deleted regions that are
+        # hand-marked crack span vesselness 0.000027-0.002260, while large
+        # unmarked (candidate background) regions span 0.000181-0.002344. There is
+        # no cut point. The feature does not separate crack from background here,
+        # which is exactly why the archived pipeline never called this.
+        #
+        # Off-specimen background does still get proposed on some edge captures --
+        # the real problem this was written for, and on the MAR Cast frames it floods
+        # most of the lower frame red. That is a visible, correctable false positive
+        # (paint it not-crack once and the correction overrides the model for good),
+        # whereas deleting the main crack was silent and uncorrectable.
+        #
+        # THREE discriminators were measured on this dataset and ALL of them overlap,
+        # so do not reintroduce a region-level rule expecting one to work:
+        #   vesselness      crack 0.000027-0.002260   vs  background 0.000181-0.002344
+        #   raw darkness    INVERTED -- the main crack on ..._front_CBS_004 is mean
+        #                   1.44 / local std 0.53, DARKER and SMOOTHER than the
+        #                   off-specimen background at 5.02 / 2.09
+        #   perimeter touch crack 28.6% (..._front_CBS_005) vs background 28.5%
+        #                   (MAR_Amb_Cast_CBS_0001) -- a 0.1 point margin
+        # Physically this is expected: a wide-open crack void and empty background are
+        # the same thing to the detector, no returned signal. What separates them is
+        # whether the region is enclosed by specimen, which none of these measure.
+        #
+        # Worse, on MAR_Amb_Cast_CBS_0005 the background region and the crack are ONE
+        # connected component containing 976,295 hand-marked crack pixels, so no
+        # region-level exclusion can drop it without destroying human labels.
         labeled, df = extract_candidates(clean, flat, vesselness, min_area_px=40)
 
         # --- PASS 1: score original candidates with the unified model ---

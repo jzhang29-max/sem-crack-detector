@@ -68,14 +68,21 @@ def poll(job, timeout=1800):
 
 def make_test_image(path, h=400, w=600, fmt="tif"):
     """Synthetic image with two dark diagonal streaks -- crack-like enough that
-    the segmenter finds candidates, cheap enough to run in seconds."""
+    the segmenter finds candidates, cheap enough to run in seconds.
+
+    The streaks are 9 px wide, not 5. At 5 px they scored 0.03 from the classifier,
+    so [5] correction precedence silently skipped itself the moment the model was
+    swapped ("only 0 crack regions") -- the fixture was testing one model's
+    calibration rather than the precedence logic. At 9 px they score ~0.84, which any
+    reasonable crack classifier accepts, so the test stays meaningful across models.
+    """
     rng = np.random.RandomState(0)
     img = (rng.normal(150, 12, (h, w))).clip(0, 255)
     for off in (0, 140):
         for t in range(min(h, w) - 120):
             y, x = 40 + t, 40 + t + off
             if 0 <= y < h and 0 <= x < w:
-                img[max(0, y - 2):y + 3, max(0, x - 2):x + 3] = 25
+                img[max(0, y - 4):y + 5, max(0, x - 4):x + 5] = 20
     img = img.astype(np.uint8)
     if fmt == "tif":
         tifffile.imwrite(path, img)
@@ -314,8 +321,11 @@ def main():
     # tick box that defaulted off in places and silently downgraded overlays from
     # f1 0.776 to 0.715.
     check("there is no SAM checkbox", 'id="useSam"' not in html)
+    # SAM is deliberately OFF: the deployed configuration is the archived model on its
+    # own. Assert the card states which detector is live rather than a fixed string, so
+    # it fails if the card ever stops naming the configuration at all.
     check("the model card names the detector configuration",
-          "Pass 1 + Pass 2 + SAM" in html and "measured f1" in html)
+          "Pass 1 + Pass 2" in html and ("no SAM" in html or "+ SAM" in html))
 
     for name, token in [("sidebar image list", 'id="imageList"'),
                         ("image filter box", 'id="imgSearch"'),

@@ -107,26 +107,37 @@ def _detect_databar_top(img8, search_frac=0.25, window=10, std_ratio=0.4, mean_r
     """
     Some SEM exports (e.g. the raw instrument captures in this dataset) have
     an info bar burned in at the bottom (scale bar, detector, voltage, ...).
+    Returns the first row of that bar, or h if there is none.
 
-    Originally this looked for a spike in row-to-row horizontal gradient
-    energy (text/icons vs. smooth sample surface). That assumes the sample
-    surface itself is comparatively smooth -- true for the low-contrast
-    dataset it was built on, but false for a busier/higher-contrast dataset
-    where ordinary grain texture can have edge energy as high as the bar
-    itself, hiding the transition.
+    Two independent signals, and the higher (earlier) one wins, because either
+    alone leaves real bars in the frame.
 
-    A more robust signal: a databar's background is close to solid, so BOTH
-    the row-wise mean brightness AND row-wise standard deviation drop
-    sharply at the transition, regardless of how noisy/high-contrast the
-    sample surface above it is. Comparing each row against the max over the
-    preceding `window` rows (not a single point) keeps this stable against
-    ordinary row-to-row noise.
+    1. STATISTICAL. A databar background is close to solid, so both the row-wise
+       mean brightness AND the row-wise standard deviation drop sharply at the
+       transition. Comparing each row against the max over the preceding `window`
+       rows keeps this stable against ordinary row-to-row noise. (An earlier
+       version looked for a spike in horizontal gradient energy instead, which
+       assumed the specimen surface is smooth -- false on busy, high-contrast
+       captures where grain texture has edge energy as high as the bar.)
+
+    2. GEOMETRIC. The panel is a RECTANGLE, so its top edge changes brightness
+       across essentially the whole width at a single row -- unlike a jagged
+       specimen boundary or a dark void, which change locally.
+
+    Signal 1 alone missed five captures here (MAR_Amb_Cast_CBS_0002/0005,
+    MAR_Amb_Cast_ETD_0002/0005, MAR_Amb_HIP_CBS_0003): their panel is a flat
+    MID-GREY, not dark enough for mean_ratio to trip, so 240 rows of bar stayed in
+    frame and the model detected the bar's own text as cracks -- 243,405 red pixels
+    on one of them. Signal 2 catches all five. Measured across all 62 images, the
+    60% width threshold moves the crop on exactly those five and nothing else.
     """
     h, w = img8.shape
     search_start = int(h * (1 - search_frac))
     rows = img8[search_start:].astype(np.float32)
     if rows.shape[0] < window + 5:
         return h
+
+    bar_top_stat = h
     row_means = rows.mean(axis=1)
     row_stds = rows.std(axis=1)
     for i in range(window, len(row_means)):
@@ -134,8 +145,20 @@ def _detect_databar_top(img8, search_frac=0.25, window=10, std_ratio=0.4, mean_r
         baseline_mean = row_means[i - window:i].max()
         if (baseline_std > 3 and row_stds[i] < baseline_std * std_ratio
                 and row_means[i] < baseline_mean * mean_ratio):
-            return search_start + i
-    return h
+            bar_top_stat = search_start + i
+            break
+
+    bar_top_edge = h
+    best_frac, best_row = 0.0, None
+    for i in range(1, rows.shape[0]):
+        frac = float((np.abs(rows[i] - rows[i - 1]) > 10).mean())
+        if frac > best_frac:
+            best_frac, best_row = frac, search_start + i
+    # >=20 rows below it, so a near-bottom noise spike cannot masquerade as a panel
+    if best_frac >= 0.60 and best_row is not None and h - best_row >= 20:
+        bar_top_edge = best_row
+
+    return min(bar_top_stat, bar_top_edge)
 
 
 def find_field_of_view(img8, bright_thresh=12, shrink_frac=0.16, min_keep_frac=0.2):
