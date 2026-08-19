@@ -250,5 +250,13 @@
   "apptest_tif": {
     "n_candidates": 2,
     "n_crack": 2
+  },
+  "apptest_png": {
+    "n_candidates": 2,
+    "n_crack": 2
+  },
+  "apptest_jpg": {
+    "n_candidates": 2,
+    "n_crack": 2
   }
 }
