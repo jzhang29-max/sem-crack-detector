@@ -49,6 +49,8 @@ ROOT = os.path.abspath(os.path.join(_HERE, "..", "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "interior_active_learning", "code"))
 sys.path.insert(0, os.path.join(ROOT, "code"))
 
+import contextlib
+
 import joblib
 import numpy as np
 from PIL import Image
@@ -56,6 +58,7 @@ from skimage import measure
 
 from common import PAINT_DIR, PROD_MODEL_PATH, load_correction_mask
 from detect_cracks import region_features_from_labeled
+import unified_pipeline as _up
 from unified_pipeline import run_unified_pipeline
 
 Image.MAX_IMAGE_PIXELS = None
@@ -89,16 +92,53 @@ class Case:
         return self.human_crack & ~self.pipeline_crack
 
 
+@contextlib.contextmanager
+def _without_human_input():
+    """Run the pipeline as the MODEL alone would, with no human corrections folded in.
+
+    This exists because of a bug that made the first version of this harness report
+    a flat +0.0000 for all nine proposers. run_unified_pipeline() applies the
+    correction mask and the override ledger to its own output (unified_pipeline.py
+    :160-167), so `pipeline_crack` CONTAINED every human-marked crack pixel by
+    construction. Baseline recall was exactly 1.000 and `missed` was empty, which
+    forces every possible delta to zero: the proposers were never being tested at
+    all, and the run looked like a clean negative result instead of a broken one.
+
+    Neutralising both loaders here also fixes specificity. With corrections applied,
+    human not-crack marks had already been subtracted from the prediction, so spec
+    was 1.000 too; the raw model can light those pixels up, and now they count
+    against it as they should.
+    """
+    orig_mask, orig_ovr = _up.load_correction_mask, _up.load_hard_overrides
+    _up.load_correction_mask = lambda *a, **k: None
+    _up.load_hard_overrides = lambda *a, **k: None
+    try:
+        yield
+    finally:
+        _up.load_correction_mask, _up.load_hard_overrides = orig_mask, orig_ovr
+
+
 def load_case(name):
-    stage = run_unified_pipeline(name)
+    with _without_human_input():
+        stage = run_unified_pipeline(name)
     labeled, df = stage["labeled"], stage["df"]
     pipe = np.isin(labeled, df.loc[df["IsCrack"], "Label"].tolist())
     m = load_correction_mask(name, labeled.shape)
     if m is None:
         raise ValueError(f"{name}: no usable correction mask")
-    return Case(name=name, img8=stage["img8"], flat=stage["flat"],
+    case = Case(name=name, img8=stage["img8"], flat=stage["flat"],
                 vesselness=stage["vesselness"], labeled=labeled,
                 pipeline_crack=pipe, human_crack=(m == 1), human_not=(m == 2))
+    # Guard against the contamination above returning by another route. An image
+    # whose baseline already has perfect recall has no ground left to recover, so
+    # including it would silently pull every mean toward zero.
+    base = _score(case.pipeline_crack, case)
+    if base["recall"] >= 0.9995 or not case.missed.any():
+        raise ValueError(
+            f"{name}: baseline recall {base['recall']:.4f} with "
+            f"{int(case.missed.sum())} missed px -- no headroom to measure. "
+            "Human corrections are leaking into pipeline_crack.")
+    return case
 
 
 def _bundle():
