@@ -35,6 +35,9 @@ from flask import jsonify, request
 
 from common import ORIGINAL_DIR, PAINT_DIR, PROJECT_ROOT, PROD_MODEL_PATH
 
+# Serialises upload name reservation; see _ingest_upload.
+_UPLOAD_LOCK = threading.Lock()
+
 Image.MAX_IMAGE_PIXELS = None
 CODE_DIR = os.path.dirname(os.path.abspath(__file__))
 COUNTS_PATH = os.path.join(PAINT_DIR, "candidate_counts.json")
@@ -92,30 +95,71 @@ def _ingest_upload(storage):
     ext = os.path.splitext(storage.filename)[1].lower()
     if ext not in ALLOWED:
         raise ValueError(f"unsupported file type {ext}")
-    dest = os.path.join(ORIGINAL_DIR, f"{name}.tif")
-    n = 1
-    while os.path.exists(dest):
-        dest = os.path.join(ORIGINAL_DIR, f"{name}_{n}.tif")
-        n += 1
-    final_name = os.path.splitext(os.path.basename(dest))[0]
+    # A name is "taken" if ANYTHING still belongs to it, not just the .tif.
+    # /api/remove deliberately leaves the correction mask behind so a misclick is
+    # recoverable -- but the collision check only looked at original/, so a later
+    # upload could seize that name and inherit a stranger's hand-marked labels,
+    # silently transplanting them onto different pixels.
+    from common import _correction_mask_path
+    def _taken(nm):
+        return (os.path.exists(os.path.join(ORIGINAL_DIR, f"{nm}.tif"))
+                or os.path.exists(_correction_mask_path(nm))
+                or os.path.exists(os.path.join(PAINT_DIR, f"{nm}_paint_template.png")))
+
+    # Reserve the name under a lock and create the file immediately with O_EXCL.
+    # Two uploads of the same filename used to both pass the existence check and
+    # then both write the same destination, so one image vanished with ok:true.
+    with _UPLOAD_LOCK:
+        cand, n = name, 1
+        while _taken(cand):
+            cand = f"{name}_{n}"
+            n += 1
+        dest = os.path.join(ORIGINAL_DIR, f"{cand}.tif")
+        os.close(os.open(dest, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+    final_name = cand
 
     tmp = os.path.join(PROJECT_ROOT, f".upload_{uuid.uuid4().hex[:8]}{ext}")
+    part = dest + ".part"
     storage.save(tmp)
     try:
         if ext in (".tif", ".tiff"):
-            arr = tifffile.imread(tmp)
-            arr = np.asarray(arr)
-            while arr.ndim > 2:
+            arr = np.asarray(tifffile.imread(tmp))
+            # Collapse PAGE axes only. `while arr.ndim > 2: arr = arr[0]` treated an
+            # interleaved colour axis as a page axis, so an (H, W, 3) RGB TIFF became
+            # (W, 3) -- row 0 only, axes transposed, 0.15% of a 6.3-megapixel frame --
+            # and detection then "succeeded" on that strip with no warning anywhere.
+            while arr.ndim > 3:
                 arr = arr[0]
-            tifffile.imwrite(dest, arr)
+            if arr.ndim == 3:
+                if arr.shape[-1] in (2, 3, 4):        # interleaved colour / alpha
+                    rgb = arr[..., :3]
+                    if rgb.dtype == np.uint8:
+                        arr = np.asarray(Image.fromarray(rgb).convert("L"))
+                    else:                              # 16-bit colour: luminance by hand
+                        arr = (0.299 * rgb[..., 0] + 0.587 * rgb[..., 1]
+                               + 0.114 * rgb[..., 2]).astype(rgb.dtype)
+                else:                                  # a genuine page/plane axis
+                    arr = arr[0]
+            if arr.ndim != 2:
+                raise ValueError(f"unsupported TIFF shape {arr.shape}")
+            tifffile.imwrite(part, arr)
         else:
             im = Image.open(tmp)
             if im.mode not in ("L", "I;16", "I"):
                 im = im.convert("L")
-            tifffile.imwrite(dest, np.array(im))
+            tifffile.imwrite(part, np.array(im))
+        os.replace(part, dest)
+    except Exception:
+        # Do not leave the reserved zero-byte placeholder behind: the sidebar would
+        # list it as an image and every click on it would fail.
+        for f in (part, dest):
+            if os.path.exists(f):
+                os.remove(f)
+        raise
     finally:
-        if os.path.exists(tmp):
-            os.remove(tmp)
+        for f in (tmp,):
+            if os.path.exists(f):
+                os.remove(f)
     return final_name
 
 

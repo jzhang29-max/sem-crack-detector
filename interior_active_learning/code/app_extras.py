@@ -185,6 +185,9 @@ def register(app, list_images, invalidate_stage):
                             "error": "refusing to overwrite the model being selected"}), 400
         shutil.copy2(PROD_MODEL_PATH, backup)
         shutil.copy2(src, PROD_MODEL_PATH)
+        # copy2 preserves the SOURCE's mtime, so rolling back to an older model could
+        # move production's mtime backwards and nothing downstream looked stale.
+        os.utime(PROD_MODEL_PATH, None)
         if invalidate_stage:
             invalidate_stage(None)
         return jsonify({"ok": True,
@@ -286,8 +289,16 @@ def register(app, list_images, invalidate_stage):
         if os.path.exists(cp):
             try:
                 c = json.load(open(cp))
-                c.pop(image_name, None)
-                json.dump(c, open(cp, "w"), indent=2)
+                # Keep the entry rather than popping it. Removal is reversible by design --
+                # the correction mask deliberately stays -- but dropping the counts made a
+                # restored image read "not processed yet, 0 candidates", contradicting the
+                # note this endpoint returns ("restore by moving the .tif back").
+                pass
+                # Atomic: this was rewritten in place, so a concurrent reader (the
+                # sidebar polls /api/images) could catch a 0-byte file and show every
+                # image as having no candidates.
+                from common import save_json_atomic
+                save_json_atomic(c, cp)
             except Exception:
                 pass
         if invalidate_stage:
