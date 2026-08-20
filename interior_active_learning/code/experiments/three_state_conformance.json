@@ -1,0 +1,118 @@
+{
+ "fixture": {
+  "pred": 568,
+  "crack": 512,
+  "adjudicated_negative": 128,
+  "unreviewed": 3456,
+  "adjudicated": 640
+ },
+ "reference": {
+  "adjudicated": {
+   "tp": 384,
+   "fp": 16,
+   "fn": 128,
+   "tn": 112,
+   "precision": 0.96,
+   "recall": 0.75,
+   "specificity": 0.875,
+   "iou": 0.7272727272727273
+  },
+  "unlabelled_as_background": {
+   "tp": 384,
+   "fp": 184,
+   "fn": 128,
+   "tn": 3400,
+   "precision": 0.676056338028169,
+   "recall": 0.75,
+   "specificity": 0.9486607142857143,
+   "iou": 0.5517241379310345
+  }
+ },
+ "probes": {
+  "sklearn.metrics": {
+   "ignore_index_available": {
+    "confusion_matrix": false,
+    "jaccard_score": false,
+    "precision_recall_fscore_support": false
+   },
+   "iou_dense": 0.5517241379310345,
+   "iou_prefiltered": 0.7272727272727273,
+   "iou_with_labels_kwarg": 0.5517241379310345,
+   "confusion_matrix_with_labels": [
+    [
+     384
+    ]
+   ],
+   "labels_kwarg_equals_dense": true,
+   "verdict": "no ignore_index on any of the three; the ONLY escape is for the caller to pre-filter the arrays, which changes IoU from 0.5517 to 0.7273. The natural `labels=[1]` idiom does NOT help -- it returns the dense number (0.5517), while confusion_matrix(labels=[1]) does drop the other class. Sibling functions in one namespace disagree.",
+   "supports_unreviewed": false,
+   "status": "EXECUTED"
+  },
+  "skimage.metrics": {
+   "adapted_rand_error_signature": "(image_true=None, image_test=None, *, table=None, ignore_labels=(0,), alpha=0.5)",
+   "error_with_default_ignore_0": 0.2886704604242111,
+   "error_including_label_0": 0.11848758869790199,
+   "changes_when_0_included": "True",
+   "contingency_table_shape": [
+    3,
+    2
+   ],
+   "verdict": "adapted_rand_error ships ignore_labels=(0,) as the DEFAULT, so label 0 is excluded without the caller asking, and the result changes when it is included. This is a library from the connectomics/EM community getting it right by default -- the capability exists, it is just absent from the metrics people report for crack segmentation.",
+   "supports_unreviewed": true,
+   "status": "EXECUTED"
+  },
+  "torch.nn.CrossEntropyLoss": {
+   "ignore_index_default": -100,
+   "loss_dense": 0.3228374123573303,
+   "loss_with_unreviewed_ignored": 0.9181503057479858,
+   "differs": true,
+   "verdict": "ignore_index exists and works: excluding the unreviewed pixels changes the loss from 0.3228 to 0.9182. But the default is -100, a sentinel no mask file contains -- so the capability is real and only reachable if the caller invents an encoding for UNREVIEWED first. Training is the stage the field gets right.",
+   "supports_unreviewed": true,
+   "status": "EXECUTED"
+  },
+  "torchmetrics": {
+   "version": "1.9.0",
+   "classification_has_ignore_index": true,
+   "segmentation_has_ignore_index": {
+    "MeanIoU": false,
+    "GeneralizedDiceScore": false,
+    "DiceScore": false
+   },
+   "iou_ignoring_unreviewed": 0.7272727489471436,
+   "iou_dense": 0.5517241358757019,
+   "differs": true,
+   "verdict": "classification metrics accept ignore_index and it changes the answer; the segmentation namespace exposes 0 of 3 inspected classes with it. The asymmetry is inside one library, which is why a practitioner can reasonably believe their stack handles this.",
+   "supports_unreviewed": true,
+   "status": "EXECUTED"
+  },
+  "segmentation_models_pytorch": {
+   "version": "0.5.0",
+   "binary_ignore_index": "ValueError: ``ignore_index`` parameter is not supported for 'binary' mode",
+   "raises": true,
+   "multiclass_ignore_index": "ValueError: ``ignore_index`` should be outside the class values range, but got class values in range 0..255 and ``ignore_index=255``",
+   "verdict": "binary mode: ValueError: ``ignore_index`` parameter is not supported for 'binary' mode. Binary mode is exactly the object-versus-background case of a micrograph, so if this raises, the library is refusing the request rather than defaulting badly -- a stronger finding, because a refusal is a decision.",
+   "supports_unreviewed": false,
+   "status": "EXECUTED"
+  },
+  "mask file round-trip": {
+   "png_uint8_preserves_three_states": true,
+   "tiff_preserves_three_states": true,
+   "binary_export_states": [
+    0,
+    255
+   ],
+   "adjudicated_negative_recoverable_after_binary_export": false,
+   "void_255_becomes_foreground_under_gt128_threshold": true,
+   "verdict": "The FORMATS are innocent: uint8 PNG and TIFF both carry three states fine. The loss happens in the exporter, not the container. And a mask that encodes unreviewed as 255 -- the PASCAL/Cityscapes convention -- is read as FOREGROUND by a `> 128` import threshold, so the two conventions actively corrupt each other.",
+   "supports_unreviewed": true,
+   "status": "EXECUTED"
+  }
+ },
+ "not_tested": {
+  "monai": "MONAI metrics: ignore_index absent, one-hot contract forbids a third state",
+  "datumaro": "CVAT's exporter path: label map with a background entry and no void",
+  "label_studio_converter": "Label Studio brush export/import, incl. the >128 threshold",
+  "ilastik": "desktop app; headless export of Simple Segmentation vs LABELS",
+  "micro_sam": "napari annotator canvas and zarr fill value"
+ }
+}
