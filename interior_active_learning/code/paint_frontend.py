@@ -1299,7 +1299,18 @@ refreshModelInfo = async function () {
   try {
     const i = await (await fetch('/api/pipeline_info')).json();
     const m = i.model, card = document.getElementById('modelCard');
-    if (!m) { card.textContent = 'No model loaded.'; return; }
+    if (!m) {
+      // Write the failure where it can be SEEN. #modelCard lives inside .rows, which is
+      // collapsed by default now, so "No model loaded." was rendered into a hidden element:
+      // the app looked normal while having no classifier at all. Set the summary too and
+      // expand the card so the state is unmissable.
+      card.textContent = 'No model loaded.';
+      const s0 = document.getElementById('modelSummary');
+      if (s0) { s0.textContent = 'NO MODEL LOADED'; s0.style.color = 'var(--bad)'; }
+      const mc0 = document.getElementById('modelcard');
+      if (mc0) mc0.classList.remove('collapsed');
+      return;
+    }
     card.innerHTML =
       '<div class="row"><span>Type</span><b>' + m.family + '</b></div>' +
       '<div class="row"><span>Threshold</span><b>' + m.threshold.toFixed(3) + '</b></div>' +
@@ -1513,7 +1524,7 @@ async function finishCalibration() {
     res = await fetch('/api/calibration/' + img,
                       {method: 'POST', headers: {'Content-Type': 'application/json'},
                        body: JSON.stringify(body)});
-    j = await res.json();
+    j = await res.json().catch(() => ({}));
   } catch (e) {
     // Without this the readout sat on "checking..." forever and the user had no idea
     // whether anything was stored.
@@ -1522,8 +1533,14 @@ async function finishCalibration() {
     return;
   }
   if (res.status === 409) {
-    setScaleState('refused \u2014 readings disagree', false);
-    alert(j.error + '\n\nNothing was stored. Re-mark the bar ends, or check the label.');
+    // 409 covers every refusal the server makes, not just a bar-vs-HFW disagreement: a span
+    // below the minimum comes back 409 too, and labelling that "readings disagree" sends the
+    // user hunting for an HFW problem they do not have. Use the server's own reason.
+    const disagree = /disagreement/.test(j.error || '');
+    setScaleState(disagree ? 'refused \u2014 readings disagree' : 'refused', false);
+    alert((j.error || 'the calibration was refused') +
+          '\n\nNothing was stored.' +
+          (disagree ? ' Re-mark the bar ends, or check the label.' : ''));
     return;
   }
   if (!j.ok) { setScaleState('failed', false); alert(j.error || 'calibration failed'); return; }

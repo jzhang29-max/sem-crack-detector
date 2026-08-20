@@ -143,9 +143,23 @@ def _new_job(kind, note=""):
         # Finished records are never read again after the frontend stops polling, but they
         # were kept for the life of the process -- one per detect, export, reapply and
         # retrain across a long session. Reap the settled ones on the way in.
+        # Reap on FINISH time, not start time. A retrain that ran for over an hour was
+        # eligible the instant it completed, so its result could be deleted before the UI
+        # polled for it -- the user would see the job vanish rather than a verdict. Also
+        # keep the most recent retrain regardless of age, because that record is the only
+        # place the promotion decision and its reason are reported.
+        now = time.time()
+        newest_retrain = None
+        for k, j in _jobs.items():
+            if j.get("kind") == "retrain":
+                if newest_retrain is None or (j.get("finished") or j.get("started", 0)) > (
+                        _jobs[newest_retrain].get("finished")
+                        or _jobs[newest_retrain].get("started", 0)):
+                    newest_retrain = k
         stale = [k for k, j in _jobs.items()
                  if j.get("state") in ("done", "error")
-                 and (time.time() - j.get("started", 0)) > 3600]
+                 and k != newest_retrain
+                 and (now - (j.get("finished") or j.get("started", 0))) > 3600]
         for k in stale:
             del _jobs[k]
         _jobs[jid] = {"id": jid, "kind": kind, "state": "running", "frac": 0.0,
@@ -164,10 +178,12 @@ def _run_bg(jid, fn):
     def wrapper():
         try:
             res = fn(lambda **kw: _update(jid, **kw))
-            _update(jid, state="done", frac=1.0, result=res)
+            # Stamp when it FINISHED. Reaping is keyed on this; without it the fallback to
+            # "started" made a long retrain eligible for deletion the moment it completed.
+            _update(jid, state="done", frac=1.0, result=res, finished=time.time())
         except Exception as e:
             _update(jid, state="error", error=f"{type(e).__name__}: {e}",
-                    note=traceback.format_exc()[-1200:])
+                    note=traceback.format_exc()[-1200:], finished=time.time())
     t = threading.Thread(target=wrapper, daemon=True)
     t.start()
     return t

@@ -931,16 +931,38 @@ def main():
     # single-dimension audit could see. Both are locked down here.
     print("\n[17] train/serve parity and an unrigged gate")
 
-    _bt = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "build_training_data.py")).read()
+    def _code_only(path):
+        """Source with comment lines removed.
+
+        Matching the raw text cannot distinguish a call from prose: both files explain at
+        length WHY exclude_border_background is not called, and those comments write it as
+        "exclude_border_background()" -- so a grep for the name, or for the name plus an
+        open paren, matches the explanation and the test fails on its own documentation.
+        Dropping comment lines first tests the code and leaves the prose alone.
+        """
+        out = []
+        for ln in open(path).read().split("\n"):
+            st = ln.strip()
+            if st.startswith("#"):
+                continue
+            out.append(ln.split("  #")[0])
+        return "\n".join(out)
+
+    _here = os.path.dirname(os.path.abspath(__file__))
+    _bt = _code_only(os.path.join(_here, "build_training_data.py"))
+    # Assert there is no CALL, not one specific call shape. The original check looked for
+    # "exclude_border_background(clean", which any rename of the local variable bypasses
+    # (exclude_border_background(mask, ves) would slip through). Matching the name plus an
+    # open paren catches every call while still allowing the explanatory comments that say
+    # why it is not called.
     check("the training builder does NOT run a segmenter serving has dropped",
-          "exclude_border_background(clean" not in _bt,
+          "exclude_border_background(" not in _bt,
           "train/serve skew made the accepted false-positive class unlearnable and "
           "shifted every region Label ID the override ledger is keyed by")
-    _up = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "unified_pipeline.py")).read()
+    _up = _code_only(os.path.join(_here, "unified_pipeline.py"))
     check("and serving does not run it either",
-          "clean = exclude_border_background" not in _up)
+          "exclude_border_background(" not in _up,
+          "the import may remain for other callers; what must not exist is a call")
 
     from common import SEGMENTATION_VERSION, load_hard_overrides
     check("region IDs carry a segmentation version", SEGMENTATION_VERSION >= 2)

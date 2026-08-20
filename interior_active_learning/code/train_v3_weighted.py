@@ -377,6 +377,14 @@ def main():
                   # image's labels" at line 162), so an honest out-of-sample candidate was
                   # graded against an inflated bar and every retrain was biased to refuse.
                   "loio_out_of_sample": float(roc_auc_score(yt, pH)),
+                  # Provenance for the number above, so the gate can tell WHICH image it
+                  # was measured on and by what procedure. Without the _image key the gate
+                  # could compare bars measured on different held-out images, and without
+                  # _source a bundle written here was indistinguishable from one whose
+                  # baseline was estimated by refitting.
+                  "loio_out_of_sample_source": "trained-without-held-image",
+                  "loio_out_of_sample_image": HELD,
+                  "loio_out_of_sample_n_rows": int(te.sum()),
                   "loio_recall": float(r_d), "loio_spec": float(s_d), "loio_fp": int(fp_d),
                   "prod_auc_on_loio_image": float(prod_auc),
                   "prod_recall": float(prod_rec), "prod_spec": float(prod_spec),
