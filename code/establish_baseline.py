@@ -63,17 +63,15 @@ from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import StandardScaler
 
 from common import PROD_MODEL_PATH
+# Import the trainer's OWN weighting, feature list, held image and estimator factories
+# rather than re-declaring them. A duplicated copy drifts: this script previously carried
+# its own image_weights and built the estimator from the DEPLOYED bundle's params, so the
+# bar and the candidates it gates were produced by two procedures that only happened to
+# agree. The comparison is only meaningful if the bar is measured exactly the way a
+# candidate is.
+from train_v3_weighted import FEATURES, HELD, MODELS, image_weights
 
 CSV = os.path.join(ROOT, "training_data", "labeled_regions.csv")
-FEATURES = ["LogArea", "Elongation", "Solidity", "Eccentricity",
-            "Extent", "Circularity", "MeanDarkness", "MeanVesselness"]
-HELD = "AS_24hr_BSE_Side_008"
-
-
-def image_weights(src):
-    """Same per-image weighting the trainer uses, so the refit matches its procedure."""
-    counts = pd.Series(src).value_counts()
-    return np.array([1.0 / counts[s] for s in src])
 
 
 def main():
@@ -119,10 +117,17 @@ def main():
     W = image_weights(groups)
     clf = bundle["clf"]
     family = type(clf).__name__
-    params = clf.get_params()
 
-    # Refit the SAME family with the SAME hyperparameters, on everything but the held image.
-    refit = type(clf)(**params)
+    # Build the estimator the way the TRAINER builds it, so the bar and the candidates it
+    # gates come from one procedure. Fall back to the deployed params only for a family the
+    # trainer does not know, and say so, because that case is not strictly comparable.
+    if family in MODELS:
+        refit = MODELS[family]()
+        procedure = f"trainer factory MODELS[{family!r}]"
+    else:
+        refit = type(clf)(**clf.get_params())
+        procedure = (f"deployed params (family {family} is not one the trainer builds, so "
+                     f"this bar is only approximately comparable)")
     sc = StandardScaler().fit(X[~te])
     refit.fit(sc.transform(X[~te]), y[~te], sample_weight=W[~te])
     auc = float(roc_auc_score(y[te], refit.predict_proba(sc.transform(X[te]))[:, 1]))
@@ -132,6 +137,7 @@ def main():
         y[te], clf.predict_proba(bundle["scaler"].transform(X[te]))[:, 1]))
 
     print(f"  deployed family      : {family}")
+    print(f"  fitted via           : {procedure}")
     print(f"  held-out image       : {args.held} "
           f"({int(te.sum())} rows, {int(y[te].sum())} crack / {int((~y[te]).sum())} not)")
     print(f"  OUT-OF-SAMPLE (refit): {auc:.4f}   <- recorded as the gate's baseline")
@@ -159,7 +165,8 @@ def main():
     _fresh = joblib.load(PROD_MODEL_PATH)
     before = _fresh["clf"].predict_proba(_fresh["scaler"].transform(X))[:, 1]
     bundle["loio_out_of_sample"] = auc
-    bundle["loio_out_of_sample_source"] = "refit-same-family"
+    bundle["loio_out_of_sample_source"] = "refit-via-trainer-factory"
+    bundle["loio_out_of_sample_procedure"] = procedure
     bundle["loio_out_of_sample_image"] = args.held
     bundle["loio_out_of_sample_set_at"] = time.strftime("%Y-%m-%dT%H:%M:%S",
                                                         time.localtime())

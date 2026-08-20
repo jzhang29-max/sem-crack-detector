@@ -132,8 +132,24 @@ def set_from_scale_bar(image_name, label_um, x1, x2, hfw_um=None,
     wrong and the program cannot tell which.
     """
     span = abs(float(x2) - float(x1))
-    if span < 1:
-        raise ValueError("the two marks are the same point; cannot measure a span")
+    # A jittered double-click, or clicking the same tick twice, lands 1-3 px apart. The old
+    # guard was `span < 1` with the message "the two marks are the same point", which is
+    # both wrong for 0 < span < 1 and useless at span == 2: label 400 over span 2 stores
+    # 200 um/px against a true 0.169, so every exported length comes out ~1180x too large,
+    # with a green readout and full provenance saying it is calibrated. A real scale bar
+    # occupies a substantial part of the frame, so require that when the width is known,
+    # and an absolute floor otherwise.
+    MIN_SPAN_PX = 50
+    MIN_SPAN_FRAC = 0.02
+    floor = MIN_SPAN_PX
+    if image_width_px:
+        floor = max(floor, MIN_SPAN_FRAC * float(image_width_px))
+    if span < floor:
+        raise ValueError(
+            f"the two marks are only {span:.1f} px apart, below the {floor:.0f} px minimum "
+            f"for a believable scale bar. Mark the bar's two END TICKS -- a span this short "
+            f"would store {label_um / max(span, 1e-9):.3f} um/px and inflate every exported "
+            f"length by orders of magnitude.")
     if label_um <= 0:
         raise ValueError("label_um must be positive")
     bar = float(label_um) / span
@@ -212,11 +228,18 @@ def provenance_header(image_name, model_path=None, threshold=None):
     asking "which model produced this length, and in what units" had no answer.
     """
     rec = get_record(image_name)
+    # Use the SAME predicate the conversion uses. `bool(rec)` is weaker than
+    # get_um_per_px, which requires a positive number, so a record holding 0, a negative,
+    # null or the string "0.169" produced pixel columns in the CSV while the sidecar
+    # announced calibrated=true with that value echoed back and the UNCALIBRATED note
+    # suppressed -- pixel numbers labelled as micrometres, which is the one outcome this
+    # module exists to prevent.
+    umpx = get_um_per_px(image_name)
     out = {
         "image": image_name,
         "tool_version": VERSION,
-        "calibrated": bool(rec),
-        "um_per_px": (rec or {}).get("um_per_px"),
+        "calibrated": umpx is not None,
+        "um_per_px": umpx,
         "calibration_source": (rec or {}).get("source"),
         "calibration_set_at": (rec or {}).get("set_at"),
         "exported_at": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime()),
@@ -230,7 +253,12 @@ def provenance_header(image_name, model_path=None, threshold=None):
             pass
     if threshold is not None:
         out["threshold"] = threshold
-    if not rec:
+    if umpx is None:
         out["note"] = ("UNCALIBRATED: lengths are in PIXELS. Set a calibration before "
                        "reporting physical dimensions.")
+        if rec:
+            # A record exists but the converter rejects it -- say so, rather than letting
+            # it read as "never calibrated".
+            out["calibration_record_invalid"] = True
+            out["invalid_um_per_px"] = rec.get("um_per_px")
     return out

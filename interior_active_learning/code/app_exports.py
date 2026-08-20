@@ -164,11 +164,18 @@ def register(app, list_images):
                     if f.startswith("crack_export_") and f.endswith(".zip")]
         except OSError:
             return 0
+        # The two rules are INDEPENDENT. The first version used
+        # `if i < keep_newest and age < max_age_s: continue`, so the age rule overrode
+        # keep_newest: come back the next morning and every zip is older than six hours, so
+        # all of them are deleted including the newest -- the one the user was about to
+        # download. keep_newest now wins unconditionally, and age only prunes the remainder.
         zips.sort(key=lambda p: os.path.getmtime(p), reverse=True)
         now = time.time()
         removed = 0
         for i, z in enumerate(zips):
-            if i < keep_newest and (now - os.path.getmtime(z)) < max_age_s:
+            if i < keep_newest:
+                continue
+            if (now - os.path.getmtime(z)) < max_age_s:
                 continue
             try:
                 os.remove(z)
@@ -179,7 +186,6 @@ def register(app, list_images):
 
     @app.route("/api/export_all", methods=["POST"])
     def api_export_all():
-        _prune_old_exports()
         from app_endpoints import _new_job, _run_bg
         jid = _new_job("export_all")
 
@@ -238,6 +244,11 @@ def register(app, list_images):
                            "own um/px value.\n\n"
                            "Human corrections are already included: they override the model\n"
                            "wherever they exist.\n")
+            # Prune only AFTER the replacement zip is written and closed. Running it on the
+            # way IN meant a failure anywhere in this function left the user with neither
+            # the new export nor the old ones.
+            _n_pruned = _prune_old_exports()
+
             return {"zip": os.path.basename(zpath), "images": len(names),
                     "regions": int(sum(s["CrackRegions"] for s in summary)),
                     "download": f"/api/export_all/{jid}/download"}

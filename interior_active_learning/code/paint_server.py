@@ -54,6 +54,17 @@ app = Flask(__name__)
 # disk the correction masks live on.
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024
 
+
+@app.errorhandler(413)
+def _too_large(_e):
+    """Say what happened. The cap is per REQUEST, and the frontend posts a whole drop in one
+    request, so one oversized batch rejects every file in it -- and without this handler
+    Flask returns an HTML error page that the uploader's response.json() cannot parse, so
+    the UI showed nothing at all."""
+    return jsonify({"ok": False, "error":
+                    "this upload exceeds the 2 GB per-request limit. The limit is per "
+                    "request, not per file, so drop the images in smaller batches."}), 413
+
 # Caches the (labeled, df, ...) "stage" dict per image so clicking to flip a
 # whole region -- or a plain Save & Ingest -- doesn't re-run the full
 # production pipeline (background flattening, vesselness, ML classification,

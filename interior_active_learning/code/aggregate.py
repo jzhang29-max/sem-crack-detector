@@ -79,13 +79,21 @@ def parse_name(name):
 
 
 def group_key(name, by):
-    """The grouping key for an image, or None if its tokens do not cover `by`."""
+    """(key, None) for a groupable image, or (None, reason) explaining why not.
+
+    Two different situations were both reported as "unparsable_name", which sent the reader
+    looking for a filename problem that did not exist: a name this module genuinely cannot
+    read, versus a perfectly parsed name whose FAMILY has no such token -- an exposure-family
+    frame has no 'condition', so grouping by condition silently dropped every one of them.
+    The default CLI grouping is family,condition, so that was the common case.
+    """
     t = parse_name(name)
     if t["family"] == "unparsed":
-        return None
-    if any(k not in t for k in by):
-        return None
-    return tuple(str(t[k]) for k in by)
+        return None, "unparsable_name"
+    absent = [k for k in by if k not in t]
+    if absent:
+        return None, f"family {t['family']!r} has no token(s): {', '.join(absent)}"
+    return tuple(str(t[k]) for k in by), None
 
 
 def _describe(values):
@@ -141,16 +149,20 @@ def aggregate(images, by=("condition",), require_calibrated=True):
     everything, which is honest only if nothing physical is claimed from the result.
     """
     groups = {}
-    skipped = {"no_measurements": [], "unparsable_name": [], "uncalibrated": []}
+    skipped = {"no_measurements": [], "unparsable_name": [],
+               "missing_group_token": [], "uncalibrated": []}
 
     for name in images:
         rows = _read_rows(name)
         if rows is None:
             skipped["no_measurements"].append(name)
             continue
-        key = group_key(name, by)
+        key, why = group_key(name, by)
         if key is None:
-            skipped["unparsable_name"].append(name)
+            bucket = ("unparsable_name" if why == "unparsable_name"
+                      else "missing_group_token")
+            skipped.setdefault(bucket, []).append(f"{name} ({why})"
+                                                  if bucket != "unparsable_name" else name)
             continue
         umpx = cal.get_um_per_px(name)
         if require_calibrated and not umpx:
