@@ -9,7 +9,19 @@
 > operating point.
 
 Drop SEM images into a browser window, see cracks detected, fix what's wrong by
-painting. Corrections save themselves. One button retrains the model on them.
+painting.
+
+**First run on a fresh clone:** the 62 shipped micrographs come with their hand-drawn
+correction masks, but *not* with rendered overlays — those are derived and would add
+hundreds of megabytes to every clone. So the first time you open an image, the pipeline runs
+for it: about 20 seconds on a small frame, up to ~200 seconds at 25 megapixels. To render
+everything up front instead:
+
+```bash
+./.venv/bin/python3 interior_active_learning/code/regenerate_templates.py
+```
+
+`./run` prints this reminder when it sees no overlays. Corrections save themselves. One button retrains the model on them.
 
 ## What it looks like
 
