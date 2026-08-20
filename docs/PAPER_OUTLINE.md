@@ -123,6 +123,16 @@ Four refusal behaviours, each attached to a measured failure mode rather than to
 3. Promotion refuses without a valid **out-of-sample** baseline, and refuses a baseline
    measured on a different held-out image
 4. A group containing any uncalibrated image reports **pixels** and says so
+5. The **specimen**, not the crack, is the statistical unit. A group of 2,915 cracks from 23
+   frames on 3 specimens reports `n_specimens` beside the pooled count, means averaged per
+   specimen, and below three independent units refuses dispersion outright -- per-crack
+   spread there measures variation *within* one specimen
+6. Longest-crack-per-frame is **refused** where edge-censoring is unknown, rather than
+   reported as a maximum taken over lower bounds; the CSV cell is left empty rather than
+   filled beside a flag a reader may miss
+7. A µm column carries the scale's own uncertainty (a 200 px hand-marked bar fixes it to
+   1.06%, so `61.40 µm` is 61.4 ± 0.7), and the routes that cannot know their precision
+   record **absent** rather than zero
 
 Plus the composability result: the measurement layer is detector-agnostic — a mask imported
 from ilastik or micro-sam flows through calibration, measurement, provenance and aggregation
@@ -142,13 +152,33 @@ undermine the paper.
 - **Single annotator.** No inter-rater agreement, so "the human is the instrument" is an
   assumption, not a characterised quantity.
 - **No traceable calibration standard.** The 5% cross-check catches internal disagreement;
-  both readings can still be wrong together against a certified reference specimen.
+  both readings can still be wrong together against a certified reference specimen. The
+  uncertainty now reported is **instrument-only and small** (about 1% on a well-marked bar);
+  segmentation error -- whether the skeleton was measured from the real crack edge -- is
+  larger and is quantified nowhere in this work. Reporting the small interval while staying
+  silent about the large one would misrepresent the total more than reporting no interval,
+  which is why the sidecar states the scope in the same sentence as the number.
+- **Vendor metadata was destroyed before this project began.** All 62 TIFFs carry
+  `Software: tifffile.py` and an `ImageDescription` of exactly `{"shape": [h, w]}`: a re-save
+  with a tool that does not preserve private tags threw away the instrument's own record of
+  the field width, silently. So automatic calibration is impossible on this corpus and the
+  metadata reader is tested against synthetic FEI/ZEISS files instead. It is the paper's own
+  thesis happening to the paper's own data, and worth one sentence in the discussion.
 - **Detector is weak.** Recall 0.597 at the deployed operating point. Stated openly; the
   composability path is the answer, not a defence.
-- **The external audit is read, not run.** Six tools were audited from primary source (see
-  `docs/UNLABELLED_PIXEL_AUDIT.md`), which answers the generality objection, but no external
-  behaviour was executed -- only a local sklearn/skimage signature probe. Fixable cheaply and
-  without annotation: push a three-state mask through each tool and record what emerges.
+- **The external audit is now run, with two named exceptions.** `experiments/
+  three_state_conformance.py` pushes one three-state fixture (512 crack / 128 adjudicated-
+  negative / 3,456 unreviewed px) through ten probes and records what each library actually
+  does, with versions: sklearn, skimage, `torch.nn.CrossEntropyLoss`, torchmetrics 1.9.0,
+  segmentation_models_pytorch 0.5.0, MONAI 1.6.0, datumaro 1.13.8 (the CVAT export path),
+  the Label Studio brush converter, elf/micro-sam matching, and mask-file round-trip. The
+  reference pair the fixture is built to separate is specificity **0.875 adjudicated against
+  0.949 dense**, so any tool silently choosing the dense convention shows up as that
+  difference rather than as an opinion.
+  Two things could not be executed and are named rather than glossed: **ilastik** has no PyPI
+  distribution (conda/binary only), so the source-level finding stands unexecuted; and the
+  **micro-sam annotator GUI** needs an interactive napari session, though its scorer is
+  covered by the elf probe.
 - **Preferential review.** Excluding unreviewed pixels is unbiased only if the reviewed region
   is representative, and annotators plausibly review the ambiguous, feature-dense parts. So
   0.4599 is itself computed on a non-random sample and the true full-image specificity is
