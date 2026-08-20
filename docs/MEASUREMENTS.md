@@ -42,6 +42,36 @@ enforced in one place — `calibration.LENGTH_POWERS` and `calibration.DIMENSION
 no call site has to remember it. Scaling a tortuosity or an angle is the obvious way to
 get this wrong, and there is a test asserting it does not happen.
 
+### How precise is the scale
+
+A µm column is a point estimate, and until recently it was printed as though it were exact.
+It is not: the scale bar is marked by hand, and each end lands within a pixel or two of the
+tick. Two independent endpoint errors of 1.5 px add in quadrature over the marked span, so
+
+| marked span | uncertainty on µm/px | on a length | on an area |
+|---|---|---|---|
+| 60 px | 3.54% | 3.54% | 7.07% |
+| 200 px | 1.06% | 1.06% | 2.12% |
+| 800 px | 0.27% | 0.27% | 0.53% |
+
+A crack measured at `61.40 µm` off a 200 px bar is 61.4 ± 0.7 µm — two significant figures,
+not four. `calibration.propagate(rel_sd, power)` gives the figure for any column, and the
+provenance sidecar carries both `um_per_px_rel_sd` and a per-column table so nobody has to
+rederive that area doubles it. The app shows it beside the scale, which is the only thing
+that makes marking a longer bar feel worth the extra second.
+
+Two things this is **not**:
+
+- It is **instrument uncertainty only.** Segmentation error — whether the boundary the
+  skeleton was measured from is the real crack edge — is larger and is not quantified
+  anywhere in this repo. Reporting the small interval and staying quiet about the big one
+  would be a worse misrepresentation than reporting no interval at all, so the sidecar says
+  so in the same sentence.
+- It is **absent, not zero, for the other routes.** A typed HFW and an instrument tag are
+  numbers whose precision this program has no way to know, so they store `None` and the
+  sidecar spells out that the scale was not characterised. A missing field reads as zero,
+  and "we did not measure this" is a different claim from "this is exact".
+
 ## Calibration
 
 Calibration is **per image**, explicit, and recorded with its provenance in
@@ -51,6 +81,13 @@ Calibration is **per image**, explicit, and recorded with its provenance in
   end ticks. `µm/px = label ÷ |x2 − x1|`.
 - **`hfw`** — horizontal field width from the info panel ÷ image width in pixels.
 - **`manual`** — typed directly.
+- **`instrument_metadata`** — FEI/Thermo INI blocks or ZEISS `CZ_SEM` tags, read straight
+  off the file (`--from-metadata`, or `calibration.read_instrument_metadata`). The unit is
+  decided by the key's meaning, never by which magnitude looks plausible: FEI records
+  metres, so a `HorizontalFieldWidth` of `2.048e-4` is 205 µm and reading it as µm is a
+  factor-of-a-million error. If the image already has a hand-marked scale and the two
+  disagree by more than 5%, this **refuses** rather than letting a machine value silently
+  overwrite a person's.
 
 It is **not automatic, on purpose.** Three automatic bar detectors gave three different
 answers for `MAR_Amb_Cast_CBS_0002`:
@@ -71,10 +108,19 @@ So `set_from_scale_bar()` takes an optional HFW and **refuses to store anything*
 two readings disagree by more than 5%. A disagreement means one reading is wrong and the
 program cannot tell which.
 
-Vendor metadata is not available as a fallback: the shipped TIFFs carry
-`Software: tifffile.py` and `XResolution: (1, 1)` — the corpus was losslessly recompressed,
-pixels bit-identical, FEI tags not preserved — and the pre-compression copies carry only
-print DPI (768 and 384, `ResolutionUnit=2`), which is not specimen scale.
+Vendor metadata cannot rescue **this** corpus, and the reason is worth stating plainly
+because it is the same failure in miniature. The shipped TIFFs carry `Software: tifffile.py`,
+`XResolution: (1, 1)` and an `ImageDescription` of exactly `{"shape": [h, w]}` — the corpus
+was losslessly recompressed, pixels bit-identical, FEI tags not preserved — and the
+pre-compression copies carry only print DPI (768 and 384, `ResolutionUnit=2`), which is not
+specimen scale. The microscope recorded the field width; a re-save with a tool that does not
+preserve private TIFF tags threw it away without saying so; and the consequence is that 0 of
+62 images can be calibrated automatically and every scale here has to be marked by hand.
+
+The reader exists anyway, for files that are still originals, and it is honest about
+returning `None` on all 62 here rather than reporting a feature that appears to work. It is
+tested against synthetic FEI and ZEISS files, not against this corpus, because this corpus
+cannot test it.
 
 ## Provenance
 
@@ -83,11 +129,26 @@ source, the model file and its mtime, the export timestamp, the crack count, and
 list. Without it, once a CSV leaves the machine no number in it can be traced to a model, a
 threshold, or a scale.
 
-## Known limitation
+## Known limitations
 
-`crack_measurements.py` re-labels the final crack mask with `measure.label`, so a main
-crack that the MST step merged from several large fragments is still reported as one row per
-fragment. `stage["bridge_mask"]` holds the connector geometry that would join them and is
-currently unused. Until that is wired in, a crack count from this CSV can exceed the count
-a person reading the overlay would give, and per-fragment `SkeletonLength_px` understates
-the full crack's length.
+**Fragment merging — fixed, recorded because the CSV changed.** This CSV used to re-label
+the bare crack mask, so a main crack the MST step had merged from several large fragments
+came out as one row per fragment: a count higher than a person reading the overlay would
+give, and a `SkeletonLength_px` that understated the headline crack. `measure_stage` now
+unions `stage["bridge_mask"]` before labelling, and drops any component containing no
+originally-detected crack pixel so a connector cannot invent a region on its own. Each row
+carries `NFragmentsMerged`, which is 1 when the pipeline found the crack whole — so the
+merge is visible rather than something to take on trust. Counts from CSVs written before
+this are not comparable with counts written after.
+
+**Censored lengths.** A crack touching the frame edge continues outside it, so
+`SkeletonLength_px` is a **lower bound**, flagged by `LengthIsCensored`. The bias is not
+random: the longest cracks are the most likely to run off the edge, so the statistic most
+affected is longest-crack-per-frame, which is exactly what a fatigue study reports.
+`aggregate.py` refuses that figure where censoring is unknown rather than taking a maximum
+over lower bounds. A survival-style estimator would be the proper treatment and is not
+attempted here.
+
+**Self-defined shape measures.** `Tortuosity` and `BoundaryRoughness` are computed as
+defined in this file and follow no published standard, so they are comparable within this
+corpus and not across studies.
