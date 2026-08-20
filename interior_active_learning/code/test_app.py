@@ -1176,6 +1176,60 @@ def main():
           "otherwise the gate's bar and the candidates it gates use two procedures again")
 
 
+    # ---------- 21. censoring and the statistical unit ----------
+    print("\n[21] censored lengths and pseudo-replication")
+    import aggregate as _ag2
+
+    check("a crack cut off by the frame edge is unknown, not uncensored",
+          _ag2._is_censored({}) is None
+          and _ag2._is_censored({"LengthIsCensored": True}) is True
+          and _ag2._is_censored({"LengthIsCensored": False}) is False,
+          "a CSV predating the flag carries no evidence either way; defaulting to False is "
+          "the same 'not recorded means not the case' error the paper is about")
+    check("string encodings from a CSV round-trip correctly",
+          _ag2._is_censored({"LengthIsCensored": "True"}) is True
+          and _ag2._is_censored({"LengthIsCensored": "False"}) is False
+          and _ag2._is_censored({"LengthIsCensored": ""}) is None)
+
+    _res = _ag2.aggregate(_cm.all_images(), by=("family", "condition"),
+                          require_calibrated=False)
+    if _res["groups"]:
+        _g = _res["groups"][0]
+        check("the specimen count is reported alongside the pooled crack count",
+              isinstance(_g.get("n_specimens"), int) and _g["n_specimens"] >= 1
+              and _g["n_specimens"] <= _g["n_images"],
+              f"{_g['n_cracks']} cracks from {_g['n_images']} frames and "
+              f"{_g['n_specimens']} specimen(s)")
+        check("a group whose censoring is unknown refuses the longest-crack comparable",
+              (_g.get("frames_with_unknown_censoring", 0) == 0)
+              or (_g.get("longest_crack_is_valid_comparable") is False),
+              "quoting a max over lower bounds is not a length")
+        _single = [x for x in _res["groups"] if x.get("n_specimens") == 1]
+        if _single:
+            check("dispersion is refused when there is one independent unit",
+                  _single[0].get("dispersion_is_estimable") is False
+                  and bool(_single[0].get("dispersion_refusal")),
+                  "per-crack spread measures variation WITHIN a specimen")
+        check("every group states its statistical unit",
+              all(bool(x.get("statistical_unit_note")) for x in _res["groups"]))
+
+    # A refused figure must not be quotable from the CSV either -- that is exactly where a
+    # reader would pick it up.
+    _csvp = os.path.join(_ag2.OUT_DIR, "aggregate.csv")
+    if os.path.exists(_csvp):
+        import csv as _csv2
+        with open(_csvp, newline="") as fh:
+            _rows2 = list(_csv2.DictReader(fh))
+        _bad = [r for r in _rows2
+                if r.get("longest_crack_is_valid_comparable") == "False"
+                and r.get("longest_crack_mean", "") != ""]
+        check("the CSV blanks a refused longest-crack figure rather than printing it",
+              not _bad, f"{len(_bad)} row(s) print a refused number")
+        check("the CSV leads with the specimen count",
+              list(_rows2[0].keys())[2] == "n_specimens" if _rows2 else False,
+              "so a reader meets the real n before the impressive one")
+
+
     print("\n[cleanup]")
     removed = 0
     for n in created:
