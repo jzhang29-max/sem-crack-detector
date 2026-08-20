@@ -1358,6 +1358,19 @@ def main():
     _rc, _out = _cli("--in", _cin, "--out", _o1, "--threshold", "0.7")
     check("a second run with a different threshold refuses to share the directory",
           _rc == 3, "mixing configurations gives rows with no way to tell them apart")
+    # The manifest must always name the number, and naming it explicitly must not read as
+    # a different configuration from leaving it to the fallback.
+    if os.path.exists(os.path.join(_o1, "run_manifest.json")):
+        _m0 = json.load(open(os.path.join(_o1, "run_manifest.json")))
+        check("the manifest states the EFFECTIVE threshold even when none was given",
+              isinstance(_m0.get("threshold"), float),
+              f"threshold={_m0.get('threshold')} as_given={_m0.get('threshold_as_given')}")
+        _rc, _out = _cli("--in", _cin, "--out", _o1,
+                         "--threshold", str(_m0["threshold"]))
+        check("passing the fallback explicitly is the SAME configuration, not a conflict",
+              _rc == 0,
+              "fingerprinting the raw flag made 'unspecified' and 'specified as the same "
+              "value' look different")
     _rc, _out = _cli("--in", _cin, "--out", _o1, "--threshold", "0.7", "--force")
     check("--force allows it deliberately", _rc == 0)
 
