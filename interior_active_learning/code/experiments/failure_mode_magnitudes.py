@@ -1,0 +1,197 @@
+"""Three more silent failure modes in quantitative micrograph metrology, with magnitudes.
+
+Companion to scoring_convention_bias.py. Each failure mode below was OBSERVED in this
+project, not hypothesised -- every one was a real defect that shipped, was caught, and was
+fixed, which is why the magnitudes are measured rather than estimated. That provenance is
+uncomfortable and it is also what makes them credible: these are the errors a careful
+person makes anyway.
+
+The common shape: a piece of software chooses a plausible default where the honest answer
+is "I cannot tell", and nothing downstream can distinguish the default from a measurement.
+
+  A. CALIBRATION ACCEPTED WITHOUT CROSS-CHECK
+     A scale bar can be read wrongly in ways that look completely reasonable, and a single
+     reading has nothing to disagree with. Measured: three plausible automatic readings of
+     one frame's bar, against the independent field-width route.
+
+  B. PROMOTION GATED ON AN IN-SAMPLE BASELINE
+     Comparing an out-of-sample candidate against an in-sample incumbent biases a retrain
+     loop toward one verdict, permanently and silently. Measured on this corpus.
+
+  C. TRAIN/SERVE PREPROCESSING SKEW
+     When the training builder and the inference pipeline run different preprocessing, some
+     of the human's labels cannot reach the model at all -- and nothing reports it.
+     Measured: rows and images recovered when the skew was removed.
+
+    python3 failure_mode_magnitudes.py
+"""
+import contextlib
+import json
+import os
+import sys
+import warnings
+
+warnings.filterwarnings("ignore")
+_HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..", "..", "..", "code")))
+
+import joblib
+import numpy as np
+import pandas as pd
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import StandardScaler
+
+from common import PROD_MODEL_PATH, PROJECT_ROOT
+
+OUT = os.path.join(_HERE, "failure_mode_magnitudes.json")
+
+
+# ---------------------------------------------------------------- A. calibration
+def calibration_disagreement():
+    """What a plausible-but-wrong scale-bar reading does to every exported length.
+
+    These three readings of MAR_Amb_Cast_CBS_0002's burned-in bar were each produced by a
+    detector that looked sound in isolation. The fourth column is the independent route:
+    field width divided by image width. Only one reading agrees with it.
+    """
+    label_um, hfw_um, width_px = 400.0, 1040.0, 6144
+    truth = hfw_um / width_px
+    readings = [
+        ("longest contiguous bright run in the panel", 1000),
+        ("widest bright extent in the panel's right half", 2816),
+        ("tick-to-tick (correct)", 2379),
+    ]
+    rows = []
+    for how, span in readings:
+        umpx = label_um / span
+        rel = (umpx - truth) / truth
+        rows.append({
+            "method": how, "span_px": span, "um_per_px": umpx,
+            "rel_error_vs_hfw": rel,
+            # A length scales linearly, an area as the square. A 16% scale error is a 35%
+            # area error, which is how a plausible reading becomes an implausible result.
+            "length_error_pct": 100 * rel,
+            "area_error_pct": 100 * ((1 + rel) ** 2 - 1),
+        })
+    return {"hfw_um_per_px": truth, "readings": rows,
+            "worst_length_error_pct": max(abs(r["length_error_pct"]) for r in rows),
+            "worst_area_error_pct": max(abs(r["area_error_pct"]) for r in rows),
+            "note": ("A single reading has nothing to disagree with, so none of these is "
+                     "detectable from inside the program. Requiring two independent "
+                     "readings to agree within 5% rejects the first two.")}
+
+
+# ------------------------------------------------------------------- B. the gate
+def in_sample_gate_bias():
+    """The gap between grading a candidate out-of-sample and its incumbent in-sample."""
+    csv = os.path.join(PROJECT_ROOT, "training_data", "labeled_regions.csv")
+    if not os.path.exists(csv):
+        return {"error": "no training data"}
+    from train_v3_weighted import FEATURES, HELD, MODELS, image_weights
+    df = pd.read_csv(csv)
+    X, y = df[FEATURES].values, df["IsCrack"].astype(bool).values
+    groups = df["SourceImage"].values
+    te = groups == HELD
+    if not te.any() or len(set(y[te])) < 2:
+        return {"error": f"{HELD} lacks both classes"}
+    W = image_weights(groups)
+
+    bundle = joblib.load(PROD_MODEL_PATH)
+    fam = type(bundle["clf"]).__name__
+
+    # Out-of-sample: fit without the held image, score on it. What a candidate gets.
+    sc = StandardScaler().fit(X[~te])
+    m_out = MODELS[fam]() if fam in MODELS else type(bundle["clf"])(**bundle["clf"].get_params())
+    m_out.fit(sc.transform(X[~te]), y[~te], sample_weight=W[~te])
+    auc_out = float(roc_auc_score(y[te], m_out.predict_proba(sc.transform(X[te]))[:, 1]))
+
+    # In-sample: fit on EVERYTHING including the held image, then score on it. What an
+    # incumbent's own recorded number looks like, and what the gate used to compare against.
+    sc_all = StandardScaler().fit(X)
+    m_in = MODELS[fam]() if fam in MODELS else type(bundle["clf"])(**bundle["clf"].get_params())
+    m_in.fit(sc_all.transform(X), y, sample_weight=W)
+    auc_in = float(roc_auc_score(y[te], m_in.predict_proba(sc_all.transform(X[te]))[:, 1]))
+
+    return {"family": fam, "held_image": HELD, "held_rows": int(te.sum()),
+            "auc_out_of_sample": auc_out, "auc_in_sample": auc_in,
+            "in_sample_advantage": auc_in - auc_out,
+            "note": ("A gate comparing an out-of-sample candidate against an in-sample "
+                     "incumbent must clear this gap before it can promote anything. The "
+                     "loop then reports the user's new labels as harmful when nothing "
+                     "about their labels was measured -- and because both numbers are "
+                     "individually plausible, nothing on screen reveals it.")}
+
+
+# ------------------------------------------------------- C. train/serve skew
+def train_serve_skew():
+    """Labels that could not reach the model while the two paths preprocessed differently.
+
+    Recorded from the observed before/after: the training builder ran a background-exclusion
+    step that inference had dropped, so regions deleted before the label vote produced no
+    rows at all.
+    """
+    csv = os.path.join(PROJECT_ROOT, "training_data", "labeled_regions.csv")
+    now_rows = now_imgs = None
+    if os.path.exists(csv):
+        d = pd.read_csv(csv)
+        now_rows, now_imgs = int(len(d)), int(d["SourceImage"].nunique())
+    before_rows, before_imgs = 4128, 32
+    out = {"rows_before": before_rows, "images_before": before_imgs,
+           "rows_after": now_rows, "images_after": now_imgs}
+    if now_rows:
+        out.update({
+            "rows_recovered": now_rows - before_rows,
+            "images_recovered": now_imgs - before_imgs,
+            "pct_labels_unreachable": 100 * (now_rows - before_rows) / now_rows,
+        })
+    out["note"] = ("Every path reported success throughout: the per-image worker caught its "
+                   "own exception and returned None, the merge carried prior rows for any "
+                   "image whose source was absent, and the process exited 0. Hand-drawn "
+                   "labels were discarded by a run that looked clean.")
+    return out
+
+
+def main():
+    res = {"calibration_disagreement": calibration_disagreement(),
+           "in_sample_gate_bias": in_sample_gate_bias(),
+           "train_serve_skew": train_serve_skew()}
+
+    a = res["calibration_disagreement"]
+    print("A. CALIBRATION ACCEPTED WITHOUT A CROSS-CHECK")
+    print(f"   independent route (field width / image width): {a['hfw_um_per_px']:.5f} um/px")
+    for r in a["readings"]:
+        print(f"   {r['method']:46s} {r['span_px']:5d} px -> {r['um_per_px']:.5f} um/px  "
+              f"length {r['length_error_pct']:+7.1f}%  area {r['area_error_pct']:+7.1f}%")
+    print(f"   worst case: a length off by {a['worst_length_error_pct']:.0f}% and an area "
+          f"off by {a['worst_area_error_pct']:.0f}%, from a reading that looked sound\n")
+
+    b = res["in_sample_gate_bias"]
+    print("B. PROMOTION GATED ON AN IN-SAMPLE BASELINE")
+    if "error" in b:
+        print(f"   skipped: {b['error']}\n")
+    else:
+        print(f"   {b['family']} on {b['held_image']} ({b['held_rows']} rows)")
+        print(f"   out-of-sample AUC {b['auc_out_of_sample']:.4f}")
+        print(f"   in-sample     AUC {b['auc_in_sample']:.4f}")
+        print(f"   in-sample advantage: {b['in_sample_advantage']:+.4f} -- the bar every "
+              f"honest candidate must clear\n")
+
+    c = res["train_serve_skew"]
+    print("C. TRAIN/SERVE PREPROCESSING SKEW")
+    if c.get("rows_after"):
+        print(f"   rows   {c['rows_before']:,} -> {c['rows_after']:,} "
+              f"({c['rows_recovered']:+,})")
+        print(f"   images {c['images_before']} -> {c['images_after']} "
+              f"({c['images_recovered']:+d})")
+        print(f"   {c['pct_labels_unreachable']:.1f}% of the labelled regions now in the "
+              f"corpus could not reach the model, with every path reporting success\n")
+
+    json.dump(res, open(OUT, "w"), indent=1)
+    print(f"-> {OUT}")
+    return res
+
+
+if __name__ == "__main__":
+    main()
