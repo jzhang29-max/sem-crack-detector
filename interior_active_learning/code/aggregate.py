@@ -42,6 +42,8 @@ import os
 import re
 import statistics as stats
 
+import numpy as np
+
 import calibration as cal
 from common import EXP_ROOT
 
@@ -282,6 +284,44 @@ def aggregate(images, by=("condition",), require_calibrated=True):
                 # No censoring column: this frame's CSV predates the flag. Re-measure it.
                 n_unknown_frames += 1
         rec["frames_with_unknown_censoring"] = n_unknown_frames
+        # THE STATISTICAL UNIT.
+        #
+        # Pooling every crack from every frame reports n in the thousands while the
+        # independent units are specimens, of which this corpus has three per condition.
+        # Quoting 16,075 as n invites a pseudo-replication objection and deserves it: cracks
+        # within one frame are not independent, and frames within one specimen are not either.
+        # So the same statistic is computed at all three levels and the specimen count is
+        # carried, because a spread over 3 units is a different claim from a spread over
+        # 16,075 and only one of them is defensible.
+        by_spec = {}
+        for name in g["images"]:
+            rr = _read_rows(name) or []
+            lcol = ("SkeletonLength_um" if physical else "SkeletonLength_px")
+            vals = [r.get(lcol) for r in rr if isinstance(r.get(lcol), (int, float))]
+            if vals:
+                by_spec.setdefault(specimen_key(name), []).append(float(np.mean(vals))
+                                                                  if 'np' in dir() else
+                                                                  sum(vals) / len(vals))
+        spec_means = [sum(v) / len(v) for v in by_spec.values()]
+        rec["n_specimens"] = len(by_spec)
+        rec["specimens"] = sorted(by_spec)
+        rec["mean_crack_length_by_specimen"] = _describe(spec_means)
+        rec["statistical_unit_note"] = (
+            f"n_cracks={len(g['rows'])} is a POOLED count and must not be used as a sample "
+            f"size: cracks within a frame are not independent, nor are frames within a "
+            f"specimen. The independent unit here is the specimen, and this group has "
+            f"{len(by_spec)}. Use mean_crack_length_by_specimen for any cross-condition "
+            f"claim.")
+        if len(by_spec) < 3:
+            rec["dispersion_is_estimable"] = False
+            rec["dispersion_refusal"] = (
+                f"REFUSED: a spread cannot be estimated from {len(by_spec)} independent "
+                f"unit(s). Per-crack and per-frame dispersion look reassuringly small only "
+                f"because they measure variation WITHIN specimens, which is not the "
+                f"variation a cross-condition comparison is about.")
+        else:
+            rec["dispersion_is_estimable"] = True
+
         rec["longest_crack_per_image"] = _describe(per_image_max)
         rec["longest_crack_per_image_uncensored_only"] = _describe(per_image_max_uncens)
         rec["frames_with_a_censored_crack"] = n_cens_frames
@@ -332,21 +372,37 @@ def write_report(result, stem="aggregate"):
         json.dump(result, fh, indent=1)
 
     cp = os.path.join(OUT_DIR, f"{stem}.csv")
-    fields = ["group", "units", "n_images", "n_cracks", "n_calibrated", "n_uncalibrated",
-              "longest_crack_mean", "longest_crack_sd", "longest_crack_median",
-              "longest_crack_n"]
+    fields = ["group", "units", "n_specimens", "n_frames", "n_cracks",
+              "n_calibrated", "n_uncalibrated", "dispersion_is_estimable",
+              "mean_length_by_specimen", "sd_length_by_specimen",
+              "longest_crack_is_valid_comparable", "longest_crack_mean",
+              "longest_crack_sd", "frames_with_unknown_censoring"]
     with open(cp, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=fields)
         w.writeheader()
         for g in result["groups"]:
             lc = g["longest_crack_per_image"]
+            spec = g.get("mean_crack_length_by_specimen", {})
+            valid = g.get("longest_crack_is_valid_comparable", True)
             w.writerow({
                 "group": "|".join(f"{k}={v}" for k, v in g["group"].items()),
-                "units": g["units"], "n_images": g["n_images"],
-                "n_cracks": g["n_cracks"], "n_calibrated": g["n_calibrated"],
+                "units": g["units"],
+                # Specimens first, frames second, cracks last -- in the order of how much
+                # weight each may carry, so a reader scanning the CSV meets the real n before
+                # the impressive one.
+                "n_specimens": g.get("n_specimens"),
+                "n_frames": g["n_images"], "n_cracks": g["n_cracks"],
+                "n_calibrated": g["n_calibrated"],
                 "n_uncalibrated": g["n_uncalibrated"],
-                "longest_crack_mean": lc.get("mean"), "longest_crack_sd": lc.get("sd"),
-                "longest_crack_median": lc.get("median"), "longest_crack_n": lc.get("n"),
+                "dispersion_is_estimable": g.get("dispersion_is_estimable"),
+                "mean_length_by_specimen": spec.get("mean"),
+                "sd_length_by_specimen": spec.get("sd"),
+                "longest_crack_is_valid_comparable": valid,
+                # Blank rather than a number when the figure has been refused: a CSV cell is
+                # exactly where a refused statistic gets quoted anyway.
+                "longest_crack_mean": (lc.get("mean") if valid else ""),
+                "longest_crack_sd": (lc.get("sd") if valid else ""),
+                "frames_with_unknown_censoring": g.get("frames_with_unknown_censoring"),
             })
     return jp, cp
 
@@ -372,7 +428,11 @@ if __name__ == "__main__":
                          f"censored in {g.get('frames_with_a_censored_crack')}"
                          f"/{g.get('n_frames')} frames") + ")")
         print(f"  {'|'.join(f'{k}={v}' for k, v in g['group'].items()):38s} "
-              f"{g['n_images']:3d} images  {g['n_cracks']:5d} cracks  {shown}")
+              f"{g['n_images']:3d} frames  {g['n_cracks']:5d} cracks  "
+              f"{g.get('n_specimens', 0):2d} specimen(s)  {shown}")
+        if not g.get("dispersion_is_estimable", True):
+            print(f"      dispersion REFUSED: {g.get('n_specimens')} independent unit(s); "
+                  f"per-crack spread measures variation WITHIN a specimen, not between")
         if not valid:
             lu = g.get("longest_crack_per_image_uncensored_only", {})
             print(f"      for inspection only -- all-cracks mean {mean}, uncensored-only mean "
