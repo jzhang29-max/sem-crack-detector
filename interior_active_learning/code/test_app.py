@@ -1398,6 +1398,55 @@ def main():
     check("one scale across differently-sized frames is refused", _rc == 3,
           "same scale at two pixel sizes is a magnification assumption")
 
+    # MIXED UNITS, FOR REAL THIS TIME. There is a check elsewhere that a group containing an
+    # uncalibrated image reports pixels, and it passed for years without testing anything,
+    # because zero images in this corpus are calibrated -- so the mixed case never arose. The
+    # batch CLI can manufacture it: calibrate one of two images and group them together.
+    _sc = os.path.join(_md, "scale_one.csv")
+    with open(_sc, "w") as fh:
+        fh.write("image,um_per_px\ncli_synth_00,0.05\n")
+    _mixdir = os.path.join(_md, "mixdir")
+    os.makedirs(_mixdir, exist_ok=True)
+    shutil.copy(os.path.join(_cin, "cli_synth_00.tif"), _mixdir)
+    Image.fromarray(_a.copy()).save(os.path.join(_mixdir, "cli_synth_01.tif"))
+    _om = os.path.join(_md, "out_mixunits")
+    _rc, _out = _cli("--in", _mixdir, "--out", _om, "--scale-csv", _sc,
+                     "--group-by", "none")
+    _agg = os.path.join(_om, "aggregate.csv")
+    if _rc == 0 and os.path.exists(_agg):
+        import csv as _csv3
+        _rows3 = list(_csv3.DictReader(open(_agg)))
+        _r3 = _rows3[0] if _rows3 else {}
+        check("one calibrated image + one uncalibrated reports PIXELS, not a blend",
+              _r3.get("units") == "px" and _r3.get("n_calibrated") == "1"
+              and _r3.get("n_uncalibrated") == "1",
+              f"units={_r3.get('units')} cal={_r3.get('n_calibrated')} "
+              f"uncal={_r3.get('n_uncalibrated')} -- this is the case the old check could "
+              f"never reach")
+        _mm = json.load(open(os.path.join(_om, "run_manifest.json")))
+        check("the image missing from the scale CSV is named, not silently left in pixels",
+              any(r["kind"] == "image_absent_from_scale_csv" for r in _mm["refusals"]))
+
+        _sc2 = os.path.join(_md, "scale_both.csv")
+        with open(_sc2, "w") as fh:
+            fh.write("image,um_per_px\ncli_synth_00,0.05\ncli_synth_01,0.05\n")
+        _om2 = os.path.join(_md, "out_bothunits")
+        _rc2, _ = _cli("--in", _mixdir, "--out", _om2, "--scale-csv", _sc2,
+                       "--group-by", "none")
+        if _rc2 == 0 and os.path.exists(os.path.join(_om2, "aggregate.csv")):
+            _r4 = list(_csv3.DictReader(open(os.path.join(_om2, "aggregate.csv"))))[0]
+            check("with every image calibrated the same group reports MICROMETRES",
+                  _r4.get("units") == "um" and _r4.get("n_uncalibrated") == "0",
+                  "the contrast is what makes the previous check mean something")
+
+    _dupdir = os.path.join(_md, "dupdir")
+    os.makedirs(_dupdir, exist_ok=True)
+    shutil.copy(os.path.join(_cin, "cli_synth_00.tif"), os.path.join(_dupdir, "z.tif"))
+    shutil.copy(os.path.join(_cin, "cli_synth_00.tif"), os.path.join(_dupdir, "z.tiff"))
+    _rc, _ = _cli("--in", _dupdir, "--out", os.path.join(_md, "out_dup"), "--glob", "z.*")
+    check("two inputs sharing a basename are refused, not silently overwritten", _rc == 3,
+          "every output file is named from the basename, so the last one would win")
+
     # The batch entry point must not have changed where the app itself reads and writes.
     check("the overrides are inert for the app: repo paths unchanged",
           ORIGINAL_DIR.endswith("/sem-crack-detector/original")
@@ -1497,7 +1546,8 @@ def main():
         for n in created:
             c.pop(n, None)
         json.dump(c, open(cj, "w"), indent=2)
-    import shutil
+    # shutil is imported at module scope; a second import HERE made it a local name
+    # for the whole function, so every earlier use raised UnboundLocalError.
     shutil.rmtree(TMP, ignore_errors=True)
     check("test artifacts removed", True, f"{removed} files, {len(created)} images")
 

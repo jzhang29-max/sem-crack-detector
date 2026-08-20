@@ -502,9 +502,11 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 python3 interior_active_learning/code/test_app.py
 ```
 
-155 checks covering upload, detection, exports, correction precedence, region
+223 checks covering upload, detection, exports, correction precedence, region
 isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
-routing, physical-unit calibration, cross-image aggregation, and train/serve parity.
+routing, physical-unit calibration, calibration *uncertainty*, instrument metadata,
+right-censoring, the specimen as statistical unit, the batch CLI and its refusals,
+cross-image aggregation, and train/serve parity.
 `make test` runs the same thing.
 
 The count is not evidence about the science, and it should not be read as one. Several

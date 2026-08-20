@@ -196,11 +196,23 @@ def main(argv=None):
         print(f"semcrack: --in is not a directory: {a.indir}", file=sys.stderr)
         return EXIT_NOTHING
 
-    paths = sorted(glob.glob(os.path.join(a.indir, a.glob)))
+    paths = sorted(p for p in glob.glob(os.path.join(a.indir, a.glob))
+                   if os.path.isfile(p))
     names = [os.path.splitext(os.path.basename(p))[0] for p in paths]
     if not names:
         print(f"semcrack: no files matching {a.glob!r} in {a.indir}", file=sys.stderr)
         return EXIT_NOTHING
+
+    # Every output file is named from the basename, so two inputs that share one -- a.tif
+    # beside a.tiff, or foo.TIF beside foo.tif -- write the same CSV twice and the second
+    # silently wins. There is no correct guess about which the user meant.
+    _dupes = sorted({n for n in names if names.count(n) > 1})
+    if _dupes:
+        print(f"semcrack: {len(_dupes)} basename(s) appear more than once in {a.indir}: "
+              f"{', '.join(_dupes[:5])}. Every output file is named from the basename, so "
+              f"these would overwrite each other and the last one would silently win. "
+              f"Rename them or narrow --glob.", file=sys.stderr)
+        return EXIT_CONFLICT
 
     os.makedirs(a.outdir, exist_ok=True)
     _configure_env(a)
@@ -287,6 +299,14 @@ def main(argv=None):
                 refusals.append({"kind": "no_instrument_metadata", "image": nm,
                                  "note": "file carries no FEI/ZEISS pixel size; measured "
                                          "in PIXELS rather than assuming one"})
+        elif a.scale_csv:
+            # An image the scale CSV never mentions falls through to pixels. Saying nothing
+            # would make it indistinguishable from an image the user meant to leave
+            # uncalibrated, and the whole point of the sidecar is that those differ.
+            refusals.append({"kind": "image_absent_from_scale_csv", "image": nm,
+                             "note": f"{os.path.basename(a.scale_csv)} has no row for this "
+                                     f"image, so it is measured in PIXELS. If that was not "
+                                     f"intended, add a row."})
 
     if a.dry_run:
         print(f"semcrack --dry-run\n  images     : {len(names)}\n  input      : {a.indir}\n"
