@@ -1,0 +1,268 @@
+{
+ "n_images": 10,
+ "per_image": [
+  {
+   "image": "260708_316_H_b2_front_CBS_003",
+   "adjudicated_fraction": 0.07264815518820626,
+   "adjudicated": {
+    "recall": 0.4931476763594834,
+    "specificity": 0.0,
+    "precision": 0.9988611897008843,
+    "f1": 0.6602991254433067,
+    "tp": 224540,
+    "fn": 230780,
+    "fp": 256,
+    "tn": 0
+   },
+   "unlabelled_as_background": {
+    "recall": 0.4931476763594834,
+    "specificity": 0.8115524740735035,
+    "precision": 0.17004306737882707,
+    "f1": 0.2528875571640869,
+    "tp": 224540,
+    "fn": 230780,
+    "fp": 1095949,
+    "tn": 4719723
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_013",
+   "adjudicated_fraction": 0.0374152509351621,
+   "adjudicated": {
+    "recall": 0.5160490159004556,
+    "specificity": 0.8865657293919731,
+    "precision": 0.9918321436296778,
+    "f1": 0.6788784360407099,
+    "tp": 114631,
+    "fn": 107501,
+    "fp": 944,
+    "tn": 7378
+   },
+   "unlabelled_as_background": {
+    "recall": 0.5160490159004556,
+    "specificity": 0.9058151379734786,
+    "precision": 0.17011908083368457,
+    "f1": 0.25588419125853834,
+    "tp": 114631,
+    "fn": 107501,
+    "fp": 559197,
+    "tn": 5378031
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_012",
+   "adjudicated_fraction": 0.01953022366001051,
+   "adjudicated": {
+    "recall": 0.635072508644269,
+    "specificity": 0.34906588003933137,
+    "precision": 0.8453759806548232,
+    "f1": 0.7252870311431737,
+    "tp": 61529,
+    "fn": 35356,
+    "fp": 11254,
+    "tn": 6035
+   },
+   "unlabelled_as_background": {
+    "recall": 0.635072508644269,
+    "specificity": 0.9692809226298722,
+    "precision": 0.25837648076527375,
+    "f1": 0.3673131913725069,
+    "tp": 61529,
+    "fn": 35356,
+    "fp": 176608,
+    "tn": 5572523
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_015",
+   "adjudicated_fraction": 0.03238212359227354,
+   "adjudicated": {
+    "recall": 0.2941259288807982,
+    "specificity": 0.6184329710144928,
+    "precision": 0.9929745415732023,
+    "f1": 0.453825580985429,
+    "tp": 238157,
+    "fn": 571554,
+    "fp": 1685,
+    "tn": 2731
+   },
+   "unlabelled_as_background": {
+    "recall": 0.2941259288807982,
+    "specificity": 0.9856477213091799,
+    "precision": 0.40546333656809164,
+    "f1": 0.3409351354717443,
+    "tp": 238157,
+    "fn": 571554,
+    "fp": 349213,
+    "tn": 23982324
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_016",
+   "adjudicated_fraction": 0.21182372847901385,
+   "adjudicated": {
+    "recall": 0.19392539168837494,
+    "specificity": 0.0,
+    "precision": 0.9992041901036877,
+    "f1": 0.32481143188400685,
+    "tp": 1032088,
+    "fn": 4290000,
+    "fp": 822,
+    "tn": 0
+   },
+   "unlabelled_as_background": {
+    "recall": 0.19392539168837494,
+    "specificity": 0.9608700959949658,
+    "precision": 0.5711202686692538,
+    "f1": 0.28953754668991,
+    "tp": 1032088,
+    "fn": 4290000,
+    "fp": 775041,
+    "tn": 19031831
+   }
+  },
+  {
+   "image": "AS_24hr_BSE_Side_008",
+   "adjudicated_fraction": 0.0404591957728068,
+   "adjudicated": {
+    "recall": 0.7250862410224509,
+    "specificity": 0.7504084632084692,
+    "precision": 0.9504032377620304,
+    "f1": 0.8225946147085053,
+    "tp": 641085,
+    "fn": 243065,
+    "fp": 33455,
+    "tn": 100584
+   },
+   "unlabelled_as_background": {
+    "recall": 0.7250862410224509,
+    "specificity": 0.9957396265183365,
+    "precision": 0.8610553715478406,
+    "f1": 0.7872429519784072,
+    "tp": 641085,
+    "fn": 243065,
+    "fp": 103449,
+    "tn": 24178225
+   }
+  },
+  {
+   "image": "MAR_Amb_HIP_CBS_0006",
+   "adjudicated_fraction": 0.018049756685892742,
+   "adjudicated": {
+    "recall": 0.46804753163076146,
+    "specificity": 0.10397616356724546,
+    "precision": 0.9597684181390413,
+    "f1": 0.6292368972619519,
+    "tp": 208049,
+    "fn": 236455,
+    "fp": 8721,
+    "tn": 1012
+   },
+   "unlabelled_as_background": {
+    "recall": 0.46804753163076146,
+    "specificity": 0.9770432970407729,
+    "precision": 0.2682533726850867,
+    "f1": 0.3410435277233412,
+    "tp": 208049,
+    "fn": 236455,
+    "fp": 567520,
+    "tn": 24153800
+   }
+  },
+  {
+   "image": "MAR_Amb_AS_CBS_0003",
+   "adjudicated_fraction": 0.3659600416819255,
+   "adjudicated": {
+    "recall": 0.07107736326908046,
+    "specificity": 0.9312129051894689,
+    "precision": 0.9972377547590674,
+    "f1": 0.13269685875358891,
+    "tp": 652732,
+    "fn": 8530670,
+    "fp": 1808,
+    "tn": 24476
+   },
+   "unlabelled_as_background": {
+    "recall": 0.07107736326908046,
+    "specificity": 0.9731415551410167,
+    "precision": 0.6032671130642933,
+    "f1": 0.12717131154304115,
+    "tp": 652732,
+    "fn": 8530670,
+    "fp": 429263,
+    "tn": 15553159
+   }
+  },
+  {
+   "image": "260622_316_H_b2_back_CBS_01",
+   "adjudicated_fraction": 0.016519983609517414,
+   "adjudicated": {
+    "recall": 0.9604624795013162,
+    "specificity": 0.2539582013932869,
+    "precision": 0.9911269791054669,
+    "f1": 0.9755538201480808,
+    "tp": 394752,
+    "fn": 16250,
+    "fp": 3534,
+    "tn": 1203
+   },
+   "unlabelled_as_background": {
+    "recall": 0.9604624795013162,
+    "specificity": 0.9011332014425311,
+    "precision": 0.13889047217947337,
+    "f1": 0.24268654954653657,
+    "tp": 394752,
+    "fn": 16250,
+    "fp": 2447430,
+    "tn": 22307392
+   }
+  },
+  {
+   "image": "MAR_Amb_Cast_ETD_0003",
+   "adjudicated_fraction": 0.001186052958170573,
+   "adjudicated": {
+    "recall": 0.9806544861579513,
+    "specificity": 0.7057591623036649,
+    "precision": 0.9691254028713742,
+    "f1": 0.9748558586770314,
+    "tp": 26461,
+    "fn": 522,
+    "fp": 843,
+    "tn": 2022
+   },
+   "unlabelled_as_background": {
+    "recall": 0.9806544861579513,
+    "specificity": 0.9979988337568944,
+    "precision": 0.34468789078782824,
+    "f1": 0.5100866497672312,
+    "tp": 26461,
+    "fn": 522,
+    "fp": 50307,
+    "tn": 25088534
+   }
+  }
+ ],
+ "means": {
+  "recall": {
+   "adjudicated": 0.5337648623054941,
+   "unlabelled_as_background": 0.5337648623054941,
+   "delta": 0.0
+  },
+  "specificity": {
+   "adjudicated": 0.45993794761079326,
+   "unlabelled_as_background": 0.9478222865880552,
+   "delta": 0.48788433897726197
+  },
+  "precision": {
+   "adjudicated": 0.9695909838299255,
+   "unlabelled_as_background": 0.3791276454479653,
+   "delta": -0.5904633383819602
+  },
+  "f1": {
+   "adjudicated": 0.6378039655045784,
+   "unlabelled_as_background": 0.3514788612515344,
+   "delta": -0.286325104253044
+  }
+ },
+ "mean_adjudicated_fraction": 0.08159745125629793
+}
