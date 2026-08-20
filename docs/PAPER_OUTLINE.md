@@ -27,6 +27,7 @@ than documenting the fix.
 | 1 | Unlabelled pixels scored as background | macro: specificity **+0.488**, precision **−0.591**; micro: **+0.266** / **−0.629**; recall **exactly unchanged** under both (n=10) | `experiments/scoring_convention_bias.py` |
 | 2 | Calibration accepted without a cross-check | length error up to **+136%**, area up to **+458%** | `experiments/failure_mode_magnitudes.py` |
 | 3 | Model promotion gated on an in-sample baseline | **+0.029** AUC bar that every honest candidate must clear | same |
+| 1b | **Sparsity sensitivity of result 1** | gap **+0.488 [+0.285, +0.689]** at 8.16% adjudicated, and **+0.490** at 0.163% — invariant across a 50× thinning; interval excludes zero at every level | `experiments/sparsity_sensitivity.py` |
 | 4 | Train/serve preprocessing skew | **13.8%** of labelled regions unreachable; 6 of 38 images contributed nothing | same |
 
 ### Result 1 generalises beyond this codebase
@@ -75,6 +76,35 @@ because `tp/(tp+fn)` contains no negative term. This is asserted in the script, 
 printed — if recall ever moves, the experiment raises instead of reporting a finding. It is
 the evidence that the effect runs through the negative class and is not an artifact of this
 pipeline.
+
+### Result 1b answers the two objections the point estimate could not
+
+A single pair of numbers invites two immediate objections, and both are answerable from data
+already on disk.
+
+*"0.4599 from 10 images and an adjudicated-negative class of three parts in ten thousand — how
+certain is that?"* Bootstrap over **images**, the unit of independence: the specificity gap is
+**+0.488 [+0.285, +0.689]**. The interval excludes zero, so the effect is not a noise artefact
+at this n.
+
+*"Your corpus is 8% reviewed. What happens at 1%? Is this a knife edge?"* Thinning the
+adjudicated region by up to 50× moves the gap from **+0.488 to +0.490**. It is a broad effect,
+which means it transfers to corpora far sparser than this one rather than being an artefact of
+how much this particular annotator happened to review.
+
+The design has a built-in asymmetry worth stating in the paper: the dense convention is
+**invariant to thinning by construction**, because it never consults the adjudication. It is
+therefore a fixed reference line, and every bit of movement comes from the exclusion side. The
+dense number is not merely different — it is *indifferent to how much work the human did*.
+
+**A prediction that failed, and the better conclusion that replaced it.** We expected the
+exclusion estimate's confidence interval to widen as review thinned — the honest price of
+declining to guess. It did not: 0.425 → 0.413, essentially flat. Thinning removes pixels, and
+even 0.163% of a 25-megapixel frame is tens of thousands of them, so each image's estimate
+stays stable. The interval is dominated by **between-image variance at n=10**, not by
+within-image sampling. The consequence is a labelling instruction that reverses the intuitive
+one: *to tighten the interval, mark not-crack on more IMAGES; marking existing images more
+thoroughly will not do it.*
 
 ### Why result 2 is worse than it looks
 
@@ -129,7 +159,10 @@ undermine the paper.
 ## What is needed from a person, not from more code
 
 1. **Not-crack marks on ~20 more images.** Takes n from 10 to 30. Roughly 30 minutes per
-   image with bucket-fill. This is the single highest-value hour available.
+   image with bucket-fill. This is the single highest-value hour available — and
+   `sparsity_sensitivity.py` now shows *why* it is images rather than thoroughness: the
+   interval is dominated by between-image variance, so breadth tightens it and depth does not.
+   That was measured, not assumed, and it reverses the intuitive advice.
 2. **A second annotator on a handful of frames.** Yields inter-rater agreement (κ/Dice) and
    turns the central assumption into a measurement. Export the masks to CVAT self-hosted and
    compute agreement there rather than building a multi-annotator workflow.
