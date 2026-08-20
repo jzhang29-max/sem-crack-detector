@@ -1,5 +1,13 @@
 # SEM Crack Detector
 
+> **Before relying on this:** read [docs/COMPETITIVE_POSITION.md](docs/COMPETITIVE_POSITION.md). It states plainly what
+> this tool does better than ilastik, Fiji, micro-sam, CVAT and the commercial suites
+> (calibration that refuses, unreviewed-aware metrics, a gated retrain, per-CSV
+> provenance), what it loses at outright (mask quality, 3D, stitching, batch/CLI,
+> multi-annotator), and the claims this repo should not make. Specificity here rests on
+> approximately one frame, and roughly 40% of crack pixels are missed at the deployed
+> operating point.
+
 Drop SEM images into a browser window, see cracks detected, fix what's wrong by
 painting. Corrections save themselves. One button retrains the model on them.
 
@@ -204,6 +212,35 @@ invalidated, is in [docs/MODEL_VALIDATION_BENCHMARK.md](docs/MODEL_VALIDATION_BE
 A comparison against the sibling TXM app — what was adopted from it and what was
 declined — is in [docs/APP_COMPARISON.md](docs/APP_COMPARISON.md).
 
+## Does it beat a two-line baseline?
+
+`docs/MODEL_VALIDATION_BENCHMARK.md` compares six classifiers, but all six run on the same
+8 hand-built features over the same darkness-thresholded candidates — that answers "which
+classifier is best on my features", not "is the machinery worth anything". So
+`interior_active_learning/code/experiments/naive_baselines.py` scores the deployed pipeline
+against plain alternatives on identical pixels, under an identical protocol: adjudicated
+pixels only, human corrections neutralised so the pipeline cannot see the answer.
+
+Measured on two adjudicated frames (run the script for the full set):
+
+| method | f1 | recall | specificity | precision |
+|---|---|---|---|---|
+| global Otsu | 0.585 | 0.455 | 0.041 | 0.882 |
+| Otsu + small-object cleanup | 0.592 | 0.463 | 0.020 | 0.880 |
+| Frangi ridges (98th pct) | 0.241 | 0.141 | 0.837 | 0.934 |
+| Frangi ∩ darker-than-median | 0.238 | 0.139 | 0.729 | 0.912 |
+| **deployed two-pass pipeline** | **0.693** | **0.564** | 0.175 | 0.922 |
+
+**+0.101 f1 over the best naive method.** The two families fail in opposite directions —
+Otsu takes nearly everything dark (specificity 0.02–0.04), Frangi is precise but finds a
+seventh of the crack — and the pipeline is the only one that is not degenerate at one end.
+
+Two caveats that belong next to those numbers. Specificity is weak for every method
+including the pipeline, because 27 of 38 labelled images carry no not-crack label at all, so
+specificity is effectively measured on one frame. And this is a comparison against naive
+baselines, not against ilastik or micro-sam, which are stronger segmentation engines than
+anything here — see `docs/COMPETITIVE_POSITION.md`.
+
 ## Physical units and cross-image statistics
 
 Exported measurements are in **pixels** until an image is calibrated, and a crack length
@@ -332,9 +369,18 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 python3 interior_active_learning/code/test_app.py
 ```
 
-84 checks covering upload, detection, exports, correction precedence, region
+155 checks covering upload, detection, exports, correction precedence, region
 isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
-routing, and the performance fixes. `make test` runs the same thing.
+routing, physical-unit calibration, cross-image aggregation, and train/serve parity.
+`make test` runs the same thing.
+
+The count is not evidence about the science, and it should not be read as one. Several
+of these tests exist because a check that *could not fail* had already certified
+behaviour it never exercised — a fixture whose regions scored 0.03 from the classifier
+made the correction-precedence test skip itself silently, and a mixed-units check passed
+only because nothing in the corpus was calibrated. What the suite is good for is
+catching regressions in plumbing. It says nothing about whether the detector finds
+cracks.
 
 ## Working on this repo
 
