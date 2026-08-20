@@ -26,6 +26,20 @@ ORIGINAL_DIR = os.path.join(PROJECT_ROOT, "original")
 #: clicks a repository link months later otherwise has no way to know whether the code,
 #: the model bundle or the label CSVs have changed since the numbers were quoted.
 #: Keep in step with CITATION.cff.
+#: Which segmentation the region Label IDs were produced under. Bump this whenever a
+#: change alters WHICH regions survive to extract_candidates, because that function
+#: renumbers survivors 1..N in scan order, so any such change shifts every later ID.
+#:
+#: 1 = with exclude_border_background()
+#: 2 = without it (removed after it was measured deleting 35-37% of the user's hand marks
+#:     on two images)
+#:
+#: The override ledger is keyed by Label ID. Rows recorded under a different segmentation
+#: point at different regions now, and applying them anyway force-sets IsCrack on whatever
+#: happens to hold that ID -- silently, with `if m.any()` making a mismatch
+#: indistinguishable from a match.
+SEGMENTATION_VERSION = 2
+
 VERSION = "1.0.0"
 
 PROD_MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "crack_classifier.joblib")
@@ -71,7 +85,27 @@ def contrast_kwargs_for(name):
     return {"low_pct": 1.0, "high_pct": 99.5}
 
 
+#: Ledger rows whose SegVersion does not match, reported once per process so a run does
+#: not print the same warning 62 times.
+_LEDGER_SKIPPED = {}
+
+
 def load_hard_overrides(image_name):
+    """Region-level verdicts from the ledger, for THIS segmentation only.
+
+    The ledger is keyed by region Label ID, and extract_candidates renumbers survivors
+    1..N in scan order -- so any change to which regions survive shifts every later ID.
+    Rows written before such a change point at different regions now, and applying them
+    anyway force-sets IsCrack on whatever holds that ID, silently: the caller does
+    `df.loc[df["Label"] == label, "IsCrack"] = is_crack` guarded by `if m.any()`, which
+    makes a stale hit indistinguishable from a real one.
+
+    So rows are applied only when their recorded SegVersion matches the current
+    SEGMENTATION_VERSION. Rows with no SegVersion column predate the marker and are
+    treated as version 1. This is deliberately conservative: dropping a stale verdict
+    costs the user one re-click, while applying it corrupts a region they never touched
+    and gives them no way to see it.
+    """
     import pandas as pd
     if not os.path.exists(LEDGER_PATH):
         return None
@@ -79,8 +113,20 @@ def load_hard_overrides(image_name):
     g = ledger[ledger["SourceImage"] == image_name]
     if len(g) == 0:
         return None
-    is_crack = g["CorrectedTo"].astype(str).str.strip().str.lower().isin(["true", "1"])
-    return dict(zip(g["Label"].astype(int), is_crack))
+    ver = (g["SegVersion"].fillna(1).astype(int) if "SegVersion" in g.columns
+           else pd.Series(1, index=g.index))
+    fresh = g[ver == SEGMENTATION_VERSION]
+    stale = len(g) - len(fresh)
+    if stale and image_name not in _LEDGER_SKIPPED:
+        _LEDGER_SKIPPED[image_name] = stale
+        print(f"NOTE: {image_name}: {stale} ledger override(s) recorded under an earlier "
+              f"segmentation are NOT applied -- their region IDs no longer refer to the "
+              f"same regions. Re-mark those regions in the app if they still need "
+              f"correcting; pixel corrections are unaffected (they are geometric).")
+    if len(fresh) == 0:
+        return None
+    is_crack = fresh["CorrectedTo"].astype(str).str.strip().str.lower().isin(["true", "1"])
+    return dict(zip(fresh["Label"].astype(int), is_crack))
 
 
 # A log of (SourceImage, Label) pairs touched by a paint-app correction --
