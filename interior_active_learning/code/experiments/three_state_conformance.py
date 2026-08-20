@@ -424,6 +424,90 @@ def probe_datumaro(f, ref):
     return out
 
 
+def probe_label_studio(f, ref):
+    """Label Studio's brush converter: does a void-encoded mask survive import?"""
+    import inspect
+    import tempfile
+    import label_studio_converter.brush as lsb
+    from PIL import Image as PILImage
+
+    src = inspect.getsource(lsb)
+    threshold_lines = [ln.strip() for ln in src.split("\n")
+                       if "> 128" in ln and "np.array" in ln]
+
+    # Encode the fixture the way PASCAL/Cityscapes do: 255 for the void/unreviewed state.
+    voidenc = np.where(f["unreviewed"], 255,
+                       np.where(f["crack"], 1, 0)).astype(np.uint8)
+    out = {"threshold_source": threshold_lines[:1],
+           "void_encoded_values": sorted(int(v) for v in np.unique(voidenc))}
+    with tempfile.TemporaryDirectory() as td:
+        pth = os.path.join(td, "void.png")
+        PILImage.fromarray(voidenc).save(pth)
+        # Reproduce the converter's own thresholding step on that file.
+        arr = np.array(PILImage.open(pth))
+        thresholded = (arr > 128)
+        out["void_pixels_become_foreground"] = bool(thresholded[f["unreviewed"]].all())
+        out["crack_pixels_become_foreground"] = bool(thresholded[f["crack"]].any())
+        out["foreground_px_after_threshold"] = int(thresholded.sum())
+        out["true_crack_px"] = int(f["crack"].sum())
+    out["verdict"] = (
+        f"the converter thresholds with `{threshold_lines[0] if threshold_lines else '> 128'}`. "
+        f"A mask encoding unreviewed as 255 -- the PASCAL/Cityscapes convention -- therefore "
+        f"imports every one of its {int(f['unreviewed'].sum())} unreviewed pixels as "
+        f"FOREGROUND, while the {out['true_crack_px']} genuine crack pixels encoded as 1 are "
+        f"DROPPED. The result is {out['foreground_px_after_threshold']} foreground px, almost "
+        f"exactly inverted. The two conventions do not merely disagree, they corrupt each "
+        f"other on round-trip.")
+    out["supports_unreviewed"] = False
+    return out
+
+
+def probe_elf_matching(f, ref):
+    """micro-sam's scorer: does elf's ignore_label protect predictions in ignored regions?"""
+    import inspect
+    from elf.evaluation import dice_score, matching
+
+    h = w = 64
+    gt = np.zeros((h, w), dtype=np.int32)     # 0 = the ignored / unreviewed state
+    gt[8:24, 8:24] = 1                        # one reviewed object
+    seg_ok = np.zeros((h, w), dtype=np.int32)
+    seg_ok[9:23, 9:23] = 1                    # matches it
+    seg_extra = seg_ok.copy()
+    seg_extra[40:56, 40:56] = 2               # an object wholly inside ignored territory
+
+    r_ok = matching(seg_ok, gt, ignore_label=0)
+    r_extra_ign = matching(seg_extra, gt, ignore_label=0)
+    r_extra_noign = matching(seg_extra, gt, ignore_label=None)
+    d_ok = float(dice_score(seg_ok, gt))
+    d_extra = float(dice_score(seg_extra, gt))
+
+    return {
+        "matching_signature": str(inspect.signature(matching)),
+        "dice_score_signature": str(inspect.signature(dice_score)),
+        "dice_score_has_mask_arg": any(
+            k in inspect.signature(dice_score).parameters
+            for k in ("ignore_label", "mask", "ignore_index")),
+        "precision_matched_only": float(r_ok.get("precision")),
+        "precision_with_ignored_region_prediction": float(r_extra_ign.get("precision")),
+        "precision_same_without_ignoring": float(r_extra_noign.get("precision")),
+        "ignore_label_penalises_more_than_not_ignoring": bool(
+            r_extra_ign.get("precision") < r_extra_noign.get("precision")),
+        "dice_matched_only": d_ok,
+        "dice_with_ignored_region_prediction": d_extra,
+        "verdict": (
+            f"ignore_label=0 is the DEFAULT and looks like it protects unreviewed territory. "
+            f"It does not. A prediction lying entirely inside the ignored region drops "
+            f"precision from {r_ok.get('precision'):.4f} to "
+            f"{r_extra_ign.get('precision'):.4f} -- and that is WORSE than passing "
+            f"ignore_label=None ({r_extra_noign.get('precision'):.4f}). The parameter removes "
+            f"the ignored region from the ground-truth OBJECTS without exempting predictions "
+            f"that fall there, so they are charged as unmatched false positives. dice_score "
+            f"has no mask argument at all and charges it too "
+            f"({d_ok:.4f} -> {d_extra:.4f})."),
+        "supports_unreviewed": False,
+    }
+
+
 PROBES = [
     ("sklearn.metrics", "sklearn", probe_sklearn),
     ("skimage.metrics", "skimage", probe_skimage),
@@ -432,15 +516,20 @@ PROBES = [
     ("segmentation_models_pytorch", "segmentation_models_pytorch", probe_smp),
     ("MONAI", "monai", probe_monai),
     ("datumaro (CVAT export path)", "datumaro", probe_datumaro),
+    ("Label Studio brush converter", "label_studio_converter", probe_label_studio),
+    ("elf / micro-sam matching", "elf", probe_elf_matching),
     ("mask file round-trip", "PIL", probe_mask_roundtrip),
 ]
 
 #: Probes worth running that need a dependency this environment does not have. Listed so the
 #: report states what was NOT tested -- an absence recorded is worth more than a silent skip.
 NOT_TESTED = {
-    "label_studio_converter": "Label Studio brush export/import, incl. the >128 threshold",
-    "ilastik": "desktop app; headless export of Simple Segmentation vs LABELS",
-    "micro_sam": "napari annotator canvas and zarr fill value",
+    "ilastik": ("NOT pip-installable -- no PyPI distribution exists (conda/binary "
+                "only), so its headless export could not be executed here. The "
+                "source-level finding stands unexecuted."),
+    "micro_sam annotator GUI": ("the napari canvas and zarr fill value need an "
+                                "interactive session; its SCORER is covered by the "
+                                "elf probe above"),
 }
 
 
