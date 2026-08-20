@@ -45,10 +45,15 @@ import statistics as stats
 import numpy as np
 
 import calibration as cal
-from common import EXP_ROOT, MEASUREMENTS_DIR
+from common import MEASUREMENTS_DIR
 
-MEAS_DIR = os.path.join(EXP_ROOT, "measurements")
-OUT_DIR = MEASUREMENTS_DIR
+#: One directory, named once. There were two constants here -- MEAS_DIR for reading and
+#: OUT_DIR for writing -- pointing at the same place by coincidence. When OUT_DIR learned
+#: to follow SEMCRACK_MEASUREMENTS_DIR and MEAS_DIR did not, a batch run wrote its
+#: aggregate into the batch directory while reading the repository's CSVs, so it produced
+#: a header-only file and reported success. Reading and writing must not be able to
+#: disagree about where the measurements are.
+OUT_DIR = MEAS_DIR = MEASUREMENTS_DIR
 
 #: Statistics are reported for these columns. Physical variants are substituted
 #: automatically when the group is calibrated.
@@ -112,6 +117,12 @@ def group_key(name, by):
     frame has no 'condition', so grouping by condition silently dropped every one of them.
     The default CLI grouping is family,condition, so that was the common case.
     """
+    # Grouping by nothing means ONE group, and that must not depend on the filename. A
+    # stranger running the batch CLI on their own files gets names this module cannot parse,
+    # and every one of them was dropped -- so the aggregate came out empty for everybody
+    # outside this corpus's naming convention, with no way to ask for a single pooled group.
+    if not by:
+        return (), None
     t = parse_name(name)
     if t["family"] == "unparsed":
         return None, "unparsable_name"
@@ -396,12 +407,23 @@ def write_report(result, stem="aggregate"):
                 "n_uncalibrated": g["n_uncalibrated"],
                 "dispersion_is_estimable": g.get("dispersion_is_estimable"),
                 "mean_length_by_specimen": spec.get("mean"),
-                "sd_length_by_specimen": spec.get("sd"),
+                # Blank, not 0.0, when dispersion has been refused. Two specimens gave
+                # "sd = 0.0" next to a False flag, and a reader quoting that number would
+                # be quoting a spread this group is not entitled to report at all -- the
+                # same trap the longest-crack column had.
+                "sd_length_by_specimen": (spec.get("sd")
+                                          if g.get("dispersion_is_estimable") else ""),
                 "longest_crack_is_valid_comparable": valid,
                 # Blank rather than a number when the figure has been refused: a CSV cell is
                 # exactly where a refused statistic gets quoted anyway.
                 "longest_crack_mean": (lc.get("mean") if valid else ""),
-                "longest_crack_sd": (lc.get("sd") if valid else ""),
+                # Two guards, and both must pass. `valid` is about censoring -- whether
+                # these are lengths at all. `dispersion_is_estimable` is about independence
+                # -- an sd over frames from one or two specimens measures variation WITHIN
+                # a specimen, and that is unearned here for exactly the reason it is
+                # unearned for the per-specimen sd above.
+                "longest_crack_sd": (lc.get("sd") if valid
+                                     and g.get("dispersion_is_estimable") else ""),
                 "frames_with_unknown_censoring": g.get("frames_with_unknown_censoring"),
             })
     return jp, cp
