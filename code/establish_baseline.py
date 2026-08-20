@@ -152,23 +152,36 @@ def main():
         print("\n  --dry-run: nothing written")
         return 0
 
-    before = clf.predict_proba(bundle["scaler"].transform(X))[:, 1]
+    # Snapshot from a SEPARATE reload, not from the live object. `clf` IS bundle["clf"], so
+    # comparing before/after through the same reference compared the object with itself and
+    # the assert could never fire -- it certified nothing. Reload from disk so the check is
+    # against what is actually stored.
+    _fresh = joblib.load(PROD_MODEL_PATH)
+    before = _fresh["clf"].predict_proba(_fresh["scaler"].transform(X))[:, 1]
     bundle["loio_out_of_sample"] = auc
     bundle["loio_out_of_sample_source"] = "refit-same-family"
     bundle["loio_out_of_sample_image"] = args.held
     bundle["loio_out_of_sample_set_at"] = time.strftime("%Y-%m-%dT%H:%M:%S",
                                                         time.localtime())
     bundle["loio_in_sample_for_reference"] = in_sample
-    after = bundle["clf"].predict_proba(bundle["scaler"].transform(X))[:, 1]
-    assert np.array_equal(before, after), (
-        "establishing a baseline must not change a single prediction")
-
+    # Back up and write, THEN verify what landed by reloading it. Verifying in memory before
+    # writing cannot detect a re-pickling that changes behaviour; verifying the file can.
     stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime())
-    shutil.copy2(PROD_MODEL_PATH,
-                 PROD_MODEL_PATH.replace(".joblib", f".pre-baseline-{stamp}.joblib"))
+    backup = PROD_MODEL_PATH.replace(".joblib", f".pre-baseline-{stamp}.joblib")
+    shutil.copy2(PROD_MODEL_PATH, backup)
     tmp = PROD_MODEL_PATH + ".tmp"
     joblib.dump(bundle, tmp)
     os.replace(tmp, PROD_MODEL_PATH)
+
+    reloaded = joblib.load(PROD_MODEL_PATH)
+    after = reloaded["clf"].predict_proba(reloaded["scaler"].transform(X))[:, 1]
+    if not np.array_equal(before, after):
+        # Restore rather than leave a model whose predictions moved. Recording a metric
+        # must never change what the tool detects.
+        shutil.copy2(backup, PROD_MODEL_PATH)
+        print("  predictions CHANGED after re-pickling -- restored the previous bundle and "
+              "recorded nothing. Do not deploy this Python/scikit-learn combination.")
+        return 1
     print(f"\n  recorded in {os.path.basename(PROD_MODEL_PATH)}; predictions verified "
           f"unchanged; previous bundle kept as "
           f"{os.path.basename(PROD_MODEL_PATH).replace('.joblib', f'.pre-baseline-{stamp}.joblib')}")

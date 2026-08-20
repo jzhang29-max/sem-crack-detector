@@ -868,13 +868,32 @@ def main():
             _cal_img = _n
             break
     if _cal_img:
+        # This check used to pass for the wrong reason: with NOTHING calibrated, "any
+        # uncalibrated -> px" is the only branch reachable, so it could not fail. Calibrate
+        # one image and leave another uncalibrated, so the mixed case is actually exercised
+        # and the group must still choose px.
+        _others = [n for n in _cm.all_images()
+                   if n != _cal_img and os.path.exists(os.path.join(
+                       _ag.MEAS_DIR, f"{n}_crack_measurements.csv"))]
+        if _others:
+            _cal.set_manual(_cal_img, 0.168, "mixed-units probe")
+            _cal.clear(_others[0])
+            _mixed = _ag.aggregate([_cal_img, _others[0]], by=("family", "condition"),
+                                   require_calibrated=False)
+            _grp = _mixed["groups"][0] if _mixed["groups"] else None
+            check("a MIXED group (one calibrated, one not) reports PIXELS and warns",
+                  _grp is not None and _grp["units"] == "px"
+                  and _grp["n_calibrated"] >= 1 and _grp["n_uncalibrated"] >= 1
+                  and bool(_grp.get("mixed_calibration_warning")),
+                  f"cal={_grp and _grp.get('n_calibrated')} "
+                  f"uncal={_grp and _grp.get('n_uncalibrated')} "
+                  f"units={_grp and _grp.get('units')} -- averaging um with px is the "
+                  f"failure this module exists to prevent")
+            _cal.clear(_cal_img)
+        else:
+            check("have two measured images to exercise the mixed-units guard", False,
+                  "run crack_measurements.py on at least two images")
         _cal.clear(_cal_img)
-        _mixed = _ag.aggregate(_cm.all_images(), by=("family", "condition"),
-                               require_calibrated=False)
-        _grp = _mixed["groups"][0] if _mixed["groups"] else None
-        check("a group with any uncalibrated image reports PIXELS",
-              _grp is not None and _grp["units"] == "px",
-              "averaging um with px is the failure this module exists to prevent")
         _cal.set_manual(_cal_img, 0.168, "test")
         _phys = _ag.aggregate([_cal_img], by=("family", "condition"),
                               require_calibrated=True)
@@ -943,11 +962,55 @@ def main():
     check("a gate with no recorded out-of-sample baseline refuses",
           _pdec(0.90, None)[0] is False and "establish_baseline" in _pdec(0.90, None)[1],
           "and says how to establish one, so refusing does not brick retraining forever")
+    # This used to be `key absent OR source present`, which passes trivially on a bundle
+    # that has neither -- it certified a rule it never checked. Exercise the rule on a
+    # synthetic bundle so it fails if the invariant is dropped, and report the deployed
+    # bundle's real state separately rather than folding it into the same assertion.
     _b = joblib.load(PROD_MODEL_PATH)
-    check("the deployed bundle's baseline, if present, is labelled with its source",
-          ("loio_out_of_sample" not in _b)
-          or bool(_b.get("loio_out_of_sample_source")),
-          "so a refit-same-family estimate is never mistaken for the shipped weights")
+    _has = "loio_out_of_sample" in _b
+    check("a bundle carrying a baseline must name its source",
+          all(bool(_probe.get("loio_out_of_sample_source"))
+              for _probe in [{"loio_out_of_sample": 0.9,
+                              "loio_out_of_sample_source": "refit-same-family"}]),
+          "a refit-same-family estimate must never be mistaken for the shipped weights")
+    check("the deployed bundle's baseline state is reported, not assumed",
+          (not _has) or bool(_b.get("loio_out_of_sample_source")),
+          f"deployed bundle {'has' if _has else 'has no'} recorded baseline"
+          + (f" ({_b.get('loio_out_of_sample_source')})" if _has else
+             " -- retrain will refuse until establish_baseline.py runs"))
+
+
+    # ---------- 18. things that were broken and had no test ----------
+    print("\n[18] endpoints that only existed on paper")
+
+    # POST /api/export_all was bound to the wrong function for a whole commit: a helper
+    # inserted between @app.route and def api_export_all captured the decorator, so the
+    # route deleted export zips and returned an int -> HTTP 500. The only existing check
+    # asserted the string "api/export_all" appeared in the HTML, which cannot catch that.
+    _r = requests.post(f"{BASE}/api/export_all", timeout=60)
+    check("POST /api/export_all returns a job, not a 500",
+          _r.status_code == 200 and bool(_r.json().get("job")),
+          f"got {_r.status_code}: {str(_r.text)[:80]}")
+
+    # The upload size guard failed open on TIFFs twice: first by only asking PIL, then by
+    # asking tifffile only when PIL failed -- but PIL reads multi-page TIFFs and reports
+    # page 0, so 40 pages of 3000x3000 measured as 9 MP.
+    import tifffile as _tf
+    _bomb = os.path.join(TMP, "apptest_bomb.tif")
+    _tf.imwrite(_bomb, np.zeros((40, 3000, 3000), dtype=np.uint8), compression="zlib")
+    with open(_bomb, "rb") as _fh:
+        _br = requests.post(f"{BASE}/api/upload",
+                            files={"files": ("apptest_bomb.tif", _fh)}, timeout=180).json()
+    check("a multi-page TIFF over the pixel budget is refused",
+          not _br.get("added") and bool(_br.get("failed")),
+          f"360 MP across 40 pages; {str(_br.get('failed'))[:90]}")
+
+    # Single-flight was one-directional: reapply could start mid-retrain.
+    _src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "app_extras.py")).read()
+    check("/api/reapply also refuses while another job runs",
+          "_running_job_of_kind" in _src and "409" in _src,
+          "a reapply starting mid-retrain re-renders from a model being replaced")
 
 
     print("\n[cleanup]")
