@@ -21,6 +21,13 @@ MAIN_CODE_DIR = os.path.join(PROJECT_ROOT, "code")
 sys.path.insert(0, MAIN_CODE_DIR)
 
 ORIGINAL_DIR = os.path.join(PROJECT_ROOT, "original")
+#: One version string for the whole project. Exports and /api/pipeline_info both report
+#: it, so a CSV can be tied to a release instead of a moving `main` -- a reviewer who
+#: clicks a repository link months later otherwise has no way to know whether the code,
+#: the model bundle or the label CSVs have changed since the numbers were quoted.
+#: Keep in step with CITATION.cff.
+VERSION = "1.0.0"
+
 PROD_MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "crack_classifier.joblib")
 LEDGER_PATH = os.path.join(PROJECT_ROOT, "manual_corrections_ledger.csv")
 PROD_RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")

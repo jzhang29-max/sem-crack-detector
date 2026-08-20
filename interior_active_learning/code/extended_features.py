@@ -142,8 +142,15 @@ def crack_shape_measurements(mask_bool):
         "MaxWidth_px": round(max_width, 2),
         "Tortuosity": round(tortuosity, 3) if tortuosity == tortuosity else "",  # "" not nan, for clean CSV
         "BranchPointCount": branch_points,
-        "MajorAxisLength_px": round(float(props.axis_major_length), 2) if props else "",
-        "MinorAxisLength_px": round(float(props.axis_minor_length), 2) if props else "",
+        # NAMED FOR WHAT THEY ARE. These are the axes of the ellipse with the same
+        # second moments as the region -- NOT crack length. A reader who takes
+        # "MajorAxisLength" as the crack's length gets a different quantity from the one
+        # the literature reports, and for a curved crack a much smaller one:
+        # SkeletonLength_px above is the actual path length, and Tortuosity is their
+        # ratio. Renamed rather than documented, because a misleading column name in a
+        # CSV outlives any docstring.
+        "EllipseMajorAxis_px": round(float(props.axis_major_length), 2) if props else "",
+        "EllipseMinorAxis_px": round(float(props.axis_minor_length), 2) if props else "",
         "Orientation_deg": round(float(np.degrees(props.orientation)), 2) if props else "",
         "BoundaryRoughness": round(boundary_roughness(mask_bool), 3),
     }

@@ -81,7 +81,7 @@ def measure_image(image_name):
 
     cols = ["SourceImage", "CrackID", "Area_px", "AreaPct_of_image", "SkeletonLength_px",
             "MeanWidth_px", "MaxWidth_px", "Tortuosity", "BranchPointCount",
-            "MajorAxisLength_px", "MinorAxisLength_px", "Orientation_deg",
+            "EllipseMajorAxis_px", "EllipseMinorAxis_px", "Orientation_deg",
             "BoundaryRoughness", "CentroidX_px", "CentroidY_px"]
 
     # Physical units when this image has been calibrated. A crack length in PIXELS is not
@@ -95,7 +95,7 @@ def measure_image(image_name):
         rows = [_cal.convert_row(r, umpx) for r in rows]
         cols = cols + [_cal.um_column_name(c) for c in
                        ["Area_px", "SkeletonLength_px", "MeanWidth_px", "MaxWidth_px",
-                        "MajorAxisLength_px", "MinorAxisLength_px"]]
+                        "EllipseMajorAxis_px", "EllipseMinorAxis_px"]]
 
     out_df = pd.DataFrame(rows, columns=cols).sort_values("Area_px", ascending=False).reset_index(drop=True)
 

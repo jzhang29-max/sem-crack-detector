@@ -54,7 +54,7 @@ import json
 import os
 import time
 
-from common import PAINT_DIR, save_json_atomic
+from common import PAINT_DIR, VERSION, save_json_atomic
 
 CALIB_PATH = os.path.join(PAINT_DIR, "calibration.json")
 
@@ -170,8 +170,8 @@ LENGTH_POWERS = {
     "SkeletonLength_px": 1,
     "MeanWidth_px": 1,
     "MaxWidth_px": 1,
-    "MajorAxisLength_px": 1,
-    "MinorAxisLength_px": 1,
+    "EllipseMajorAxis_px": 1,
+    "EllipseMinorAxis_px": 1,
     "CentroidX_px": 1,
     "CentroidY_px": 1,
 }
@@ -213,6 +213,7 @@ def provenance_header(image_name, model_path=None, threshold=None):
     rec = get_record(image_name)
     out = {
         "image": image_name,
+        "tool_version": VERSION,
         "calibrated": bool(rec),
         "um_per_px": (rec or {}).get("um_per_px"),
         "calibration_source": (rec or {}).get("source"),

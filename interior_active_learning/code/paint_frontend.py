@@ -213,6 +213,8 @@ button:disabled{opacity:.4;cursor:default}
       <div class="fld">Zoom <input type="range" id="zoom" min="10" max="800" value="100"><span class="num" id="zoomLabel">100%</span>
         <button class="ghost" id="fitBtn">Fit</button></div>
       <button class="ghost" id="installSamBtn" style="display:none" title="Install PyTorch + transformers into this app's virtualenv, no terminal needed">Enable SAM (+6% accuracy)</button>
+      <button class="ghost" id="setScaleBtn" title="Click the two ends of the burned-in scale bar, then type its label. Exported lengths become micrometres instead of pixels.">Set scale&hellip;</button>
+      <span class="num" id="scaleState" style="margin-left:6px">uncalibrated</span>
       <div class="sp"></div>
       <button class="ghost" id="reapplyBtn" title="Re-render every image with the current model">Re-apply model</button>
       <button class="ghost" id="undoBtn">Undo <span class="kbd">&#8984;Z</span></button>
@@ -354,6 +356,9 @@ let samInstalled = false;
 const USE_SAM = false;
 
 async function loadImage(name) {
+  // Keep the scale readout honest: it is per image, so a stale value from the
+  // previously opened frame would be worse than showing nothing.
+  setTimeout(refreshScaleState, 0);
   // Guards against a slow load (e.g. the largest images need multiple
   // minutes to generate a fresh template) finishing AFTER a later call for
   // a different image has already started -- without this, the slow call
@@ -593,6 +598,16 @@ async function commitStroke() {
 }
 
 paintCanvas.addEventListener('mousedown', (e) => {
+  // Calibration marks come first: while arming, a click measures the scale bar rather
+  // than painting. Without this gate the first mark would also lay down a stroke on the
+  // correction mask, so measuring the scale would silently edit the labels.
+  if (calibArm) {
+    const [cx] = canvasCoords(e);
+    calibMarks.push(cx);
+    setScaleState(`mark ${calibMarks.length} of 2 at x=${Math.round(cx)}`);
+    if (calibMarks.length === 2) { calibArm = false; finishCalibration(); }
+    return;
+  }
   if (tool === 'bucket') {
     const [x, y] = canvasCoords(e);
     flipRegion(x, y);
@@ -1278,7 +1293,11 @@ refreshModelInfo = async function () {
       '<div class="row"><span>Detector</span><b style="color:' +
         (i.sam_available ? 'var(--good)' : 'var(--text-faint)') + '">' +
         'Pass 1 + Pass 2 (archive model, no SAM)' + '</b></div>' +
-      '<div class="row"><span>model source</span><b>archive (CBS_Crack_Detection_All)</b></div>';
+      '<div class="row"><span>model source</span><b>archive (CBS_Crack_Detection_All)</b></div>' +
+      // Shown so a screenshot or a support question identifies the release. Exported
+      // provenance records the same string, which is what ties a CSV to a version
+      // rather than to a moving `main`.
+      (i.version ? '<div class="row"><span>version</span><b>' + i.version + '</b></div>' : '');
   } catch (e) { }
 };
 
@@ -1394,6 +1413,71 @@ refreshModelPicker();
 // So the Enable SAM button got no click handler on load, and the code that reveals
 // it (and disables the Use SAM checkbox) never ran -- SAM could not be turned on
 // from the UI at all.
+// ---- physical-unit calibration -------------------------------------------------
+// Exported lengths were pixels, which is not a publishable quantity. Two clicks on the
+// burned-in scale bar plus its printed label give um/px exactly; the span is measured
+// from the marks rather than typed, so it does not inherit a hand-drawn line's aiming
+// error the way ImageJ's Set Scale does.
+let calibArm = false, calibMarks = [];
+
+function setScaleState(txt, good) {
+  const el = document.getElementById('scaleState');
+  if (!el) return;
+  el.textContent = txt;
+  el.style.color = good === true ? 'var(--good)' : (good === false ? 'var(--bad)' : '');
+}
+
+async function refreshScaleState() {
+  if (!currentImage) return;
+  try {
+    const r = await (await fetch('/api/calibration/' + currentImage)).json();
+    if (r.calibrated && r.record) {
+      setScaleState(r.record.um_per_px.toPrecision(4) + ' \u00b5m/px (' + r.record.source + ')', true);
+    } else {
+      setScaleState('uncalibrated', null);
+    }
+  } catch (e) { }
+}
+
+async function finishCalibration() {
+  const span = Math.abs(calibMarks[1] - calibMarks[0]);
+  const label = prompt('Scale bar label in micrometres (e.g. 400 for "400 \u00b5m").\n' +
+                       'Marked span: ' + Math.round(span) + ' px', '');
+  if (label === null || label.trim() === '') { setScaleState('cancelled'); return; }
+  const um = parseFloat(label);
+  if (!(um > 0)) { setScaleState('not a number', false); return; }
+  // Offer the cross-check. HFW is printed in the same info panel, so the user can read
+  // it off; supplying it makes the server refuse a pair that disagrees by >5% instead of
+  // storing a calibration that would corrupt every exported length.
+  const hfw = prompt('Optional cross-check \u2014 horizontal field width (HFW) in ' +
+                     'micrometres, from the same info panel. Leave blank to skip.\n' +
+                     'If the two disagree by more than 5% the calibration is refused.', '');
+  const body = {mode: 'scale_bar', label_um: um,
+                x1: calibMarks[0], x2: calibMarks[1]};
+  if (hfw && parseFloat(hfw) > 0) {
+    body.hfw_um = parseFloat(hfw);
+    body.image_width_px = nativeW;
+  }
+  setScaleState('checking\u2026');
+  const res = await fetch('/api/calibration/' + currentImage,
+                          {method: 'POST', headers: {'Content-Type': 'application/json'},
+                           body: JSON.stringify(body)});
+  const j = await res.json();
+  if (res.status === 409) {
+    setScaleState('refused \u2014 readings disagree', false);
+    alert(j.error + '\n\nNothing was stored. Re-mark the bar ends, or check the label.');
+    return;
+  }
+  if (!j.ok) { setScaleState('failed', false); alert(j.error || 'calibration failed'); return; }
+  setScaleState(j.record.um_per_px.toPrecision(4) + ' \u00b5m/px (scale_bar)', true);
+}
+
+document.getElementById('setScaleBtn').addEventListener('click', () => {
+  if (!currentImage) { alert('Open an image first.'); return; }
+  calibArm = true; calibMarks = [];
+  setScaleState('click the LEFT end of the scale bar');
+});
+
 document.getElementById('installSamBtn').addEventListener('click', async () => {
   if (!confirm('Install PyTorch and transformers into this app\'s virtualenv?\n\n' +
                'About 2.5 GB and several minutes. It raises measured f1 from 0.715 to 0.776, ' +

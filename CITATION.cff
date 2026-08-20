@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use this software or dataset, please cite it as below."
+title: "SEM Crack Detector"
+abstract: >-
+  A browser tool for detecting cracks in scanning-electron micrographs of steel and
+  superalloy specimens, with a human-correction loop in which the reviewer's judgement
+  always overrides the model and unreviewed pixels are never counted as negatives.
+  Ships 62 annotated micrographs and 39 hand-drawn correction masks.
+type: software
+authors:
+  - family-names: Zhang
+    given-names: Jiaming
+    # affiliation and orcid intentionally left blank -- fill these in before citing;
+    # they are not inferred here because guessing an affiliation into a citation record
+    # is the kind of error that propagates into other people's bibliographies.
+repository-code: "https://github.com/jzhang29-max/sem-crack-detector"
+license: MIT
+version: "1.0.0"
+keywords:
+  - scanning electron microscopy
+  - crack detection
+  - image segmentation
+  - active learning
+  - materials characterisation
+references:
+  - type: data
+    title: "SEM Crack Detector: annotated SEM micrographs of cracking in 316H steel and cast/HIP superalloys"
+    authors:
+      - family-names: Zhang
+        given-names: Jiaming
+    license: CC-BY-4.0
+    notes: >-
+      The micrographs, correction masks and derived CSVs are licensed CC BY 4.0 and are
+      cited separately from the MIT-licensed code. See LICENSE-DATA and
+      docs/MEASUREMENTS.md.

@@ -782,6 +782,30 @@ def main():
 
     # The measurement CLI used to iterate a frozen 25-name list, silently skipping 20
     # hand-corrected images including every MAR frame.
+    # The endpoints, because the refusal is the feature: a cross-check failure must reach
+    # the UI as a 409 with both numbers, not be swallowed into a success.
+    _n = "260708_316_H_b2_front_CBS_001"
+    requests.post(f"{BASE}/api/calibration/{_n}", json={"clear": True}, timeout=30)
+    _g = requests.get(f"{BASE}/api/calibration/{_n}", timeout=30).json()
+    check("GET calibration reports uncalibrated cleanly", _g.get("calibrated") is False)
+    _bad = requests.post(f"{BASE}/api/calibration/{_n}", timeout=30, json={
+        "mode": "scale_bar", "label_um": 400, "x1": 3200, "x2": 6016,
+        "hfw_um": 1040, "image_width_px": 6144})
+    check("a disagreeing cross-check returns 409, not 200", _bad.status_code == 409,
+          f"got {_bad.status_code}")
+    check("and nothing was stored by the refused call",
+          requests.get(f"{BASE}/api/calibration/{_n}", timeout=30).json()
+          .get("calibrated") is False)
+    _ok = requests.post(f"{BASE}/api/calibration/{_n}", timeout=30, json={
+        "mode": "scale_bar", "label_um": 400, "x1": 3519, "x2": 5898,
+        "hfw_um": 1040, "image_width_px": 6144})
+    check("an agreeing pair is accepted over HTTP", _ok.status_code == 200
+          and abs(_ok.json()["record"]["um_per_px"] - 0.16814) < 1e-3,
+          f"got {_ok.status_code}")
+    requests.post(f"{BASE}/api/calibration/{_n}", json={"clear": True}, timeout=30)
+    check("the version is reported so an export can name a release",
+          bool(requests.get(f"{BASE}/api/pipeline_info", timeout=30).json().get("version")))
+
     import crack_measurements as _cm
     _all = _cm.all_images()
     check("the measurement CLI derives its image list from disk",

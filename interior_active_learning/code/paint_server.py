@@ -48,6 +48,11 @@ from unified_pipeline import run_unified_pipeline as run_enhanced_pipeline
 from paint_frontend import INDEX_HTML
 
 app = Flask(__name__)
+# Cap the request body. Without this an upload of any size is buffered to disk before
+# anything looks at it. 2 GiB is well above the largest real capture here (a 6144x4376
+# uint16 TIFF is ~54 MB uncompressed) while stopping a single request from filling the
+# disk the correction masks live on.
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024
 
 # Caches the (labeled, df, ...) "stage" dict per image so clicking to flip a
 # whole region -- or a plain Save & Ingest -- doesn't re-run the full
