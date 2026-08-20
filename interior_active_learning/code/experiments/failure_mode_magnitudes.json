@@ -1,0 +1,53 @@
+{
+ "calibration_disagreement": {
+  "hfw_um_per_px": 0.16927083333333334,
+  "readings": [
+   {
+    "method": "longest contiguous bright run in the panel",
+    "span_px": 1000,
+    "um_per_px": 0.4,
+    "rel_error_vs_hfw": 1.363076923076923,
+    "length_error_pct": 136.30769230769232,
+    "area_error_pct": 458.4132544378697
+   },
+   {
+    "method": "widest bright extent in the panel's right half",
+    "span_px": 2816,
+    "um_per_px": 0.14204545454545456,
+    "rel_error_vs_hfw": -0.1608391608391608,
+    "length_error_pct": -16.08391608391608,
+    "area_error_pct": -29.58090860188762
+   },
+   {
+    "method": "tick-to-tick (correct)",
+    "span_px": 2379,
+    "um_per_px": 0.16813787305590586,
+    "rel_error_vs_hfw": -0.006693180715879302,
+    "length_error_pct": -0.6693180715879302,
+    "area_error_pct": -1.3341562763663273
+   }
+  ],
+  "worst_length_error_pct": 136.30769230769232,
+  "worst_area_error_pct": 458.4132544378697,
+  "note": "A single reading has nothing to disagree with, so none of these is detectable from inside the program. Requiring two independent readings to agree within 5% rejects the first two."
+ },
+ "in_sample_gate_bias": {
+  "family": "LogisticRegression",
+  "held_image": "AS_24hr_BSE_Side_008",
+  "held_rows": 1285,
+  "auc_out_of_sample": 0.8854924522247842,
+  "auc_in_sample": 0.9147806556080379,
+  "in_sample_advantage": 0.029288203383253664,
+  "note": "A gate comparing an out-of-sample candidate against an in-sample incumbent must clear this gap before it can promote anything. The loop then reports the user's new labels as harmful when nothing about their labels was measured -- and because both numbers are individually plausible, nothing on screen reveals it."
+ },
+ "train_serve_skew": {
+  "rows_before": 4128,
+  "images_before": 32,
+  "rows_after": 4787,
+  "images_after": 38,
+  "rows_recovered": 659,
+  "images_recovered": 6,
+  "pct_labels_unreachable": 13.766450804261542,
+  "note": "Every path reported success throughout: the per-image worker caught its own exception and returned None, the merge carried prior rows for any image whose source was absent, and the process exited 0. Hand-drawn labels were discarded by a run that looked clean."
+ }
+}
