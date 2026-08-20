@@ -69,7 +69,8 @@ from common import PROD_MODEL_PATH
 # bar and the candidates it gates were produced by two procedures that only happened to
 # agree. The comparison is only meaningful if the bar is measured exactly the way a
 # candidate is.
-from train_v3_weighted import FEATURES, HELD, MODELS, image_weights
+from train_v3_weighted import (FEATURES, HELD, MODELS, held_out_images,
+                               image_weights)
 
 CSV = os.path.join(ROOT, "training_data", "labeled_regions.csv")
 
@@ -99,10 +100,19 @@ def main():
     X = df[FEATURES].values
     y = df["IsCrack"].astype(bool).values
     groups = df["SourceImage"].values
-    te = groups == args.held
+    # Use the TRAINER's holdout definition, not a local one. The trainer now holds out the
+    # whole specimen; masking on a single image here would put the bar and the candidates it
+    # gates back on two different procedures -- the exact divergence this script was rewritten
+    # to remove.
+    if args.held == HELD:
+        held_imgs, how = held_out_images(groups)
+    else:
+        held_imgs, how = [args.held], "leave-one-image-out (explicit --held override)"
+    te = np.isin(groups, held_imgs)
+    print(f"  holdout              : {how}")
 
     if not te.any():
-        print(f"the held-out image {args.held!r} has no rows in {CSV}. "
+        print(f"the holdout {held_imgs!r} has no rows in {CSV}. "
               f"Images present: {sorted(set(groups))[:6]}...")
         return 1
     if len(set(y[te])) < 2:
@@ -138,8 +148,10 @@ def main():
 
     print(f"  deployed family      : {family}")
     print(f"  fitted via           : {procedure}")
-    print(f"  held-out image       : {args.held} "
-          f"({int(te.sum())} rows, {int(y[te].sum())} crack / {int((~y[te]).sum())} not)")
+    print(f"  held-out             : {len(held_imgs)} image(s), {int(te.sum())} rows, "
+          f"{int(y[te].sum())} crack / {int((~y[te]).sum())} not-crack")
+    print(f"  negatives left to train on: {int((~y[~te]).sum())}"
+          f"{'  <- the gate cannot measure specificity it was never shown' if int((~y[~te]).sum()) < 200 else ''}")
     print(f"  OUT-OF-SAMPLE (refit): {auc:.4f}   <- recorded as the gate's baseline")
     # Do NOT assert the sign. In-sample is USUALLY higher -- that is the bias this whole
     # mechanism exists to remove -- but it is not higher for a model imported from
@@ -168,6 +180,8 @@ def main():
     bundle["loio_out_of_sample_source"] = "refit-via-trainer-factory"
     bundle["loio_out_of_sample_procedure"] = procedure
     bundle["loio_out_of_sample_image"] = args.held
+    bundle["loio_out_of_sample_holdout"] = held_imgs
+    bundle["loio_out_of_sample_holdout_kind"] = how
     bundle["loio_out_of_sample_set_at"] = time.strftime("%Y-%m-%dT%H:%M:%S",
                                                         time.localtime())
     bundle["loio_in_sample_for_reference"] = in_sample

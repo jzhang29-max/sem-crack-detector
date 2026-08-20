@@ -78,6 +78,29 @@ def parse_name(name):
     return {"family": "unparsed"}
 
 
+def specimen_key(name):
+    """The specimen/session an image belongs to. Sibling frames share it.
+
+    Used to hold out a whole specimen rather than a single frame. Leave-one-IMAGE-out over
+    frames from one session is near-duplicate leakage: the model sees 14 other views of the
+    same block and is then asked to generalise to the fifteenth, which it can do without
+    generalising to a new specimen at all.
+
+    Measured on this corpus: the 38 labelled images come from 8 specimens, and one of them
+    (260708_316_H_b2) supplies 15 frames. Holding out a single frame from that session
+    leaves 14 siblings in training.
+    """
+    t = parse_name(name)
+    fam = t.get("family")
+    if fam == "steel":
+        return f"{t['date']}_{t['alloy']}_{t['condition']}_{t['block']}"
+    if fam == "superalloy":
+        return f"{t['project']}_{t['condition']}_{t['process']}"
+    if fam == "exposure":
+        return f"{t['process']}_{t['exposure']}"
+    return f"unparsed:{name}"
+
+
 def group_key(name, by):
     """(key, None) for a groupable image, or (None, reason) explaining why not.
 
