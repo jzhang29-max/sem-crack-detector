@@ -51,6 +51,7 @@ the correction masks follow -- 0 means UNREVIEWED, not "not a crack" -- and it e
 the same reason: a silent default is indistinguishable from a real measurement.
 """
 import json
+import math
 import os
 import time
 
@@ -68,6 +69,40 @@ CALIB_PATH = (os.path.abspath(os.path.expanduser(os.environ["SEMCRACK_CALIB_PATH
 #: calibration is refused. 5% is generous for a hand-marked span and still catches the
 #: 16-25% errors the automatic bar detectors produced.
 CROSS_CHECK_TOL = 0.05
+
+#: Aiming error, in pixels, on ONE marked end of the scale bar. A person clicking a bar's
+#: end tick lands within a pixel or two of it; 1.5 px is a deliberately unflattering
+#: estimate of one endpoint, and the span carries two independent ones.
+#:
+#: This exists because a calibrated length was being reported as an exact number. Marking a
+#: 200 px bar to +/-1.5 px per end is a 1.1% uncertainty on the scale, so a crack measured
+#: at 61.40 um is 61.4 +/- 0.7 um, and the two trailing digits were never real. Areas carry
+#: it twice over. None of that is large enough to change a conclusion; all of it is large
+#: enough to make a quoted fourth significant figure a fiction.
+ENDPOINT_SD_PX = 1.5
+
+
+def propagate(rel_sd, power):
+    """Relative uncertainty of a quantity that scales as (um/px)**power.
+
+    Length is power 1, area 2, volume 3, and a dimensionless ratio 0 -- so tortuosity and
+    orientation carry NO calibration uncertainty at all, which is worth stating because it
+    is the one thing a reader will assume wrongly.
+
+    Returns None when the calibration's own uncertainty is unknown. None must not collapse
+    to 0.0 anywhere downstream: "we did not characterise this" and "this is exact" are
+    different claims, and the second one is the error this whole project is about.
+    """
+    if rel_sd is None or power == 0:
+        return None if rel_sd is None else 0.0
+    return float(abs(power) * float(rel_sd))
+
+
+def relative_uncertainty(image_name):
+    """Relative sd of this image's um/px, or None if it was never characterised."""
+    rec = get_record(image_name) or {}
+    v = rec.get("um_per_px_rel_sd")
+    return float(v) if isinstance(v, (int, float)) and v >= 0 else None
 
 
 def _load_all():
@@ -102,12 +137,17 @@ def get_record(image_name):
     return rec if isinstance(rec, dict) else None
 
 
-def _store(image_name, um_per_px, source, detail):
+def _store(image_name, um_per_px, source, detail, rel_sd=None):
     if not (isinstance(um_per_px, (int, float)) and um_per_px > 0):
         raise ValueError(f"um_per_px must be a positive number, got {um_per_px!r}")
     d = _load_all()
     d[image_name] = {
         "um_per_px": float(um_per_px),
+        # None, not 0.0, when the route cannot say. A typed HFW and an instrument tag are
+        # numbers whose precision this program has no way to know; only the marked bar
+        # exposes its own geometry.
+        "um_per_px_rel_sd": (float(rel_sd) if isinstance(rel_sd, (int, float))
+                             and rel_sd >= 0 else None),
         "source": source,
         "detail": detail,
         "set_at": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime()),
@@ -259,8 +299,16 @@ def set_from_scale_bar(image_name, label_um, x1, x2, hfw_um=None,
     if label_um <= 0:
         raise ValueError("label_um must be positive")
     bar = float(label_um) / span
+    # Two independent endpoint errors on the span, so they add in quadrature. The printed
+    # label is taken as exact: a bar labelled "10 um" means 10, and its rendered length is
+    # the instrument's business, not the reader's.
+    rel_sd = math.sqrt(2.0) * ENDPOINT_SD_PX / span
     detail = {"label_um": float(label_um), "span_px": span,
-              "x1": float(x1), "x2": float(x2)}
+              "x1": float(x1), "x2": float(x2),
+              "endpoint_sd_px": ENDPOINT_SD_PX,
+              "rel_sd_note": (f"{100 * rel_sd:.2f}% on the scale, from two independent "
+                              f"{ENDPOINT_SD_PX} px endpoint errors over a {span:.0f} px "
+                              f"span; lengths inherit it once, areas twice")}
     if hfw_um and image_width_px:
         other = float(hfw_um) / float(image_width_px)
         rel = abs(bar - other) / other
@@ -272,7 +320,7 @@ def set_from_scale_bar(image_name, label_um, x1, x2, hfw_um=None,
                 f"{other:.5f} um/px, a {100 * rel:.1f}% disagreement (tolerance "
                 f"{100 * tol:.0f}%). One of the two readings is wrong -- refusing to "
                 f"store a calibration that would silently corrupt every exported length.")
-    return _store(image_name, bar, "scale_bar", detail)
+    return _store(image_name, bar, "scale_bar", detail, rel_sd=rel_sd)
 
 
 def clear(image_name):
@@ -359,6 +407,34 @@ def provenance_header(image_name, model_path=None, threshold=None):
             pass
     if threshold is not None:
         out["threshold"] = threshold
+
+    # How precise the scale itself is. Without this a CSV reports 61.40 um and invites a
+    # reader to believe the trailing digits; with a 200 px bar marked to +/-1.5 px per end
+    # only two of them are real. Absent means NOT CHARACTERISED -- a typed HFW or an
+    # instrument tag is a number whose precision this program cannot know -- and it is
+    # spelled out rather than left as a missing key, because a missing key reads as zero.
+    if umpx is not None:
+        rel = relative_uncertainty(image_name)
+        out["um_per_px_rel_sd"] = rel
+        if rel is None:
+            out["uncertainty_note"] = (
+                "The scale's own uncertainty was NOT characterised by this calibration "
+                "route, so no interval is given. This is not a claim that the scale is "
+                "exact. Calibrating from the marked scale bar records it.")
+        else:
+            _free = ", ".join(("Tortuosity", "Orientation_deg", "BoundaryRoughness",
+                               "BranchPointCount"))
+            out["uncertainty_note"] = (
+                f"The scale carries {100 * rel:.2f}% relative uncertainty. Length columns "
+                f"inherit it once ({100 * propagate(rel, 1):.2f}%), area columns twice "
+                f"({100 * propagate(rel, 2):.2f}%), and the dimensionless columns "
+                f"({_free}) carry none of it. This is instrument uncertainty only: it does "
+                f"not include segmentation error, which is larger and is not quantified "
+                f"here.")
+            out["column_rel_uncertainty"] = {
+                um_column_name(c): propagate(rel, pw)
+                for c, pw in LENGTH_POWERS.items() if c not in ("CentroidX_px",
+                                                                "CentroidY_px")}
     if umpx is None:
         out["note"] = ("UNCALIBRATED: lengths are in PIXELS. Set a calibration before "
                        "reporting physical dimensions.")
