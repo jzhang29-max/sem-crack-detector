@@ -14,10 +14,22 @@ at all). This project refuses it -- correction masks carry 0 = UNREVIEWED as a d
 state -- and that refusal was, until this script, an unquantified design opinion.
 
 WHY IT MATTERS BEYOND THIS REPO
-In this corpus only 6.83% of pixels are adjudicated; 92.83% are UNREVIEWED. Treating them
-as negatives inflates the negative class by ~2721x in aggregate, and by up to 2.5e7x on a
-single frame. Any specificity or precision computed that way is not describing the
-annotator's judgement, it is describing the annotator's STAMINA.
+Across the 38 masks in this corpus, by pixel: crack 6.727%, not-crack 0.034%,
+UNREVIEWED 92.901%, erased 0.338% -- summing to 100%. So 6.761% is adjudicated and treating
+the unreviewed remainder as negative inflates the negative class by roughly 2721x, and by up
+to 2.5e7x on a single frame. Any specificity or precision computed that way is not
+describing the annotator's judgement, it is describing the annotator's STAMINA.
+
+Note the honest fragility in those same numbers: adjudicated NEGATIVES are 0.034% of pixels,
+about three parts in ten thousand. Specificity under the exclusion convention is estimated
+from that pool, so it is a high-variance quantity and must be reported as one. The dense
+convention's real attraction is that it always returns a number; that is why it persists,
+and saying so makes this a diagnosis rather than an accusation.
+
+THE DENOMINATORS DIFFER, DELIBERATELY
+Three numbers in this file use three denominators: 62 images in the corpus, 38 masks with
+any verdict, and 10 masks carrying BOTH classes (the only ones where specificity exists at
+all). They are not interchangeable and each is stated with its own.
 
 WHAT IS HELD CONSTANT
 One prediction, one ground truth, two scoring conventions. The prediction is the pipeline's
@@ -138,13 +150,51 @@ def run(names=None):
     def mean(conv, k):
         return float(np.mean([r[conv][k] for r in rows]))
 
-    print(f"\nMEANS over {len(rows)} images")
+    def micro(conv):
+        """Pooled four-cell metrics. Reported ALONGSIDE the macro means, never instead.
+
+        A reader who assumes micro-averaging will try to recompute f1 from the mean
+        precision and recall, find it does not reconcile, and conclude there is an
+        arithmetic error. There is not -- macro means of a ratio do not obey the ratio's
+        algebra -- but the only defence is to label the averaging and publish both. The
+        two also differ a lot here (macro f1 0.638 vs micro 0.334), because the images
+        differ enormously in how much was adjudicated.
+        """
+        tp = sum(r[conv]["tp"] for r in rows)
+        fp = sum(r[conv]["fp"] for r in rows)
+        fn = sum(r[conv]["fn"] for r in rows)
+        tn = sum(r[conv]["tn"] for r in rows)
+        rec = tp / max(tp + fn, 1)
+        prec = tp / max(tp + fp, 1)
+        spec = tn / max(tn + fp, 1)
+        return {"recall": rec, "precision": prec, "specificity": spec,
+                "f1": 2 * prec * rec / max(prec + rec, 1e-9),
+                "tp": tp, "fp": fp, "fn": fn, "tn": tn}
+
+    print(f"\nMACRO means over {len(rows)} images (mean of per-image metrics)")
     print(f"  {'metric':12s} {'adjudicated':>12s} {'unlabelled=bg':>14s} {'delta':>9s}")
     summary = {}
     for k in ("recall", "specificity", "precision", "f1"):
         a, b = mean("adjudicated", k), mean("unlabelled_as_background", k)
         summary[k] = {"adjudicated": a, "unlabelled_as_background": b, "delta": b - a}
         print(f"  {k:12s} {a:12.4f} {b:14.4f} {b - a:+9.4f}")
+
+    ma, mb = micro("adjudicated"), micro("unlabelled_as_background")
+    print(f"\nMICRO (pooled four cells across the same {len(rows)} images)")
+    print(f"  {'metric':12s} {'adjudicated':>12s} {'unlabelled=bg':>14s} {'delta':>9s}")
+    micro_summary = {}
+    for k in ("recall", "specificity", "precision", "f1"):
+        micro_summary[k] = {"adjudicated": ma[k], "unlabelled_as_background": mb[k],
+                            "delta": mb[k] - ma[k]}
+        print(f"  {k:12s} {ma[k]:12.4f} {mb[k]:14.4f} {mb[k] - ma[k]:+9.4f}")
+    print(f"\n  four-cell counts, adjudicated : tp {ma['tp']:,} fp {ma['fp']:,} "
+          f"fn {ma['fn']:,} tn {ma['tn']:,}")
+    print(f"  four-cell counts, unlabelled=bg: tp {mb['tp']:,} fp {mb['fp']:,} "
+          f"fn {mb['fn']:,} tn {mb['tn']:,}")
+    print(f"  The adjudicated true-negative pool is {ma['tn']:,} px against "
+          f"{mb['tn']:,} under the dense convention -- a factor of "
+          f"{mb['tn'] / max(ma['tn'], 1):.0f}. Specificity is estimated from that small "
+          f"pool, which is the honest fragility of this result and belongs beside it.")
 
     print(f"\n  Recall delta is {summary['recall']['delta']:+.1e} -- identical by "
           f"construction, which is the control.")
@@ -158,7 +208,11 @@ def run(names=None):
           f"{100 * (1 - frac):.2f}% is what the second convention silently converts into "
           f"negatives.")
 
-    json.dump({"n_images": len(rows), "per_image": rows, "means": summary,
+    json.dump({"n_images": len(rows), "per_image": rows,
+               "macro_means": summary, "micro": micro_summary,
+               "averaging_note": ("macro_means are means of per-image metrics; micro pools "
+                                  "the four cells. They are not interconvertible and both "
+                                  "are reported so neither can be mistaken for the other."),
                "mean_adjudicated_fraction": frac}, open(OUT, "w"), indent=1)
     print(f"\n  -> {OUT}")
     return summary
