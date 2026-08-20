@@ -196,6 +196,15 @@ def register(app, list_images, invalidate_stage):
 
     @app.route("/api/reapply", methods=["POST"])
     def api_reapply():
+        # Symmetric with /api/retrain. The guard was one-directional: retrain
+        # refused while a reapply ran, but a reapply could start mid-retrain and
+        # re-render every overlay from a model that was being replaced underneath it.
+        from app_endpoints import _running_job_of_kind as _busy_of
+        _busy = _busy_of("retrain", "reapply")
+        if _busy is not None:
+            return jsonify({"ok": False, "error": f"a {_busy['kind']} job is "
+                            f"already running ({_busy['stage']})",
+                            "job": _busy["id"]}), 409
         from app_endpoints import _new_job, _run_bg
         from hybrid_detect import sam_available
         # Defaults to SAM when SAM is installed. It used to default to False, so a

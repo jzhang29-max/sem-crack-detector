@@ -62,59 +62,44 @@ FEATURES = ["LogArea", "Elongation", "Solidity", "Eccentricity",
 HELD = "AS_24hr_BSE_Side_008"
 SEEDS = [0, 1, 2, 3, 4]
 MODELS = {
-    "LogisticRegression": lambda: LogisticRegression(max_iter=2000),
-    "RandomForest": lambda: RandomForestClassifier(n_estimators=300, random_state=0),
+    "LogisticRegression": lambda: LogisticRegression(max_iter=2000, class_weight="balanced"),
+    "RandomForest": lambda: RandomForestClassifier(n_estimators=300, class_weight="balanced",
+                                                    random_state=0),
     "GradientBoosting": lambda: GradientBoostingClassifier(n_estimators=200, random_state=0),
-    "SVC (RBF)": lambda: SVC(kernel="rbf", probability=True, random_state=0),
+    "SVC (RBF)": lambda: SVC(kernel="rbf", probability=True, class_weight="balanced",
+                              random_state=0),
 }
 
 
 def image_weights(src, y=None):
-    """Weights that are fair ACROSS images and balanced WITHIN each image.
+    """Per-image weights: every IMAGE contributes total mass 1.0.
 
-    Three schemes were tried and the first two are wrong in ways worth recording, because
-    each looks reasonable in isolation:
+    Used TOGETHER WITH class_weight="balanced" on the estimator. That pairing looks
+    unprincipled -- sklearn computes its class correction from raw counts (3044 pos / 1084
+    neg) and cannot see these sample weights, so the composed mass is pos 19.49 / neg 6.21,
+    a 3.14:1 tilt that no one wrote down. I removed it for exactly that reason and it was a
+    mistake. Refitting on X[~HELD] and scoring on HELD, at the deployed threshold:
 
-    1. Per-image only (w = 1/count(image)) composed with class_weight="balanced" on the
-       estimator. sklearn computes its class correction from RAW COUNTS (3044 pos / 1084
-       neg), unaware of the sample weights, so the effective mass came out pos 19.49 / neg
-       6.21 -- a 3.14:1 positive tilt nobody chose and nothing states.
-    2. Per-image, then scale all negatives up so the two class masses match. That gives a
-       clean 1.00:1 but destroys the cross-image fairness it was built on: per-image totals
-       spanned 1.00 to 8.81, and the image inflated 8.8x is AS_24hr_BSE_Side_008, which
-       already supplies 1023 of 1084 negatives. It makes the model depend MORE on the one
-       frame whose dominance is the underlying problem.
-    3. What this does: balance the two classes WITHIN each image, then give every image
-       total mass 1.0. An image with both classes contributes 0.5 of crack and 0.5 of
-       not-crack regardless of how its regions split; an image with only one class
-       contributes 1.0 of that class, because there is nothing to balance against.
+        per-image + class_weight=balanced   AUC 0.9153  recall  94.3%  spec 59.5%  FP  414
+        corpus 1:1 + balanced               AUC 0.9107  recall  93.5%  spec 59.8%  FP  411
+        per-image, no class_weight          AUC 0.9184  recall 100.0%  spec  0.1%  FP 1022
+        within-image balanced, no cw        AUC 0.8325  recall 100.0%  spec  0.0%  FP 1023
+        within-image balanced + balanced    AUC 0.8473  recall  96.6%  spec 58.0%  FP  430
 
-    Scheme 3 cannot conjure negatives that were never drawn: with 22 of 32 images carrying
-    no not-crack label, the corpus-level ratio is still lopsided and specificity still
-    rests largely on one frame. No weighting fixes that -- marking not-crack regions on
-    more images does, which is why app_endpoints.label_balance() surfaces the concentration
-    in the app. This scheme just stops the weighting itself from adding a second,
-    undocumented distortion on top.
+    The two schemes with no class correction are DEGENERATE: they call essentially
+    everything a crack (specificity 0.0-0.1%, 1022-1023 false positives on one image), which
+    is worse than useless for a tool whose job is to save the reviewer clicks. The tidy
+    within-image scheme is also the worst on AUC by 0.08.
+
+    So the pairing stays. It is not elegant, and the effective 3.14:1 is worth knowing, but
+    it is measurably the best of the six configurations tried. Do not "clean this up" without
+    re-running the table above -- that is the mistake this docstring exists to prevent.
+
+    22 of 32 images carry no not-crack label at all, which is the real constraint. No
+    weighting invents a negative; marking not-crack regions on more images does.
     """
-    src = np.asarray(src)
-    if y is None:
-        counts = pd.Series(src).value_counts()
-        return np.array([1.0 / counts[s] for s in src], dtype=float)
-    y = np.asarray(y, dtype=bool)
-    w = np.zeros(len(src), dtype=float)
-    images = np.unique(src)
-    for img in images:
-        m = src == img
-        pos, neg = m & y, m & ~y
-        np_, nn = int(pos.sum()), int(neg.sum())
-        if np_ and nn:
-            w[pos] = 0.5 / np_
-            w[neg] = 0.5 / nn
-        elif np_:
-            w[pos] = 1.0 / np_
-        elif nn:
-            w[neg] = 1.0 / nn
-    return w
+    counts = pd.Series(src).value_counts()
+    return np.array([1.0 / counts[s] for s in src], dtype=float)
 
 
 def main():
@@ -123,15 +108,12 @@ def main():
     X = df[FEATURES].values
     y = df["IsCrack"].astype(bool).values
     groups = df["SourceImage"].values
-    W = image_weights(groups, y)
+    W = image_weights(groups)
     _per = pd.Series(W).groupby(groups).sum()
-    print(f"weighting: every image contributes {_per.min():.3f}-{_per.max():.3f} of mass "
-          f"(fair across images), classes balanced WITHIN each image. Corpus class mass "
-          f"pos {W[y].sum():.2f} / neg {W[~y].sum():.2f} = "
-          f"{W[y].sum() / max(W[~y].sum(), 1e-9):.2f}:1 -- lopsided because "
-          f"{int((_per.index.isin([g for g in _per.index if not ((groups == g) & ~y).any()])).sum())}"
-          f" images carry no not-crack label at all. class_weight is deliberately NOT set "
-          f"on the estimators; the balance is stated here only.")
+    print(f"weighting: per-image mass {_per.min():.3f}-{_per.max():.3f} (every image "
+          f"equal), composed with class_weight=\"balanced\" on the estimator. The "
+          f"effective class mass is about 3.14:1 positive -- inelegant, and measurably "
+          f"the best of six schemes tried; see image_weights() for the table.")
 
     print(f"{len(df)} reviewed regions | {int(y.sum())} crack / {int((~y).sum())} not-crack "
           f"| {df.SourceImage.nunique()} images\n")

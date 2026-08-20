@@ -228,15 +228,38 @@ def _ingest_upload(storage):
         # takes the Flask process with it, losing every warm stage and any in-flight
         # retrain. Read the declared size from the header first -- this does not decode
         # pixels -- and refuse before allocating.
+        # SIZE GUARD, BEFORE ANY DECODE.
+        #
+        # Image.MAX_IMAGE_PIXELS is None project-wide (line 41) because the real corpus
+        # reaches 27 megapixels and PIL's default guard trips wholesale -- which also
+        # disables the decompression-bomb check for uploads, where it is wanted.
+        #
+        # Two earlier versions of this guard failed OPEN on the format the app is built
+        # around. The first only asked PIL. The second asked tifffile only when PIL failed
+        # to read a size -- but PIL reads multi-page TIFFs fine and reports PAGE 0, so a
+        # 40-page 3000x3000 file (360 MP total, 0.4 MB on the wire because it compresses)
+        # measured as 9 MP and sailed through. tifffile, not PIL, is what decodes .tif
+        # below, so for TIFFs the page total is what matters and it is always computed.
+        # TiffFile reads the directory without materialising pixels.
         _MAX_UPLOAD_MPX = 300
-        try:
-            with Image.open(tmp) as _probe:
-                _w, _h = _probe.size
-        except Exception:
-            _w = _h = 0                      # tifffile handles some files PIL cannot
-        if _w and _h and (_w * _h) > _MAX_UPLOAD_MPX * 1_000_000:
+        _px = 0
+        if ext in (".tif", ".tiff"):
+            try:
+                with tifffile.TiffFile(tmp) as _tf:
+                    _px = sum(int(np.prod(pg.shape)) for pg in _tf.pages if pg.shape)
+            except Exception as _e:
+                # Unreadable as a TIFF -- fail CLOSED rather than hand it to the decoder.
+                raise ValueError(f"could not read TIFF structure: {type(_e).__name__}")
+        else:
+            try:
+                with Image.open(tmp) as _probe:
+                    _w, _h = _probe.size
+                _px = int(_w) * int(_h)
+            except Exception as _e:
+                raise ValueError(f"could not read image header: {type(_e).__name__}")
+        if _px > _MAX_UPLOAD_MPX * 1_000_000:
             raise ValueError(
-                f"declared size {_w}x{_h} is {_w * _h / 1e6:.0f} megapixels, over the "
+                f"{_px / 1e6:.0f} megapixels across all pages, over the "
                 f"{_MAX_UPLOAD_MPX} MP upload limit")
         if ext in (".tif", ".tiff"):
             arr = np.asarray(tifffile.imread(tmp))
@@ -490,7 +513,17 @@ def register(app, get_stage, invalidate_stage=None):
                 try:
                     _curb = joblib.load(PROD_MODEL_PATH)
                     _v = _curb.get("loio_out_of_sample")
-                    if _v is not None:
+                    # The baseline is only comparable if it was measured on the SAME
+                    # held-out image the candidate was scored on. establish_baseline.py
+                    # accepts --held, so a baseline can legitimately exist for a different
+                    # image; comparing across images would be a different quantity again,
+                    # which is the whole class of error this gate exists to avoid.
+                    _cand_img = m.get("held_out_image") or cv.get("loio_image")
+                    _base_img = _curb.get("loio_out_of_sample_image")
+                    if _v is not None and _base_img and _cand_img and _base_img != _cand_img:
+                        _cur_src = (f"ignored: baseline was measured on {_base_img} but the "
+                                    f"candidate was scored on {_cand_img}")
+                    elif _v is not None:
                         cur_loio = float(_v)
                         _cur_src = "loio_out_of_sample recorded in the deployed bundle"
                 except Exception:

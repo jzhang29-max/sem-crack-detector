@@ -233,9 +233,38 @@ if __name__ == "__main__":
               f"that labelling effort is not reaching the model:")
         for n in missing:
             _tif = os.path.join(ORIGINAL_DIR, f"{n}.tif")
-            why = ("source .tif missing" if not os.path.exists(_tif)
-                   else "mask produced no usable regions (shape mismatch, or every "
-                        "marked pixel fell outside a candidate)")
+            # A mask holding only erase (3) or only unreviewed (0) pixels is legitimately
+            # row-free and is not evidence of a fault; saying "broken" about it sends the
+            # user hunting for a bug that is not there.
+            _reason = "source .tif missing" if not os.path.exists(_tif) else None
+            if _reason is None:
+                try:
+                    import numpy as _np
+                    from PIL import Image as _Im
+                    _a = _np.asarray(_Im.open(os.path.join(PAINT_DIR,
+                                                           f"{n}_correction_mask.png")))
+                    if _a.ndim > 2:
+                        _a = _a[..., 0]
+                    _has_verdict = bool((_a == 1).any() or (_a == 2).any())
+                    _reason = ("no crack/not-crack verdicts in the mask (only erased or "
+                               "unreviewed pixels) -- nothing to learn from, not a fault"
+                               if not _has_verdict else
+                               "mask has verdicts but produced no rows: shape mismatch "
+                               "against the current render, or every marked pixel fell "
+                               "outside a candidate region")
+                except Exception as _e:
+                    _reason = f"mask unreadable: {type(_e).__name__}"
+            why = _reason
             print(f"    {n:36s} {why}")
-        print("\nExiting non-zero: a build that discards human labels is not a success.")
-        sys.exit(2)
+        # NOT a non-zero exit. The first version of this block called sys.exit(2), and on
+        # this repo the condition is ALWAYS true -- 39 masks on disk, 32 represented, 7
+        # unbuildable and committed -- so app_endpoints saw returncode 2, raised
+        # RuntimeError, and the Retrain button failed permanently for every user with a
+        # message that read like corruption. Nothing the researcher paints removes those 7,
+        # so it could never clear.
+        #
+        # The CSV is already written and correct at this point. Reporting a real problem
+        # must not destroy the capability the report is about, so this warns and carries the
+        # list in the printed output for the UI to surface.
+        print("\nThe rows above were still written; retraining continues. Fix the listed "
+              "masks to get their labels into the model.")

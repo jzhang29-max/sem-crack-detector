@@ -1446,7 +1446,7 @@ refreshModelPicker();
 // burned-in scale bar plus its printed label give um/px exactly; the span is measured
 // from the marks rather than typed, so it does not inherit a hand-drawn line's aiming
 // error the way ImageJ's Set Scale does.
-let calibArm = false, calibMarks = [];
+let calibArm = false, calibMarks = [], calibImage = null, calibW = 0;
 
 // ---- sidebar density ------------------------------------------------------------
 // The list is the primary navigation for a 62-image corpus, so the chrome above and
@@ -1487,6 +1487,8 @@ async function refreshScaleState() {
 }
 
 async function finishCalibration() {
+  const img = calibImage, imgW = calibW;   // pinned at arm time, not read at POST time
+  if (!img) { setScaleState('cancelled'); return; }
   const span = Math.abs(calibMarks[1] - calibMarks[0]);
   const label = prompt('Scale bar label in micrometres (e.g. 400 for "400 \u00b5m").\n' +
                        'Marked span: ' + Math.round(span) + ' px', '');
@@ -1503,13 +1505,22 @@ async function finishCalibration() {
                 x1: calibMarks[0], x2: calibMarks[1]};
   if (hfw && parseFloat(hfw) > 0) {
     body.hfw_um = parseFloat(hfw);
-    body.image_width_px = nativeW;
+    body.image_width_px = imgW;
   }
   setScaleState('checking\u2026');
-  const res = await fetch('/api/calibration/' + currentImage,
-                          {method: 'POST', headers: {'Content-Type': 'application/json'},
-                           body: JSON.stringify(body)});
-  const j = await res.json();
+  let res, j;
+  try {
+    res = await fetch('/api/calibration/' + img,
+                      {method: 'POST', headers: {'Content-Type': 'application/json'},
+                       body: JSON.stringify(body)});
+    j = await res.json();
+  } catch (e) {
+    // Without this the readout sat on "checking..." forever and the user had no idea
+    // whether anything was stored.
+    setScaleState('request failed', false);
+    alert('Could not reach the server to store the calibration: ' + e.message);
+    return;
+  }
   if (res.status === 409) {
     setScaleState('refused \u2014 readings disagree', false);
     alert(j.error + '\n\nNothing was stored. Re-mark the bar ends, or check the label.');
@@ -1521,7 +1532,11 @@ async function finishCalibration() {
 
 document.getElementById('setScaleBtn').addEventListener('click', () => {
   if (!currentImage) { alert('Open an image first.'); return; }
-  calibArm = true; calibMarks = [];
+  // Pin the image NOW. finishCalibration blocks on two prompt() dialogs, and currentImage
+  // can change under it -- a click in the sidebar, or the arrow keys -- so reading
+  // currentImage at POST time could store one image's scale bar as another image's
+  // calibration, silently and with full provenance.
+  calibArm = true; calibMarks = []; calibImage = currentImage; calibW = nativeW;
   setScaleState('click the LEFT end of the scale bar');
 });
 

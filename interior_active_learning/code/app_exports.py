@@ -150,7 +150,6 @@ def register(app, list_images):
         return send_file(buf, mimetype="text/csv", as_attachment=True,
                          download_name=f"{image_name}_regions.csv")
 
-    @app.route("/api/export_all", methods=["POST"])
     def _prune_old_exports(keep_newest=3, max_age_s=6 * 3600):
         """Drop stale export zips before writing a new one.
 
@@ -178,6 +177,7 @@ def register(app, list_images):
                 pass
         return removed
 
+    @app.route("/api/export_all", methods=["POST"])
     def api_export_all():
         _prune_old_exports()
         from app_endpoints import _new_job, _run_bg
