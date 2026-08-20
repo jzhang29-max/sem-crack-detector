@@ -1393,6 +1393,82 @@ def main():
     shutil.rmtree(_md, ignore_errors=True)
 
 
+    # ---------- 24. how precise is the scale itself ----------
+    print("\n[24] calibration uncertainty")
+    _cal3 = _cal2
+    _ud = _tf.mkdtemp()
+    _saved3 = _cal3.CALIB_PATH
+    try:
+        _cal3.CALIB_PATH = os.path.join(_ud, "c.json")
+        _cal3.set_from_scale_bar("u200", 20.0, 100, 300)
+        _r200 = _cal3.relative_uncertainty("u200")
+        check("a marked scale bar records how precisely it was marked",
+              _r200 is not None and abs(_r200 - (2 ** 0.5) * 1.5 / 200) < 1e-12,
+              f"200 px span, two independent 1.5 px endpoint errors -> {100 * _r200:.2f}%")
+
+        _cal3.set_from_scale_bar("u60", 20.0, 0, 60)
+        _cal3.set_from_scale_bar("u800", 20.0, 0, 800)
+        check("marking a longer bar is recorded as more precise",
+              _cal3.relative_uncertainty("u60") > _r200
+              > _cal3.relative_uncertainty("u800"),
+              f"{100 * _cal3.relative_uncertainty('u60'):.2f}% > {100 * _r200:.2f}% > "
+              f"{100 * _cal3.relative_uncertainty('u800'):.2f}%")
+
+        _cal3.set_manual("um", 0.05)
+        check("a route that cannot know its own precision reports None, not zero",
+              _cal3.relative_uncertainty("um") is None,
+              "'we did not characterise this' and 'this is exact' are different claims, "
+              "and the second is the error this project is about")
+
+        check("area carries the scale uncertainty twice and length once",
+              abs(_cal3.propagate(0.011, 2) - 0.022) < 1e-12
+              and abs(_cal3.propagate(0.011, 1) - 0.011) < 1e-12)
+        check("a dimensionless quantity carries none of it",
+              _cal3.propagate(0.011, 0) == 0.0,
+              "tortuosity is a ratio of two lengths, so the scale cancels")
+        check("unknown propagates as unknown rather than as exact",
+              _cal3.propagate(None, 1) is None and _cal3.propagate(None, 2) is None)
+
+        _h = _cal3.provenance_header("u200", model_path=PROD_MODEL_PATH, threshold=0.5)
+        check("the provenance sidecar states the scale's uncertainty",
+              _h.get("um_per_px_rel_sd") is not None and bool(_h.get("uncertainty_note")))
+        check("the sidecar gives the per-column figure a reader needs",
+              isinstance(_h.get("column_rel_uncertainty"), dict)
+              and abs(_h["column_rel_uncertainty"]["Area_um2"]
+                      - 2 * _h["um_per_px_rel_sd"]) < 1e-12,
+              "so nobody has to rederive that area doubles it")
+        check("the note says this is instrument uncertainty only",
+              "segmentation" in _h.get("uncertainty_note", ""),
+              "segmentation error is larger and is NOT quantified; implying otherwise "
+              "would be a bigger lie than omitting the interval")
+        _hm = _cal3.provenance_header("um")
+        check("an uncharacterised scale says so instead of omitting the field",
+              _hm.get("um_per_px_rel_sd") is None
+              and "NOT characterised" in _hm.get("uncertainty_note", ""),
+              "a missing key reads as zero")
+        check("an uncalibrated image gets no uncertainty fields at all",
+              "um_per_px_rel_sd" not in _cal3.provenance_header("never_calibrated_xyz"))
+    finally:
+        _cal3.CALIB_PATH = _saved3
+        shutil.rmtree(_ud, ignore_errors=True)
+
+    # The UI must never render an uncharacterised scale as +/-0%.
+    _fe = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "paint_frontend.py")).read()
+    check("the frontend has a helper for showing scale precision",
+          "function scalePrecisionText" in _fe)
+    check("it guards on the value being a number, so null shows nothing",
+          "typeof rel !== 'number'" in _fe,
+          "an absent uncertainty must render as nothing, never as +/-0%")
+    import re as _re3
+    _bad_tokens = [t for t in ("--good", "--text-dim", "--text-faint")
+                   if f"var({t})" in _re3.sub(r"//[^\n]*", "", _fe)]
+    check("every CSS variable the frontend uses is actually defined",
+          not _bad_tokens,
+          f"{_bad_tokens} resolve to nothing, so the style silently falls back -- this is "
+          f"how a SUCCESSFUL calibration showed no colour while a failed one went red")
+
+
     print("\n[cleanup]")
     removed = 0
     for n in created:

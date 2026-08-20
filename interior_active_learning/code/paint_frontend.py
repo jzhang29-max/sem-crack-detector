@@ -839,8 +839,8 @@ function setSaveState(state) {
   if (!el) return;
   const map = {
     idle:    ['', ''],
-    pending: ['Unsaved changes', 'var(--text-dim)'],
-    saving:  ['Saving\u2026', 'var(--text-dim)'],
+    pending: ['Unsaved changes', 'var(--ink2)'],
+    saving:  ['Saving\u2026', 'var(--ink2)'],
     saved:   ['All changes saved', '#7fd4a3'],
     error:   ['Save failed \u2014 use Retry', '#ff7b7b'],
   };
@@ -1187,7 +1187,7 @@ function renderImageList() {
   }
   if (!shown) {
     const e = document.createElement('div');
-    e.style.cssText = 'padding:10px;color:var(--text-faint);font-size:11.5px';
+    e.style.cssText = 'padding:10px;color:var(--ink3);font-size:11.5px';
     e.textContent = _imgCache.length ? 'No match.' : 'No images yet — drop some in.';
     box.appendChild(e);
   }
@@ -1325,7 +1325,7 @@ refreshModelInfo = async function () {
       // only "available / not installed", so when the overlays silently reverted to
       // the no-SAM configuration nothing on screen indicated it.
       '<div class="row"><span>Detector</span><b style="color:' +
-        (i.sam_available ? 'var(--good)' : 'var(--text-faint)') + '">' +
+        (i.sam_available ? 'var(--ok)' : 'var(--ink3)') + '">' +
         'Pass 1 + Pass 2 (archive model, no SAM)' + '</b></div>' +
       '<div class="row"><span>model source</span><b>archive (CBS_Crack_Detection_All)</b></div>' +
       // Shown so a screenshot or a support question identifies the release. Exported
@@ -1453,6 +1453,17 @@ refreshModelPicker();
 // it (and disables the Use SAM checkbox) never ran -- SAM could not be turned on
 // from the UI at all.
 // ---- physical-unit calibration -------------------------------------------------
+// How precise the scale is, shown beside it. A calibration displayed as a bare number
+// invites the reader to trust every digit; a 200 px bar marked to a pixel or two per end is
+// good to about 1%, and saying so is also the only thing that makes marking a LONGER bar
+// feel worth the extra second. Absent means not characterised -- never shown as 0%.
+function scalePrecisionText(rec) {
+  if (!rec) return '';
+  const rel = rec.um_per_px_rel_sd;
+  if (typeof rel !== 'number' || !(rel >= 0)) return '';
+  const pct = 100 * rel;
+  return ' \u00b1' + (pct < 1 ? pct.toFixed(2) : pct.toFixed(1)) + '%';
+}
 // Exported lengths were pixels, which is not a publishable quantity. Two clicks on the
 // burned-in scale bar plus its printed label give um/px exactly; the span is measured
 // from the marks rather than typed, so it does not inherit a hand-drawn line's aiming
@@ -1478,11 +1489,16 @@ function slimSidebar(nImages) {
   }
 }
 
+// `good` picks the colour. NOTE the token is --ok, not --good: --good was never defined,
+// so `color: var(--good)` was invalid at computed-value time and fell back to the inherited
+// text colour. The effect was that a FAILED calibration went red (--bad exists) while a
+// SUCCESSFUL one showed no colour at all -- the confirmation was missing and the failure
+// was not, which is the wrong way round and is invisible unless you measure the DOM.
 function setScaleState(txt, good) {
   const el = document.getElementById('scaleState');
   if (!el) return;
   el.textContent = txt;
-  el.style.color = good === true ? 'var(--good)' : (good === false ? 'var(--bad)' : '');
+  el.style.color = good === true ? 'var(--ok)' : (good === false ? 'var(--bad)' : '');
 }
 
 async function refreshScaleState() {
@@ -1490,7 +1506,7 @@ async function refreshScaleState() {
   try {
     const r = await (await fetch('/api/calibration/' + currentImage)).json();
     if (r.calibrated && r.record) {
-      setScaleState(r.record.um_per_px.toPrecision(4) + ' \u00b5m/px (' + r.record.source + ')', true);
+      setScaleState(r.record.um_per_px.toPrecision(4) + scalePrecisionText(r.record) + ' \u00b5m/px (' + r.record.source + ')', true);
     } else {
       setScaleState('uncalibrated', null);
     }
@@ -1544,7 +1560,7 @@ async function finishCalibration() {
     return;
   }
   if (!j.ok) { setScaleState('failed', false); alert(j.error || 'calibration failed'); return; }
-  setScaleState(j.record.um_per_px.toPrecision(4) + ' \u00b5m/px (scale_bar)', true);
+  setScaleState(j.record.um_per_px.toPrecision(4) + scalePrecisionText(j.record) + ' \u00b5m/px (scale_bar)', true);
 }
 
 document.getElementById('setScaleBtn').addEventListener('click', () => {
