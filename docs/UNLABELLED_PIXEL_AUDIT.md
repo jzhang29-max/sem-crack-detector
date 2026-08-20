@@ -151,13 +151,40 @@ accuracy), and recall touches neither. The audit predicts this independently of 
 - **Label the averaging.** Macro means of a ratio do not obey the ratio's algebra; an
   unlabelled table invites a referee to find an arithmetic error that is not there.
 
+## Executed, not just read
+
+`experiments/three_state_conformance.py` pushes one canonical three-state fixture — 512 crack,
+128 adjudicated not-crack, 3456 UNREVIEWED px — through every library available in this
+environment and records what comes back. It converts the source audit's most falsifiable
+claims into a reproducible artefact, and **all of them survived execution**:
+
+| probe | status | result |
+|---|---|---|
+| `sklearn.metrics` | EXECUTED | No `ignore_index` on `confusion_matrix`, `jaccard_score` or `precision_recall_fscore_support`. Pre-filtering changes IoU 0.5517 → 0.7273. The natural `jaccard_score(..., labels=[1])` idiom returns the **dense** number, while `confusion_matrix(labels=[1])` *does* drop the other class — the sibling inconsistency, confirmed by running it. |
+| `skimage.metrics` | EXECUTED | `adapted_rand_error` ships `ignore_labels=(0,)` **as the default**; the result changes when label 0 is included. The capability exists, from the connectomics community. |
+| `torch.nn.CrossEntropyLoss` | EXECUTED | `ignore_index` works — loss 0.3228 → 0.9182 when unreviewed pixels are excluded. But the default is `-100`, a sentinel no mask file contains, so it is only reachable if the caller first invents an encoding for UNREVIEWED. |
+| `torchmetrics` | EXECUTED | `BinaryJaccardIndex` accepts `ignore_index` and the answer changes; **0 of 3** inspected classes in `torchmetrics.segmentation` expose it. The asymmetry is inside one library, which is why a practitioner can reasonably believe their stack handles this. |
+| `segmentation_models_pytorch` | EXECUTED | `get_stats(..., mode="binary", ignore_index=255)` raises `ValueError: ``ignore_index`` parameter is not supported for 'binary' mode`. Verbatim. Binary mode is the object-versus-background case of a micrograph, so this is a **refusal**, not a bad default — and a refusal is a decision. |
+| mask file round-trip | EXECUTED | uint8 PNG and TIFF both carry three states losslessly. **The formats are innocent; the loss is in the exporter.** And a mask encoding unreviewed as 255 (the PASCAL/Cityscapes convention) is read as **foreground** by a `> 128` import threshold — the two conventions actively corrupt each other. |
+
+Five targets are **not** tested here and the report names each one rather than implying
+coverage: MONAI, Datumaro/CVAT's exporter, Label Studio's converter, ilastik (desktop app),
+and micro-sam. Installing those and extending the suite is mechanical and needs no
+annotation.
+
+Two design choices worth stating, because they decide whether the artefact is trustworthy.
+Probes assert on **behaviour**, not version strings, so the suite stays meaningful as these
+libraries change. And the suite exits non-zero only when a probe *errors* — a library
+treating unlabelled as background is the finding, so recording it must not masquerade as a
+broken test run.
+
 ## Remaining holes
 
-1. **Read, not run.** The weakest joint. *Fixable cheaply and without annotation:* push a
-   three-state toy mask (foreground / background / unreviewed) through each tool and record
-   what emerges. Several claims are directly executable — Label Studio's `> 128` import
-   threshold, smp raising in binary mode, CVAT dropping a zero-annotation frame, the sklearn
-   `labels=` asymmetry. This is the highest-value remaining action.
+1. **Read, not run — now partly closed.** Six probes execute (see above), covering the
+   sklearn sibling asymmetry, smp's refusal, the torchmetrics namespace split, and the
+   round-trip corruption between the two conventions. What remains unexecuted is MONAI,
+   Datumaro/CVAT, Label Studio's converter, ilastik and micro-sam. Those are dependency
+   installs and a headless invocation, not research.
 2. **Statistical fragility.** Specificity under exclusion rests on 145,441 adjudicated
    negatives, about three parts in ten thousand of the corpus. *Fixable without annotation:*
    bootstrap over images, and sub-sample the existing masks to derive the delta as a curve
