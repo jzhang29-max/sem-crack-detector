@@ -32,11 +32,11 @@ import pandas as pd
 from skimage import measure
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import EXP_ROOT, ORIGINAL_DIR, PROD_MODEL_PATH
+from common import EXP_ROOT, MEASUREMENTS_DIR, ORIGINAL_DIR, PROD_MODEL_PATH
 from unified_pipeline import run_unified_pipeline
 from extended_features import crack_shape_measurements
 
-OUT_DIR = os.path.join(EXP_ROOT, "measurements")
+OUT_DIR = MEASUREMENTS_DIR
 
 def all_images():
     """Every image in original/, from the filesystem.
@@ -55,8 +55,18 @@ def all_images():
 
 
 
-def measure_image(image_name):
-    stage = run_unified_pipeline(image_name)
+def measure_stage(image_name, stage):
+    """Turn one pipeline stage into measurement rows. No file I/O, no calibration.
+
+    Split out of measure_image so a sensitivity sweep can re-measure the SAME geometry
+    under a different decision threshold without either duplicating this logic or writing
+    62 CSVs it does not want. The split matters more than it looks: if a sweep carried its
+    own copy of the merge rule, the censoring test or the fragment count, it would drift
+    from what measure_image actually writes, and it would then be reporting the
+    sensitivity of a measurement nobody ships.
+
+    Returns (rows, n_bridge_px).
+    """
     labeled, df, img8 = stage["labeled"], stage["df"], stage["img8"]
     crack_mask = np.isin(labeled, df.loc[df["IsCrack"], "Label"].tolist())
     img_area = crack_mask.size
@@ -121,6 +131,11 @@ def measure_image(image_name):
             "AreaPct_of_image": round(100 * m["Area_px"] / img_area, 4),
         })
         rows.append(m)
+    return rows, n_bridge_px
+
+
+def measure_image(image_name):
+    rows, n_bridge_px = measure_stage(image_name, run_unified_pipeline(image_name))
 
     cols = ["SourceImage", "CrackID", "Area_px", "AreaPct_of_image", "SkeletonLength_px",
             "MeanWidth_px", "MaxWidth_px", "Tortuosity", "BranchPointCount",

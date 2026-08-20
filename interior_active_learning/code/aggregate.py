@@ -45,10 +45,10 @@ import statistics as stats
 import numpy as np
 
 import calibration as cal
-from common import EXP_ROOT
+from common import EXP_ROOT, MEASUREMENTS_DIR
 
 MEAS_DIR = os.path.join(EXP_ROOT, "measurements")
-OUT_DIR = os.path.join(EXP_ROOT, "measurements")
+OUT_DIR = MEASUREMENTS_DIR
 
 #: Statistics are reported for these columns. Physical variants are substituted
 #: automatically when the group is calibrated.

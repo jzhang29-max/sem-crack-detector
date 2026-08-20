@@ -83,9 +83,25 @@ def _score(bundle, feats_list, ctype):
             accepted = (proba >= rule["floor"] and feats["MeanDistToCrack"] <= rule["dist_thr"]
                         and feats["MeanFlatBrightness"] <= rule["bri_thr"])
         else:
-            accepted = proba >= bundle.get("threshold_default", 0.5)
+            _t2 = (THRESHOLD_OVERRIDE if THRESHOLD_OVERRIDE is not None
+                   else bundle.get("threshold_default", 0.5))
+            accepted = proba >= _t2
         out.append((accepted, float(proba)))
     return out
+
+
+#: Set to a float to run BOTH passes at that decision threshold instead of at whatever
+#: each model bundle carries. None -- the default, and the only value the app or any
+#: existing script ever sees -- means "use the bundle's own threshold", so this is inert
+#: unless a caller deliberately sets it.
+#:
+#: It exists because the batch CLI exposes --threshold, and the alternative was for a
+#: shipped entry point to monkeypatch classify_with_model at runtime. A patch that reaches
+#: into another module's namespace works right up until someone reorders an import, and
+#: then it fails by silently running at the default -- which is the exact class of error
+#: this pipeline is supposed to make impossible. BOTH passes must honour it: patching Pass
+#: 1 alone would report half a detector.
+THRESHOLD_OVERRIDE = None
 
 
 def score_pass1_candidates(df, labeled, img8, flat, vesselness, bundle=None):
@@ -125,7 +141,7 @@ def score_pass1_candidates(df, labeled, img8, flat, vesselness, bundle=None):
     # force_keep_area is classify_with_model's own default (50000): a dark
     # region that large is essentially always a real crack/void regardless
     # of what a size-sensitive model says.
-    return classify_with_model(df, PROD_MODEL_PATH)
+    return classify_with_model(df, PROD_MODEL_PATH, proba_threshold=THRESHOLD_OVERRIDE)
 
 
 def run_unified_pipeline(image_name, stage=None):

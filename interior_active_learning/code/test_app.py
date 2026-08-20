@@ -26,6 +26,7 @@ import json
 import glob
 import os
 import re
+import shutil
 import sys
 import time
 import warnings
@@ -39,7 +40,8 @@ import requests
 import tifffile
 from PIL import Image
 
-from common import ORIGINAL_DIR, PAINT_DIR, PROJECT_ROOT, PROD_MODEL_PATH
+from common import (MAIN_CODE_DIR, ORIGINAL_DIR, PAINT_DIR, PROJECT_ROOT,
+                    PROD_MODEL_PATH)
 
 Image.MAX_IMAGE_PIXELS = None
 CODE = os.path.dirname(os.path.abspath(__file__))
@@ -1228,6 +1230,167 @@ def main():
         check("the CSV leads with the specimen count",
               list(_rows2[0].keys())[2] == "n_specimens" if _rows2 else False,
               "so a reader meets the real n before the impressive one")
+
+
+    # ---------- 22. instrument metadata as a calibration source ----------
+    print("\n[22] instrument metadata")
+    import calibration as _cal2
+    import tempfile as _tf
+    from PIL import TiffImagePlugin as _TP
+
+    _md = _tf.mkdtemp()
+
+    def _vendor_tif(tag, block, w=2048):
+        _p = os.path.join(_md, f"v{tag}_{abs(hash(block)) % 99999}.tif")
+        _im = Image.fromarray(np.zeros((64, w), np.uint8))
+        _info = _TP.ImageFileDirectory_v2()
+        _info[tag] = block
+        _im.save(_p, tiffinfo=_info)
+        return _p
+
+    # metres vs micrometres is a factor of a million; the key decides, never the magnitude
+    _fei_m = _cal2.read_instrument_metadata(
+        _vendor_tif(34682, "[EBeam]\nHorizontalFieldWidth=2.048e-4\n"))
+    _fei_um = _cal2.read_instrument_metadata(_vendor_tif(34683, "[EBeam]\nHFW=204.8\n"))
+    _zeiss = _cal2.read_instrument_metadata(
+        _vendor_tif(34118, "AP_IMAGE_PIXEL_SIZE = 0.05\n"))
+    check("an FEI field width in metres reads as um/px",
+          _fei_m and abs(_fei_m["um_per_px"] - 0.1) < 1e-9,
+          f"2.048e-4 m over 2048 px -> {_fei_m and _fei_m['um_per_px']}")
+    check("an FEI field width already in um reads the same",
+          _fei_um and abs(_fei_um["um_per_px"] - 0.1) < 1e-9,
+          "the key's meaning fixes the unit, not which magnitude looks plausible")
+    check("a ZEISS pixel size reads directly",
+          _zeiss and abs(_zeiss["um_per_px"] - 0.05) < 1e-9)
+
+    _plain = os.path.join(_md, "plain.tif")
+    Image.fromarray(np.zeros((8, 8), np.uint8)).save(_plain)
+    check("a file with no vendor block returns None rather than a guess",
+          _cal2.read_instrument_metadata(_plain) is None)
+
+    # This repo's own corpus: every file was re-saved and lost its vendor tags. If this
+    # ever stops being true the audit in read_instrument_metadata's docstring is stale.
+    _real = [n for n in _cm.all_images()][:6]
+    _with_md = [n for n in _real
+                if _cal2.read_instrument_metadata(
+                    os.path.join(ORIGINAL_DIR, f"{n}.tif")) is not None]
+    check("the shipped corpus carries no instrument metadata, as documented",
+          not _with_md,
+          f"{len(_with_md)}/{len(_real)} probed images had vendor tags; the docstring says 0")
+
+    _saved_cal = _cal2.CALIB_PATH
+    try:
+        _cal2.CALIB_PATH = os.path.join(_md, "calibration.json")
+        _cal2.set_manual("disagree", 0.2)
+        _dis = _vendor_tif(34682, "[EBeam]\nHorizontalFieldWidth=2.048e-4\n")
+        _refused = False
+        try:
+            _cal2.set_from_instrument_metadata("disagree", _dis)
+        except ValueError:
+            _refused = True
+        check("metadata disagreeing with a hand reading is refused, not preferred",
+              _refused,
+              "a machine value silently overwriting a human's is the failure this "
+              "project is about")
+        _cal2.set_manual("agree", 0.101)
+        _cal2.set_from_instrument_metadata(
+            "agree", _vendor_tif(34682, "[EBeam]\nHorizontalFieldWidth=2.0480e-4\n"))
+        check("metadata agreeing within tolerance is stored",
+              abs(_cal2.get_um_per_px("agree") - 0.1) < 1e-9)
+    finally:
+        _cal2.CALIB_PATH = _saved_cal
+
+    # ---------- 23. the headless batch CLI ----------
+    print("\n[23] headless batch CLI")
+    import subprocess as _sp
+    _CLI = os.path.join(MAIN_CODE_DIR, "semcrack.py")
+    _py = sys.executable
+
+    def _cli(*args):
+        r = _sp.run([_py, _CLI, *args], capture_output=True, text=True)
+        return r.returncode, (r.stdout + r.stderr)
+
+    check("the CLI exists and is importable as a script", os.path.exists(_CLI))
+
+    _cin = os.path.join(_md, "in")
+    os.makedirs(_cin, exist_ok=True)
+    _rng2 = np.random.default_rng(7)
+    _a = (42000 + _rng2.normal(0, 1200, (600, 800))).astype(np.uint16)
+    for _i in range(400):
+        _a[200 + int(50 * np.sin(_i / 60)) - 3:203 + int(50 * np.sin(_i / 60)), 200 + _i] = 2200
+    Image.fromarray(_a).save(os.path.join(_cin, "cli_synth_00.tif"))
+
+    _rc, _out = _cli("--in", _cin, "--out", os.path.join(_md, "no_such"), "--glob", "*.png")
+    check("no matching files exits 2 rather than reporting an empty success", _rc == 2)
+    _rc, _out = _cli("--in", os.path.join(_md, "absent"), "--out", os.path.join(_md, "o"))
+    check("a missing input directory exits 2", _rc == 2)
+    _rc, _out = _cli("--in", _cin, "--out", os.path.join(_md, "o"), "--threshold", "1.5")
+    check("a threshold outside (0,1) is rejected before any work", _rc == 2)
+    _rc, _out = _cli("--in", _cin, "--out", os.path.join(_md, "o"),
+                     "--um-per-px", "0.05", "--scale-csv", os.devnull)
+    check("two sources of scale are refused as mutually exclusive", _rc == 2,
+          "two sources that disagree cannot both be right")
+
+    _o1 = os.path.join(_md, "out1")
+    _rc, _out = _cli("--in", _cin, "--out", _o1, "--dry-run")
+    check("--dry-run reports the plan and exits 0 without measuring",
+          _rc == 0 and "dry-run" in _out
+          and not os.path.exists(os.path.join(_o1, "run_manifest.json")))
+
+    _rc, _out = _cli("--in", _cin, "--out", _o1)
+    check("a real batch run exits 0 and writes a manifest", _rc == 0
+          and os.path.exists(os.path.join(_o1, "run_manifest.json")), _out[-160:])
+    if os.path.exists(os.path.join(_o1, "run_manifest.json")):
+        _man = json.load(open(os.path.join(_o1, "run_manifest.json")))
+        check("the manifest pins the model by content hash, not by path",
+              isinstance(_man.get("model_sha256"), str) and len(_man["model_sha256"]) == 64)
+        check("the manifest records that no human correction was applied",
+              _man.get("corrections_applied") is False
+              and "detector only" in _man.get("corrections_note", ""),
+              "a batch CSV that is part human judgement must say which part")
+        check("the manifest names the threshold that produced the numbers",
+              "threshold" in _man and bool(_man.get("threshold_note")))
+        check("per-image CSVs land in the requested output directory",
+              os.path.exists(os.path.join(_o1, "cli_synth_00_crack_measurements.csv")))
+        check("uncalibrated output reports pixels and no invented um columns",
+              _man.get("n_calibrated") == 0)
+
+    _rc, _out = _cli("--in", _cin, "--out", _o1, "--threshold", "0.7")
+    check("a second run with a different threshold refuses to share the directory",
+          _rc == 3, "mixing configurations gives rows with no way to tell them apart")
+    _rc, _out = _cli("--in", _cin, "--out", _o1, "--threshold", "0.7", "--force")
+    check("--force allows it deliberately", _rc == 0)
+
+    _bad = os.path.join(_md, "bad")
+    os.makedirs(_bad, exist_ok=True)
+    shutil.copy(os.path.join(_cin, "cli_synth_00.tif"), _bad)
+    open(os.path.join(_bad, "broken.tif"), "w").write("not a tiff")
+    _rc, _out = _cli("--in", _bad, "--out", os.path.join(_md, "out_bad"))
+    check("one unreadable image fails that image and exits 1, not the batch", _rc == 1,
+          "a run that measured half the frames and exited 0 reads as success")
+    _mb = os.path.join(_md, "out_bad", "run_manifest.json")
+    if os.path.exists(_mb):
+        _m2 = json.load(open(_mb))
+        check("the manifest records which image failed and why",
+              _m2["n_ok"] == 1 and _m2["n_failed"] == 1
+              and any(r["status"] == "failed" and r.get("error") for r in _m2["images"]))
+
+    _mix = os.path.join(_md, "mixed")
+    os.makedirs(_mix, exist_ok=True)
+    shutil.copy(os.path.join(_cin, "cli_synth_00.tif"), _mix)
+    Image.fromarray(np.full((200, 300), 40000, np.uint16)).save(
+        os.path.join(_mix, "other_size.tif"))
+    _rc, _out = _cli("--in", _mix, "--out", os.path.join(_md, "out_mix"),
+                     "--um-per-px", "0.05")
+    check("one scale across differently-sized frames is refused", _rc == 3,
+          "same scale at two pixel sizes is a magnification assumption")
+
+    # The batch entry point must not have changed where the app itself reads and writes.
+    check("the overrides are inert for the app: repo paths unchanged",
+          ORIGINAL_DIR.endswith("/sem-crack-detector/original")
+          and _cm.OUT_DIR.endswith("/interior_active_learning/measurements"),
+          f"{ORIGINAL_DIR} | {_cm.OUT_DIR}")
+    shutil.rmtree(_md, ignore_errors=True)
 
 
     print("\n[cleanup]")

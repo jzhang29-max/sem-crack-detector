@@ -20,7 +20,24 @@ PROJECT_ROOT = os.path.dirname(EXP_ROOT)
 MAIN_CODE_DIR = os.path.join(PROJECT_ROOT, "code")
 sys.path.insert(0, MAIN_CODE_DIR)
 
-ORIGINAL_DIR = os.path.join(PROJECT_ROOT, "original")
+def _env_path(var, default):
+    """Let a headless batch run point the pipeline at directories outside the repo.
+
+    Three overrides, no more: where images are read, where correction masks are read, and
+    where measurements are written. Everything else stays repo-relative, because a model
+    bundle or a label ledger relocated by an environment variable is how two runs end up
+    sharing a filename and disagreeing about what is in it.
+
+    Unset means the repo's own layout, so nothing here changes the app's behaviour. The
+    batch CLI (code/semcrack.py) sets these before importing, and records what they were
+    in the run manifest -- an output directory that cannot say which input directory
+    produced it is the provenance hole this project exists to complain about.
+    """
+    v = os.environ.get(var)
+    return os.path.abspath(os.path.expanduser(v)) if v else default
+
+
+ORIGINAL_DIR = _env_path("SEMCRACK_ORIGINAL_DIR", os.path.join(PROJECT_ROOT, "original"))
 #: One version string for the whole project. Exports and /api/pipeline_info both report
 #: it, so a CSV can be tied to a release instead of a moving `main` -- a reviewer who
 #: clicks a repository link months later otherwise has no way to know whether the code,
@@ -42,7 +59,12 @@ SEGMENTATION_VERSION = 2
 
 VERSION = "1.0.0"
 
-PROD_MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "crack_classifier.joblib")
+#: Pass 1's classifier. A batch run may point this elsewhere with --model. Note this is
+#: NOT the only model in play: Pass 2 uses interior_active_learning/models/unified_model
+#: .joblib, which is deliberately not overridable here, because the two were calibrated
+#: together and swapping one alone produces a detector neither was validated as.
+PROD_MODEL_PATH = _env_path("SEMCRACK_MODEL",
+                           os.path.join(PROJECT_ROOT, "models", "crack_classifier.joblib"))
 LEDGER_PATH = os.path.join(PROJECT_ROOT, "manual_corrections_ledger.csv")
 PROD_RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")
 
@@ -50,7 +72,15 @@ CANDIDATES_DIR = os.path.join(EXP_ROOT, "candidates")
 LABELS_DIR = os.path.join(EXP_ROOT, "labels")
 MODELS_DIR = os.path.join(EXP_ROOT, "models")
 REVIEW_DIR = os.path.join(EXP_ROOT, "review")
-PAINT_DIR = os.path.join(EXP_ROOT, "paint")
+#: A batch run points this at an empty directory unless the caller explicitly asks for
+#: corrections, so a headless export is detector-only by default. Silently folding another
+#: session's hand edits into a batch of numbers is worse than not having them: the CSV
+#: would be part human judgement and would not say which part.
+PAINT_DIR = _env_path("SEMCRACK_PAINT_DIR", os.path.join(EXP_ROOT, "paint"))
+
+#: Where per-image measurement CSVs and provenance sidecars land.
+MEASUREMENTS_DIR = _env_path("SEMCRACK_MEASUREMENTS_DIR",
+                            os.path.join(EXP_ROOT, "measurements"))
 
 for d in (CANDIDATES_DIR, LABELS_DIR, MODELS_DIR, REVIEW_DIR, PAINT_DIR):
     os.makedirs(d, exist_ok=True)

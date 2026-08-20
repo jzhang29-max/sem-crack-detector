@@ -456,7 +456,7 @@ recall**, so no sensitivity is traded away silently:
 |---|---|---|---|
 | production model @ 0.5 | 89.3% | 74.1% | 265 |
 | retrained @ 0.500 | 93.5% | 64.4% | 364 |
-| retrained @ **0.578** — *deployed* | **89.3%** | **79.3%** | **212** |
+| retrained @ **0.578** — *this bundle's chosen point, see note* | **89.3%** | **79.3%** | **212** |
 | retrained @ 0.554 | 89.7% | 74.6% | 260 |
 | retrained @ 0.693 (Youden) | 76.3% | 93.9% | 62 |
 
@@ -466,6 +466,25 @@ image the retrained model never saw — against a baseline that was trained on i
 Saved to `models/crack_classifier_v3_weighted.joblib` with the threshold stored in the
 bundle. `models/crack_classifier.joblib` is deliberately **not** overwritten; swapping the
 production model changes every overlay and is a separate decision.
+
+> **Note, checked against the bundles on disk 2026-08-20.** Two things in this section have
+> been overtaken by events, and both are the kind of drift that makes a reader believe a
+> wrong operating point.
+>
+> 1. `crack_classifier_v3_weighted.joblib` now stores **0.5615**, not 0.578. The threshold is
+>    no longer picked by value; §9.5's own quantile-transfer argument recomputes it, and this
+>    table's number predates that. 0.578 is kept above because the recall/specificity row
+>    beside it was measured at 0.578 and rewriting the label without re-measuring would be
+>    worse than the staleness.
+> 2. **Nothing in this table is the shipped operating point.** The model actually loaded by
+>    the pipeline is `models/crack_classifier.joblib` — the archived classifier, restored
+>    because its overlays were better — and it carries **no `threshold` key at all**. So
+>    production runs at the `bundle.get("threshold", 0.5)` fallback: exactly **0.5**, reached
+>    by omission rather than by any of the reasoning above.
+>
+> That fallback is not a footnote. It is the number under every crack count and crack length
+> this repo has produced, and it appears in no figure. `experiments/threshold_sensitivity.py`
+> measures how far those quantities move across 0.3–0.7 instead of assuming the answer.
 
 ### 9.6 The honest limitation
 

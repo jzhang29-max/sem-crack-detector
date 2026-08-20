@@ -56,7 +56,13 @@ import time
 
 from common import PAINT_DIR, VERSION, save_json_atomic
 
-CALIB_PATH = os.path.join(PAINT_DIR, "calibration.json")
+#: A batch run keeps its calibration beside its own outputs. Without this override the
+#: store lives in PAINT_DIR, so a headless run pointed at someone's read-only corrections
+#: directory would try to write there, and two batches sharing a corrections directory
+#: would share a scale they never agreed on.
+CALIB_PATH = (os.path.abspath(os.path.expanduser(os.environ["SEMCRACK_CALIB_PATH"]))
+              if os.environ.get("SEMCRACK_CALIB_PATH")
+              else os.path.join(PAINT_DIR, "calibration.json"))
 
 #: Two independent readings of the same frame must agree this closely, or the
 #: calibration is refused. 5% is generous for a hand-marked span and still catches the
@@ -121,6 +127,106 @@ def set_from_hfw(image_name, hfw_um, image_width_px):
         raise ValueError("image_width_px must be positive")
     return _store(image_name, float(hfw_um) / float(image_width_px), "hfw",
                   {"hfw_um": float(hfw_um), "image_width_px": int(image_width_px)})
+
+
+#: Where instrument vendors record the field width. FEI/Thermo writes an INI block, ZEISS
+#: writes its own tag set, and both are wildly non-standard -- hence a table rather than a
+#: parser.
+_FEI_TAGS = (34682, 34683)          # FEI_HELIOS / FEI_TITAN INI blocks
+_ZEISS_TAG = 34118                  # ZEISS CZ_SEM
+_HFW_KEYS = ("HorizontalFieldWidth", "HFW", "Width", "PixelWidth", "AP_WIDTH",
+             "AP_IMAGE_PIXEL_SIZE", "ap_image_pixel_size")
+
+
+def read_instrument_metadata(image_path):
+    """Pixel size straight from the instrument, or None if the file does not carry it.
+
+    THE HONEST STATUS OF THIS FUNCTION, because it would otherwise read as a validated
+    feature. Every TIFF in this repository's own corpus has had its vendor metadata
+    DESTROYED: all 70 carry an ImageDescription of exactly `{"shape": [h, w]}`, the
+    fingerprint of a numpy/tifffile re-save, and none carries an FEI or ZEISS block. So
+    this reader returns None on every image here and cannot be regression-tested against a
+    real vendor file in this repo. It is written for users whose files are still originals,
+    and it is deliberately conservative: it reads, it never infers.
+
+    That destruction is worth stating rather than working around. The microscope recorded
+    the field width; a re-save with a tool that does not preserve private TIFF tags threw
+    it away silently; and the consequence is that 0 of 62 images can be calibrated from
+    metadata and every scale here has to be marked by hand off the burned-in bar. It is
+    the same failure this project is about -- a default that substituted convenience for a
+    measurement and said nothing -- and it happened to the data before any of this code
+    ran.
+
+    Returns {"um_per_px": float, "source": str, "detail": dict} or None.
+    """
+    try:
+        from PIL import Image
+        im = Image.open(image_path)
+        tags = getattr(im, "tag_v2", {}) or {}
+        width_px = int(im.size[0])
+    except Exception:
+        return None
+    if width_px <= 0:
+        return None
+
+    def _ini_lookup(blob):
+        """FEI/ZEISS blocks are INI-ish: `Key = value` lines under [Section] headers."""
+        out = {}
+        for line in str(blob).replace("\r", "\n").split("\n"):
+            if "=" in line:
+                k, _, v = line.partition("=")
+                out[k.strip()] = v.strip()
+        return out
+
+    for tag in _FEI_TAGS + (_ZEISS_TAG,):
+        if tag not in tags:
+            continue
+        kv = _ini_lookup(tags[tag])
+        for key in _HFW_KEYS:
+            raw = kv.get(key)
+            if raw is None:
+                continue
+            try:
+                val = float(str(raw).split()[0])
+            except (TypeError, ValueError):
+                continue
+            if not (val > 0):
+                continue
+            # FEI records metres. A "HorizontalFieldWidth" of 0.0002 is 200 um, not
+            # 0.0002 um, and mistaking one for the other is a 1e6 error -- so the unit is
+            # decided by the key's own meaning, never by which magnitude looks plausible.
+            if key in ("PixelWidth", "AP_IMAGE_PIXEL_SIZE", "ap_image_pixel_size"):
+                um_per_px = val * 1e6 if val < 1e-3 else val
+            else:
+                hfw_um = val * 1e6 if val < 1e-3 else val
+                um_per_px = hfw_um / width_px
+            if 1e-6 < um_per_px < 1e4:
+                return {"um_per_px": float(um_per_px),
+                        "source": f"instrument_metadata:tag{tag}:{key}",
+                        "detail": {"tiff_tag": tag, "key": key, "raw": str(raw)[:80],
+                                   "image_width_px": width_px}}
+    return None
+
+
+def set_from_instrument_metadata(image_name, image_path, tol=CROSS_CHECK_TOL):
+    """Calibrate from vendor metadata, cross-checked against any existing calibration.
+
+    Metadata is the most trustworthy source available -- the instrument wrote it -- but
+    "most trustworthy" is not "unquestionable", so if this image already has a scale from
+    a hand-marked bar and the two disagree by more than `tol`, this REFUSES rather than
+    silently overwriting a human's reading with a machine's.
+    """
+    got = read_instrument_metadata(image_path)
+    if got is None:
+        return None
+    prev = get_um_per_px(image_name)
+    if prev and abs(got["um_per_px"] - prev) / prev > tol:
+        raise ValueError(
+            f"{image_name}: instrument metadata says {got['um_per_px']:.6g} um/px but the "
+            f"stored calibration says {prev:.6g} um/px, a "
+            f"{100 * abs(got['um_per_px'] - prev) / prev:.1f}% disagreement. One of them is "
+            f"wrong and this cannot tell which, so neither is used.")
+    return _store(image_name, got["um_per_px"], got["source"], got["detail"])
 
 
 def set_from_scale_bar(image_name, label_um, x1, x2, hfw_um=None,
