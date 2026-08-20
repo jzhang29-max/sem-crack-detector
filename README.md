@@ -204,6 +204,36 @@ invalidated, is in [docs/MODEL_VALIDATION_BENCHMARK.md](docs/MODEL_VALIDATION_BE
 A comparison against the sibling TXM app — what was adopted from it and what was
 declined — is in [docs/APP_COMPARISON.md](docs/APP_COMPARISON.md).
 
+## Physical units and cross-image statistics
+
+Exported measurements are in **pixels** until an image is calibrated, and a crack length
+in pixels is not a publishable quantity. Calibrate from the app: **Advanced -> Set
+scale...**, click the two ends of the burned-in scale bar, and type its printed label. The
+span is measured from your two marks, so it does not inherit a hand-drawn line's aiming
+error.
+
+Optionally type HFW from the same info panel as a cross-check. If the two readings
+disagree by more than 5% the calibration is **refused**, with both values shown, rather
+than stored — a wrong scale factor propagates into every exported length and still looks
+plausible. Uncalibrated is a state, not a 1.0 default: those images export pixel columns
+and say `"calibrated": false` in their provenance sidecar.
+
+```bash
+python3 interior_active_learning/code/crack_measurements.py --all      # per-crack CSVs
+python3 interior_active_learning/code/aggregate.py family,condition    # group statistics
+```
+
+`aggregate.py` answers the question a paper actually asks — does one condition crack more
+than another — with n, mean, sd, median and IQR per group, plus the longest crack per
+frame, which is the quantity a fatigue study reports. A group containing even one
+uncalibrated image reports **pixels** and says so; it will not average micrometres with
+pixels.
+
+Every CSV gets a `_provenance.json` naming the model, its mtime, the calibration and its
+source, and the tool version. Column definitions, including which quantities scale with
+calibration and which must never be scaled, are in
+[docs/MEASUREMENTS.md](docs/MEASUREMENTS.md).
+
 ## Turning SAM on
 
 SAM is **disabled** in this build. It is a runtime proposal stage, not part of the

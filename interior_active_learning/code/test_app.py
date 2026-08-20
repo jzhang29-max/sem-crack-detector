@@ -25,6 +25,7 @@ import io
 import json
 import glob
 import os
+import re
 import sys
 import time
 import warnings
@@ -321,6 +322,21 @@ def main():
     # tick box that defaulted off in places and silently downgraded overlays from
     # f1 0.776 to 0.715.
     check("there is no SAM checkbox", 'id="useSam"' not in html)
+
+    # The favicon is an inline SVG data URI. Percent-encoding is load-bearing: with the
+    # angle brackets left raw, the first ">" inside the SVG closed the <link> tag and the
+    # rest of the logo became live DOM -- <circle> ended up as an element WRAPPING the
+    # document, so #side sat inside it with display:inline and height:auto, grew to
+    # 2335px, and squeezed the canvas to 107px. The page still rendered, which is why a
+    # screenshot at one width did not catch it.
+    _icon = re.search(r'<link rel="icon"[^>]*href="([^"]*)"', html)
+    check("the favicon href is present and percent-encoded",
+          _icon is not None and "<" not in _icon.group(1) and ">" not in _icon.group(1),
+          "a raw angle bracket here escapes the <link> tag and reparents the layout")
+    check("no stray SVG markup leaked into the document",
+          "<circle" not in html and "<svg" not in html,
+          "the logo must live entirely inside the data URI")
+    check("exactly one favicon link", html.count('rel="icon"') == 1)
     # SAM is deliberately OFF: the deployed configuration is the archived model on its
     # own. Assert the card states which detector is live rather than a fixed string, so
     # it fails if the card ever stops naming the configuration at all.
@@ -812,6 +828,68 @@ def main():
           len(_all) > 25 and any(n.startswith("MAR_Amb") for n in _all)
           and not any(n.startswith("apptest") for n in _all),
           f"{len(_all)} images, MAR frames included, test scratch excluded")
+
+
+    # ---------- 15. cross-image aggregation ----------
+    # Nobody asks "how long is the crack in this frame" -- they ask whether one condition
+    # cracks more than another, which is a question about a population. The failure mode
+    # to guard is averaging micrometres with pixels, which produces a plausible number
+    # from meaningless arithmetic.
+    print("\n[15] specimen and condition statistics")
+    import aggregate as _ag
+
+    _t = _ag.parse_name("260622_316_H_b2_front_CBS_01")
+    check("steel filenames parse", _t["family"] == "steel" and _t["condition"] == "H"
+          and _t["detector"] == "CBS")
+    _t = _ag.parse_name("260622_316_amb_b3_CBS_02")
+    check("a name with no face token does not have its detector split",
+          _t["detector"] == "CBS" and _t["face"] == "",
+          "a generic [A-Z]{2,3} gave face=C, detector=BS and mis-grouped the frame")
+    check("superalloy filenames parse",
+          _ag.parse_name("MAR_Amb_HIP_ETD_0010")["process"] == "HIP")
+    check("exposure filenames parse",
+          _ag.parse_name("HIP_24hr_SE_Side_006")["exposure"] == "24hr")
+    check("an unrecognised name is reported, not forced into a bucket",
+          _ag.parse_name("some_random_file")["family"] == "unparsed",
+          "a mis-grouped specimen is worse than an ungrouped one")
+
+    check("sd is None for a single value, not 0",
+          _ag._describe([5.0])["sd"] is None,
+          "0 would read as 'no spread' rather than 'not enough data to have one'")
+    _d = _ag._describe([1.0, 2.0, 3.0, 4.0, 5.0])
+    check("dispersion is reported, not just a mean",
+          _d["sd"] is not None and "iqr" in _d and _d["median"] == 3.0)
+
+    # The unit guard, end to end: one calibrated image among uncalibrated ones must NOT
+    # produce a micrometre statistic for the group.
+    _cal_img = None
+    for _n in _ag.__dict__ and _cm.all_images():
+        if os.path.exists(os.path.join(_ag.MEAS_DIR, f"{_n}_crack_measurements.csv")):
+            _cal_img = _n
+            break
+    if _cal_img:
+        _cal.clear(_cal_img)
+        _mixed = _ag.aggregate(_cm.all_images(), by=("family", "condition"),
+                               require_calibrated=False)
+        _grp = _mixed["groups"][0] if _mixed["groups"] else None
+        check("a group with any uncalibrated image reports PIXELS",
+              _grp is not None and _grp["units"] == "px",
+              "averaging um with px is the failure this module exists to prevent")
+        _cal.set_manual(_cal_img, 0.168, "test")
+        _phys = _ag.aggregate([_cal_img], by=("family", "condition"),
+                              require_calibrated=True)
+        _g2 = _phys["groups"][0] if _phys["groups"] else None
+        check("a fully calibrated group reports MICROMETRES", _g2 and _g2["units"] == "um")
+        check("micrometre columns are derived from the calibration, not the stale CSV",
+              _g2 and _g2["metrics"].get("SkeletonLength_um", {}).get("n", 0) > 0,
+              "a CSV written before calibration has no _um columns")
+        check("and a missing physical column is reported absent, never as pixels",
+              all(("_um" in k or "_um2" in k or k in _cal.DIMENSIONLESS)
+                  for k in _g2["metrics"]),
+              str(list(_g2["metrics"].keys())))
+        _cal.clear(_cal_img)
+    else:
+        check("have a measurement CSV to aggregate", False, "run crack_measurements first")
 
 
     print("\n[cleanup]")

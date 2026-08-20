@@ -180,6 +180,7 @@ LENGTH_POWERS = {
 #: Orientation is an angle, BranchPointCount is a count. Scaling any of these was the
 #: obvious way to get this wrong.
 DIMENSIONLESS = {"Tortuosity", "Orientation_deg", "BranchPointCount",
+                 "NFragmentsMerged",
                  "BoundaryRoughness", "AreaPct_of_image", "CrackID", "SourceImage"}
 
 
