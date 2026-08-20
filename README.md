@@ -309,15 +309,80 @@ python3 interior_active_learning/code/aggregate.py family,condition    # group s
 ```
 
 `aggregate.py` answers the question a paper actually asks — does one condition crack more
-than another — with n, mean, sd, median and IQR per group, plus the longest crack per
-frame, which is the quantity a fatigue study reports. A group containing even one
-uncalibrated image reports **pixels** and says so; it will not average micrometres with
-pixels.
+than another. A group containing even one uncalibrated image reports **pixels** and says
+so; it will not average micrometres with pixels.
+
+Two things it refuses, both of which it used to report:
+
+**The sample size is the specimen, not the crack.** A group of "2,915 cracks" is 23 frames
+imaged on 3 specimens, and cracks within a frame share a thermal history, a polish and a
+field of view. A standard deviation over 2,915 dependent observations is pseudo-replication
+and comes out far tighter than the data earns. Each group reports `n_specimens` beside
+`n_cracks`, means averaged per specimen first, and a note saying in words that `n_cracks`
+is a pooled count. Below three independent units, dispersion is **refused** — with one
+specimen, per-crack spread measures variation *within* that specimen, which is not the
+quantity anyone comparing conditions wants.
+
+**Longest crack per frame is refused when censoring is unknown.** It is the quantity a
+fatigue study reports, and it is also the one most often wrong: a crack touching the frame
+edge continues outside it, so its length is a lower bound, and the longest cracks are
+exactly the ones most likely to run off the edge. A maximum taken over lower bounds is not
+a length. Where the flag is present the figure is reported; where it is absent the CSV cell
+is left **empty** rather than filled with a number beside a `False` a reader may not
+notice.
 
 Every CSV gets a `_provenance.json` naming the model, its mtime, the calibration and its
 source, and the tool version. Column definitions, including which quantities scale with
 calibration and which must never be scaled, are in
 [docs/MEASUREMENTS.md](docs/MEASUREMENTS.md).
+
+## Batch, without the browser
+
+A hundred frames should not mean a hundred clicks.
+
+```bash
+python3 code/semcrack.py --in ./micrographs --out ./results --jobs 6
+```
+
+Per-crack CSV and provenance sidecar per image, a combined `all_cracks.csv`, the group
+aggregate, and a `run_manifest.json` recording the code version, git SHA, the model's
+SHA-256, the resolved threshold, both directories, whether corrections were applied and
+the calibration source per image. `--dry-run` prints the plan without measuring.
+
+A batch runner is the step that turns images into numbers with nobody watching, so this
+one refuses rather than guesses:
+
+| situation | what happens |
+|---|---|
+| output directory came from a different model, threshold or input | **exit 3**, unless `--force` |
+| no `--corrections DIR` given | detector only; no hand edits silently folded in |
+| one `--um-per-px` across differently-sized frames | **exit 3** — same scale at two pixel sizes is a magnification assumption |
+| supplied scale disagrees >5% with instrument metadata | that image is measured in **pixels**, and the manifest says why |
+| image is uncalibrated | pixel columns and a sidecar saying so; never µm from a default |
+| one image unreadable | that image fails, **exit 1**; a run that measured 40 of 62 and exited 0 reads as success |
+
+```bash
+python3 code/semcrack.py --in ./m --out ./r --um-per-px 0.0431   # one scale, cross-checked
+python3 code/semcrack.py --in ./m --out ./r --scale-csv scale.csv # per-image: image,um_per_px
+python3 code/semcrack.py --in ./m --out ./r --from-metadata       # FEI/ZEISS TIFF tags
+python3 code/semcrack.py --in ./m --out ./r --threshold 0.6 --model my.joblib
+```
+
+`--from-metadata` reads FEI/Thermo INI blocks and ZEISS `CZ_SEM` tags, and cross-checks
+against any existing hand reading — a machine value never silently overwrites a human's.
+It finds nothing on **this** corpus, and that is worth knowing: all 62 images carry an
+`ImageDescription` of exactly `{"shape": [h, w]}`, the fingerprint of a numpy re-save. The
+microscope recorded the field width and a re-save threw it away, which is why every scale
+here has to be marked by hand off the burned-in bar.
+
+### The threshold nobody states
+
+Both passes accept a region when its probability clears a threshold. The shipped bundle
+carries **no threshold key**, so production runs at the `0.5` fallback — a library default
+reached by omission, sitting under every crack count and crack length in this repository,
+and invisible in every figure. `--threshold` makes it explicit and the manifest records it.
+`experiments/threshold_sensitivity.py` measures how far the published quantities actually
+move across 0.3–0.7 instead of assuming the answer.
 
 ## Turning SAM on
 
@@ -364,7 +429,7 @@ deleting it, and keeps its corrections, so a misclick is recoverable.
 Every `.py` in this repo is in exactly one of three categories. Nothing is left
 unexplained, and nothing that the app does not use sits next to code that it does.
 
-**The app — 18 modules, this is the whole live path:**
+**The app — 20 modules, this is the whole live path:**
 
 | file | what it is |
 |---|---|
@@ -382,6 +447,8 @@ unexplained, and nothing that the app does not use sits next to code that it doe
 | `…/unified_pipeline.py` | orchestrates the two passes |
 | `…/interior_candidates.py` | Pass 2 candidate generation |
 | `…/common.py` | paths and per-image contrast settings |
+| `…/calibration.py` | per-image µm/px with provenance, and the 5% cross-check |
+| `…/external_mask.py` | imports a mask from ilastik / micro-sam / anything |
 | `…/labeling_overlay.py`, `…/active_learning_select.py` | overlay drawing, image ranking |
 | `…/test_app.py` | the test suite |
 | `code/detect_cracks.py` | Pass 1 segmentation and the 8 features |
@@ -400,10 +467,21 @@ this repo becomes unreproducible:
   picked from the data (the densest crack window), not by eye, so the figures can be
   regenerated after a model change without re-deciding what to show.
   `docs/img/README.md` records the exact command behind each one
-- `crack_measurements.py`, `extended_features.py` → the extended-feature study
+- `extended_features.py` → the extended-feature study
 - `ingest_labels.py`, `ingest_marginal_verdicts.py` → the CSV-era label ingest paths
 - `interior_active_learning/code/experiments/` (25 scripts) → produced every figure
   and table in the benchmark doc
+
+**Command-line tools you run yourself.** Not imported by the app; these are the
+non-browser way in, and each one is the entry point for a result the repo claims:
+
+| file | what it does |
+|---|---|
+| `code/semcrack.py` | batch: a directory of micrographs in, tables and a run manifest out |
+| `…/crack_measurements.py` | one CSV per image, one row per crack, plus a provenance sidecar |
+| `…/aggregate.py` | group statistics with the specimen as the unit, and refusals |
+| `code/import_mask.py` | register a mask segmented elsewhere so it overrides the detector |
+| `code/establish_baseline.py` | records the out-of-sample baseline the retrain gate needs |
 
 **`archive/` — nothing imports it, and nothing should.** Superseded code, models
 kept as counterexamples, and one-off analyses that are the evidence behind the
