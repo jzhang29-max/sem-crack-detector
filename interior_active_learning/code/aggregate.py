@@ -135,6 +135,29 @@ def _describe(values):
     return out
 
 
+def _fmt_mean(d):
+    """Format a _describe() mean, or 'n/a'."""
+    v = (d or {}).get("mean")
+    return f"{v:.1f}" if isinstance(v, (int, float)) else "n/a"
+
+
+def _is_censored(row):
+    """True / False / None, where None means the CSV predates the censoring column.
+
+    Returning False for a missing column would be the same mistake this whole project is
+    about: treating "not recorded" as "not the case". A CSV written before censoring was
+    tracked carries no evidence either way, and 49 such files sit in this corpus -- reading
+    them as uncensored made only 2 of 23 frames look censored while both spot-checked frames
+    had a censored LONGEST crack. Unknown must propagate, not default.
+    """
+    v = row.get("LengthIsCensored", row.get("TouchesBoundary"))
+    if v is None or (isinstance(v, str) and v.strip() == ""):
+        return None
+    if isinstance(v, str):
+        return v.strip().lower() in ("true", "1", "yes")
+    return bool(v)
+
+
 def _read_rows(image_name):
     """Rows from the image's CSV, with micrometre columns derived on read if calibrated.
 
@@ -232,15 +255,70 @@ def aggregate(images, by=("condition",), require_calibrated=True):
         # Per-image maxima, because "the longest crack per frame" is the quantity a
         # fatigue study reports, and its spread across frames is the interesting part --
         # pooling every crack from every frame buries it.
-        per_image_max = []
+        # LONGEST CRACK PER FRAME, WITH CENSORING SEPARATED.
+        #
+        # A crack touching the frame edge continues outside it, so its length is a lower
+        # bound. The bias is not random: the longest cracks are the most likely to be
+        # censored, so the statistic most damaged is exactly the one a fatigue study reports.
+        # Both are computed -- uncensored-only, which is interpretable but biased downward by
+        # excluding the big ones, and all-cracks, which mixes bounds with measurements -- and
+        # the count of censored frames is carried so neither can be quoted without it.
+        per_image_max, per_image_max_uncens = [], []
+        n_cens_frames = n_unknown_frames = 0
         for name in g["images"]:
             rr = _read_rows(name) or []
             lcol = ("SkeletonLength_um" if physical else "SkeletonLength_px")
-            vals = [r.get(lcol) for r in rr
-                    if isinstance(r.get(lcol), (int, float))]
+            vals = [r.get(lcol) for r in rr if isinstance(r.get(lcol), (int, float))]
+            flags = [_is_censored(r) for r in rr
+                     if isinstance(r.get(lcol), (int, float))]
+            unc = [v for v, c in zip(vals, flags) if c is False]
             if vals:
                 per_image_max.append(max(vals))
+            if unc:
+                per_image_max_uncens.append(max(unc))
+            if any(c is True for c in flags):
+                n_cens_frames += 1
+            if any(c is None for c in flags):
+                # No censoring column: this frame's CSV predates the flag. Re-measure it.
+                n_unknown_frames += 1
+        rec["frames_with_unknown_censoring"] = n_unknown_frames
         rec["longest_crack_per_image"] = _describe(per_image_max)
+        rec["longest_crack_per_image_uncensored_only"] = _describe(per_image_max_uncens)
+        rec["frames_with_a_censored_crack"] = n_cens_frames
+        rec["n_frames"] = len(g["images"])
+        # Measured on this corpus: on both spot-checked frames the LONGEST crack is censored,
+        # and the longest uncensored crack is 83-97% shorter. So neither figure is a valid
+        # cross-condition comparable -- the overall max quotes a lower bound as a length, and
+        # the uncensored max excludes precisely the cracks the study is about. Rather than
+        # print a number that cannot be interpreted, say so: this is the same refusal rule the
+        # calibration and the promotion gate follow.
+        if n_unknown_frames:
+            rec["longest_crack_is_valid_comparable"] = False
+            rec["longest_crack_refusal"] = (
+                f"REFUSED: {n_unknown_frames} of {len(g['images'])} frames have CSVs written "
+                f"before boundary censoring was recorded, so whether their cracks were cut "
+                f"off by the frame edge is UNKNOWN. Re-run crack_measurements.py on them. "
+                f"Treating unknown as uncensored is the same error this project exists to "
+                f"prevent, so it is not done here.")
+        elif n_cens_frames:
+            rec["longest_crack_is_valid_comparable"] = False
+            rec["longest_crack_refusal"] = (
+                f"REFUSED as a cross-condition comparable: {n_cens_frames} of "
+                f"{len(g['images'])} frames contain a crack cut off by the frame edge. Both "
+                f"variants are reported for inspection, and neither should be quoted: the "
+                f"all-cracks max mixes lower bounds with measurements, and the uncensored-only "
+                f"max excludes the longest cracks by construction. A survival-style estimator "
+                f"on censored lengths is the proper treatment and is not implemented here.")
+        else:
+            rec["longest_crack_is_valid_comparable"] = True
+        if n_cens_frames:
+            rec["censoring_warning"] = (
+                f"{n_cens_frames} of {len(g['images'])} frames contain at least one crack "
+                f"touching the frame edge, whose length is a LOWER BOUND. "
+                f"longest_crack_per_image mixes bounds with measurements; "
+                f"longest_crack_per_image_uncensored_only excludes them but is biased "
+                f"downward, because the longest cracks are the most likely to be censored. "
+                f"Neither is a valid cross-condition comparable on its own.")
         out.append(rec)
 
     return {"grouped_by": list(by), "groups": out, "skipped": skipped,
@@ -285,9 +363,20 @@ if __name__ == "__main__":
         lc = g["longest_crack_per_image"]
         sd = f" +/- {lc['sd']:.1f}" if lc.get("sd") is not None else ""
         mean = f"{lc['mean']:.1f}{sd}" if lc.get("mean") is not None else "n/a"
+        valid = g.get("longest_crack_is_valid_comparable", True)
+        _unk = g.get("frames_with_unknown_censoring", 0)
+        shown = (f"longest/frame {mean} {g['units']}" if valid
+                 else f"longest/frame REFUSED ("
+                      + (f"censoring UNKNOWN in {_unk}/{g.get('n_frames')} frames"
+                         if _unk else
+                         f"censored in {g.get('frames_with_a_censored_crack')}"
+                         f"/{g.get('n_frames')} frames") + ")")
         print(f"  {'|'.join(f'{k}={v}' for k, v in g['group'].items()):38s} "
-              f"{g['n_images']:3d} images  {g['n_cracks']:5d} cracks  "
-              f"longest/frame {mean} {g['units']}")
+              f"{g['n_images']:3d} images  {g['n_cracks']:5d} cracks  {shown}")
+        if not valid:
+            lu = g.get("longest_crack_per_image_uncensored_only", {})
+            print(f"      for inspection only -- all-cracks mean {mean}, uncensored-only mean "
+                  f"{_fmt_mean(lu)}; neither is quotable")
         if g.get("mixed_calibration_warning"):
             print(f"      WARNING {g['mixed_calibration_warning']}")
     for why, names in res["skipped"].items():

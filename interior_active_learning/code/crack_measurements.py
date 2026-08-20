@@ -101,6 +101,17 @@ def measure_image(image_name):
         # found it whole; >1 means merge_large_cracks joined it, and the reader can see
         # that rather than having to trust it.
         m["NFragmentsMerged"] = int(len({int(v) for v in np.unique(fragments[mask])} - {0}))
+        # RIGHT-CENSORING. A crack that reaches the frame edge continues outside it, so its
+        # measured length is a LOWER BOUND, not a length. Pooling censored and uncensored
+        # cracks into one mean -- or into "longest crack per frame" -- silently mixes two
+        # different quantities, and the bias is not random: the longest cracks are exactly the
+        # ones most likely to run off the edge, so the statistic most affected is the one a
+        # fatigue study reports. Flagging it is the minimum; a survival-style estimator would
+        # be the proper treatment and is not attempted here.
+        _touch = int(mask[0].sum() + mask[-1].sum() + mask[:, 0].sum() + mask[:, -1].sum())
+        m["TouchesBoundary"] = bool(_touch > 0)
+        m["BoundaryPx"] = _touch
+        m["LengthIsCensored"] = bool(_touch > 0)
         ys, xs = np.where(mask)
         m.update({
             "SourceImage": image_name,
@@ -114,7 +125,8 @@ def measure_image(image_name):
     cols = ["SourceImage", "CrackID", "Area_px", "AreaPct_of_image", "SkeletonLength_px",
             "MeanWidth_px", "MaxWidth_px", "Tortuosity", "BranchPointCount",
             "EllipseMajorAxis_px", "EllipseMinorAxis_px", "Orientation_deg",
-            "BoundaryRoughness", "CentroidX_px", "CentroidY_px", "NFragmentsMerged"]
+            "BoundaryRoughness", "CentroidX_px", "CentroidY_px", "NFragmentsMerged",
+            "TouchesBoundary", "BoundaryPx", "LengthIsCensored"]
 
     # Physical units when this image has been calibrated. A crack length in PIXELS is not
     # a publishable quantity, so a CSV that only offers _px columns cannot be used for the
@@ -144,6 +156,13 @@ def measure_image(image_name):
     prov.update(_em.provenance_for(image_name))
     prov["n_cracks"] = int(len(out_df))
     prov["bridge_px_added"] = n_bridge_px
+    _cens = int(out_df["LengthIsCensored"].sum()) if len(out_df) else 0
+    prov["cracks_censored_by_frame_edge"] = _cens
+    prov["censoring_note"] = (
+        "A crack touching the frame edge continues outside it, so its length is a "
+        "LOWER BOUND. Do not pool censored and uncensored lengths, and do not "
+        "report longest-crack-per-frame across conditions without accounting for "
+        "it: the longest cracks are the most likely to be censored.")
     prov["columns"] = list(out_df.columns)
     _json.dump(prov, open(os.path.join(OUT_DIR, f"{image_name}_provenance.json"), "w"),
                indent=1)
