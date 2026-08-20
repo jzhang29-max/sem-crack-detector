@@ -33,7 +33,7 @@ import numpy as np
 from PIL import Image
 from flask import jsonify, request
 
-from common import ORIGINAL_DIR, PAINT_DIR, PROJECT_ROOT, PROD_MODEL_PATH
+from common import ORIGINAL_DIR, PAINT_DIR, PROJECT_ROOT, PROD_MODEL_PATH, VERSION
 
 # Serialises upload name reservation; see _ingest_upload.
 _UPLOAD_LOCK = threading.Lock()
@@ -162,6 +162,24 @@ def _ingest_upload(storage):
     part = dest + ".part"
     storage.save(tmp)
     try:
+        # Image.MAX_IMAGE_PIXELS is set to None project-wide (app_endpoints.py:41)
+        # because the real corpus is up to 27 megapixels and PIL's default guard trips at
+        # ~89 megapixels wholesale. That disables the decompression-bomb check for
+        # UPLOADS too, where it is genuinely wanted: a ~6 KB PNG whose header declares
+        # 60000x60000 asks the allocator for ~3.6 GB in one go at im.convert("L") and
+        # takes the Flask process with it, losing every warm stage and any in-flight
+        # retrain. Read the declared size from the header first -- this does not decode
+        # pixels -- and refuse before allocating.
+        _MAX_UPLOAD_MPX = 300
+        try:
+            with Image.open(tmp) as _probe:
+                _w, _h = _probe.size
+        except Exception:
+            _w = _h = 0                      # tifffile handles some files PIL cannot
+        if _w and _h and (_w * _h) > _MAX_UPLOAD_MPX * 1_000_000:
+            raise ValueError(
+                f"declared size {_w}x{_h} is {_w * _h / 1e6:.0f} megapixels, over the "
+                f"{_MAX_UPLOAD_MPX} MP upload limit")
         if ext in (".tif", ".tiff"):
             arr = np.asarray(tifffile.imread(tmp))
             # Collapse PAGE axes only. `while arr.ndim > 2: arr = arr[0]` treated an
@@ -210,11 +228,58 @@ def register(app, get_stage, invalidate_stage=None):
     which is exactly the class of bug that made regions appear to change colour
     on click earlier in this project."""
 
+    @app.route("/api/calibration/<image_name>", methods=["GET"])
+    def api_get_calibration(image_name):
+        """The image's um/px and where it came from, or calibrated=false."""
+        import calibration as _cal
+        rec = _cal.get_record(image_name)
+        return jsonify({"ok": True, "calibrated": bool(rec), "record": rec})
+
+    @app.route("/api/calibration/<image_name>", methods=["POST"])
+    def api_set_calibration(image_name):
+        """Set or clear the calibration.
+
+        Three routes, mirroring calibration.py: scale_bar (label plus the two marked x
+        positions), hfw, and manual. The scale_bar route accepts an optional hfw_um and
+        will REFUSE a pair that disagrees by more than 5% -- that is the whole point, so
+        the refusal is surfaced as a 409 with the two values rather than swallowed.
+        """
+        import calibration as _cal
+        body = request.get_json(silent=True) or {}
+        if body.get("clear"):
+            return jsonify({"ok": True, "cleared": _cal.clear(image_name)})
+        mode = body.get("mode")
+        try:
+            if mode == "scale_bar":
+                rec = _cal.set_from_scale_bar(
+                    image_name, float(body["label_um"]), float(body["x1"]),
+                    float(body["x2"]),
+                    hfw_um=(float(body["hfw_um"]) if body.get("hfw_um") else None),
+                    image_width_px=(int(body["image_width_px"])
+                                    if body.get("image_width_px") else None))
+            elif mode == "hfw":
+                rec = _cal.set_from_hfw(image_name, float(body["hfw_um"]),
+                                        int(body["image_width_px"]))
+            elif mode == "manual":
+                rec = _cal.set_manual(image_name, float(body["um_per_px"]),
+                                      body.get("note", ""))
+            else:
+                return jsonify({"ok": False, "error":
+                                "mode must be scale_bar, hfw or manual"}), 400
+        except ValueError as e:
+            # A cross-check failure is not a server fault and not a silent success --
+            # 409 so the UI can show the two disagreeing numbers and let the user redo
+            # the marks or correct the label.
+            return jsonify({"ok": False, "error": str(e)}), 409
+        except (KeyError, TypeError) as e:
+            return jsonify({"ok": False, "error": f"missing or bad field: {e}"}), 400
+        return jsonify({"ok": True, "record": rec})
+
     @app.route("/api/pipeline_info")
     def api_pipeline_info():
         import joblib
         from hybrid_detect import sam_available
-        info = {"sam_available": sam_available(), "model": None}
+        info = {"sam_available": sam_available(), "version": VERSION, "model": None}
         try:
             b = joblib.load(PROD_MODEL_PATH)
             info["model"] = {
