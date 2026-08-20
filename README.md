@@ -212,6 +212,42 @@ invalidated, is in [docs/MODEL_VALIDATION_BENCHMARK.md](docs/MODEL_VALIDATION_BE
 A comparison against the sibling TXM app — what was adopted from it and what was
 declined — is in [docs/APP_COMPARISON.md](docs/APP_COMPARISON.md).
 
+## Use a better segmenter and keep the measurement layer
+
+The built-in detector is the weakest part of this project. ilastik's Random Forest over a
+multi-scale filter bank, micro-sam's ViT, and the commercial CNNs all produce better masks
+than a darkness threshold plus a LogisticRegression over 8 morphology features — the
+deployed operating point misses roughly 40% of crack pixels.
+
+Everything this project does that those tools do not is **downstream of the mask**: a
+calibration that refuses when the scale bar and HFW disagree, reporting pixels and saying so
+when a group is uncalibrated, unreviewed pixels never scored as negatives, a gated retrain,
+per-CSV provenance, and one row per crack carrying opening width and tortuosity. So segment
+wherever you segment best, and bring the mask here:
+
+```bash
+python3 code/import_mask.py IMAGE --shape          # what size must the mask be?
+python3 code/import_mask.py IMAGE mask.png --from ilastik
+python3 code/import_mask.py --list
+python3 code/import_mask.py IMAGE --clear          # back to the built-in detector
+```
+
+or `POST /api/external_mask/<image>` with a `mask` file. Exporting a compatible mask:
+ilastik → Prediction Export → Simple Segmentation; micro-sam → save the napari labels layer;
+Fiji → the binary result of TWS/Labkit.
+
+**Authority order is unchanged: human correction > imported mask > built-in detector.**
+Verified numerically, not asserted — with corrections neutralised the result is bit-identical
+to the imported mask; with them on, every added pixel is hand-marked crack. An import skips
+Pass 2 as well, so the mask stays what the source tool said instead of quietly re-mixing this
+project's weaker proposals back in, and it never touches a correction mask.
+
+Three things are refused rather than accepted: a **shape mismatch** (never resampled — a
+resampled foreign segmentation is wrong everywhere and invisible downstream), an **all-zero**
+mask, and an **all-nonzero** mask; the last two are the signature of exporting a probability
+map or an image instead of a segmentation. Every import records the source tool, the file,
+its SHA-256 and the region count, and every exported CSV names the mask source.
+
 ## Does it beat a two-line baseline?
 
 `docs/MODEL_VALIDATION_BENCHMARK.md` compares six classifiers, but all six run on the same

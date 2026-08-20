@@ -42,6 +42,7 @@ from scipy import ndimage as ndi
 from skimage import morphology, measure
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import external_mask
 from common import (
     ORIGINAL_DIR, CANDIDATES_DIR, MODELS_DIR, PROD_MODEL_PATH, contrast_kwargs_for,
     load_hard_overrides, load_correction_mask,
@@ -184,10 +185,33 @@ def run_unified_pipeline(image_name, stage=None):
         # Worse, on MAR_Amb_Cast_CBS_0005 the background region and the crack are ONE
         # connected component containing 976,295 hand-marked crack pixels, so no
         # region-level exclusion can drop it without destroying human labels.
-        labeled, df = extract_candidates(clean, flat, vesselness, min_area_px=40)
+        # AN IMPORTED MASK REPLACES THE DETECTOR.
+        #
+        # A survey of the field put this project's detector last: ilastik's Random Forest
+        # over a multi-scale filter bank and micro-sam's ViT both produce better masks than
+        # a darkness threshold plus a LogisticRegression over 8 features, and the deployed
+        # operating point misses roughly 40% of crack pixels. Everything this project does
+        # that nobody else does -- refusing calibration, unreviewed-aware metrics, a gated
+        # retrain, per-CSV provenance, one row per crack with opening width and tortuosity
+        # -- sits DOWNSTREAM of the mask. So the mask can come from whatever segments best.
+        #
+        # Authority order is unchanged: human correction > imported mask > built-in
+        # detector. The import is fed through extract_candidates exactly as the built-in
+        # candidates are, so the df schema, the correction machinery and the merge step all
+        # behave identically; only the source of the regions differs. min_area_px=1 because
+        # dropping regions another tool deliberately produced is not this layer's decision.
+        _ext = external_mask.load(image_name, clean.shape)
+        _from_external = _ext is not None
+        if _from_external:
+            labeled, df = extract_candidates(_ext > 0, flat, vesselness, min_area_px=1)
+            # The importing tool already decided what is crack. Re-scoring its regions with
+            # the weaker built-in classifier would throw away the reason for importing.
+            df["IsCrack"] = True
+        else:
+            labeled, df = extract_candidates(clean, flat, vesselness, min_area_px=40)
 
-        # --- PASS 1: score original candidates with the unified model ---
-        df = score_pass1_candidates(df, labeled, img8, flat, vesselness, bundle)
+            # --- PASS 1: score original candidates with the unified model ---
+            df = score_pass1_candidates(df, labeled, img8, flat, vesselness, bundle)
 
         overrides = load_hard_overrides(image_name)
         if overrides:
@@ -207,7 +231,13 @@ def run_unified_pipeline(image_name, stage=None):
     # now-real crack mask, with their FULL, genuinely-meaningful features ---
     interior_origin = {}
     n_interior_total = 0
-    if bundle is not None:
+    # Pass 2 proposes interior/concavity/bridge candidates and scores them with the
+    # built-in model. With an imported mask that would mix the detector this import exists
+    # to replace back into the result, so the mask would no longer be what the source tool
+    # said. Skipped, and the skip is recorded in the stage.
+    _skip_pass2 = bool(locals().get("_from_external") or
+                       external_mask.has_external(image_name))
+    if bundle is not None and not _skip_pass2:
         crack_mask = np.isin(labeled, df.loc[df["IsCrack"], "Label"].tolist())
         dil_crack = morphology.binary_dilation(crack_mask, morphology.disk(1))
         dist_to_crack = ndi.distance_transform_edt(~crack_mask)
@@ -256,4 +286,6 @@ def run_unified_pipeline(image_name, stage=None):
             df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
 
     return dict(stage, labeled=labeled, df=df, interior_origin=interior_origin,
-                n_interior_total=n_interior_total)
+                n_interior_total=n_interior_total,
+                mask_source=("external" if external_mask.has_external(image_name)
+                             else "built-in"))

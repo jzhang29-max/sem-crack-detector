@@ -58,6 +58,28 @@ Annotation platforms own the human workflow and ignore both.
   auto-detects the bar. Here a human clicks two points. Claim the refusal, not the
   calibration.
 
+## What changed after this survey
+
+The survey's highest-leverage recommendation was to stop competing on mask quality and start
+composing. That is now implemented: `code/import_mask.py` and
+`POST /api/external_mask/<image>` accept a crack mask from ilastik, micro-sam, Fiji or
+anything else, and it replaces the built-in detector while leaving the human's corrections
+authoritative. The three strongest competitors become upstream suppliers, and the comparison
+moves off "my detector vs theirs" — ground this project loses — onto the measurement and
+audit layer it actually owns.
+
+The other recommendation acted on: `experiments/naive_baselines.py` now compares the
+deployed pipeline against global Otsu, Otsu+cleanup, Frangi ridges and Frangi∩dark on
+identical adjudicated pixels. The pipeline wins by +0.101 f1 over the best naive method, and
+is the only one not degenerate at one end. That question had never been asked before.
+
+Still outstanding from the survey, in its order: FEI/ZEISS metadata as a third calibration
+source; leave-one-**specimen**-out instead of leave-one-image-out in the promotion gate
+(sibling frames from one session are near-duplicate leakage); a boundary-touching flag so
+edge-censored cracks stop being pooled into cross-condition comparisons; threshold and
+pixel-size sensitivity tables; specimen as the default statistical unit; a headless batch
+CLI; and a Zenodo DOI.
+
 ## Claims this repo should not make
 
 Recorded so they do not creep back in:

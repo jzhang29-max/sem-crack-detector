@@ -325,6 +325,48 @@ def register(app, get_stage, invalidate_stage=None):
     which is exactly the class of bug that made regions appear to change colour
     on click earlier in this project."""
 
+    @app.route("/api/external_mask/<image_name>", methods=["GET"])
+    def api_get_external_mask(image_name):
+        """Whether this image's mask came from another tool, and from which."""
+        import external_mask as _em
+        return jsonify({"ok": True, "external": _em.has_external(image_name),
+                        **_em.provenance_for(image_name)})
+
+    @app.route("/api/external_mask/<image_name>", methods=["POST"])
+    def api_set_external_mask(image_name):
+        """Import a crack mask produced elsewhere (ilastik, micro-sam, Fiji, anything).
+
+        This is the composability path: the surveyed alternatives all segment better than
+        the built-in detector, and everything this project does that they do not --
+        refusing calibration, unreviewed-aware metrics, a gated retrain, per-CSV provenance
+        -- is downstream of the mask. So take the better mask.
+
+        Multipart with a `mask` file, or JSON {"clear": true} to fall back to the detector.
+        """
+        import external_mask as _em
+        if (request.get_json(silent=True) or {}).get("clear"):
+            return jsonify({"ok": True, "cleared": _em.clear(image_name)})
+        f = request.files.get("mask") or request.files.get("file")
+        if f is None:
+            return jsonify({"ok": False, "error": "no mask file in request"}), 400
+        tool = (request.form.get("source_tool") or "custom").strip()
+        note = (request.form.get("note") or "").strip()
+        tmp = os.path.join(PROJECT_ROOT, f".extmask_{uuid.uuid4().hex[:8]}")
+        f.save(tmp)
+        try:
+            from paint_server import get_stage
+            shape = get_stage(image_name)["labeled"].shape
+            rec = _em.store(image_name, tmp, tool, shape, note=note)
+        except ValueError as e:
+            # A shape mismatch or a wrong-layer export is the user's to fix, not a 500.
+            return jsonify({"ok": False, "error": str(e)}), 409
+        except Exception as e:
+            return jsonify({"ok": False, "error": f"{type(e).__name__}: {e}"}), 400
+        finally:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        return jsonify({"ok": True, "record": rec})
+
     @app.route("/api/calibration/<image_name>", methods=["GET"])
     def api_get_calibration(image_name):
         """The image's um/px and where it came from, or calibrated=false."""

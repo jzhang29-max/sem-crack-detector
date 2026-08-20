@@ -138,6 +138,10 @@ def measure_image(image_name):
     # Provenance beside every table. Without this, once a CSV leaves the machine no number
     # in it can be traced to a model, a threshold, or a calibration.
     prov = _cal.provenance_header(image_name, PROD_MODEL_PATH, None)
+    # Where the mask came from. A CSV whose regions were segmented by another tool but does
+    # not say so is worse than no CSV: the numbers read as native to this pipeline.
+    import external_mask as _em
+    prov.update(_em.provenance_for(image_name))
     prov["n_cracks"] = int(len(out_df))
     prov["bridge_px_added"] = n_bridge_px
     prov["columns"] = list(out_df.columns)
