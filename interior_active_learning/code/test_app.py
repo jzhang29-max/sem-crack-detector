@@ -907,6 +907,49 @@ def main():
           "so a reader can discount a held-out AUC that rests on one frame")
 
 
+    # ---------- 17. the retraining loop cannot rig itself ----------
+    # A completeness critic across both audit batches found two systemic failures that no
+    # single-dimension audit could see. Both are locked down here.
+    print("\n[17] train/serve parity and an unrigged gate")
+
+    _bt = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "build_training_data.py")).read()
+    check("the training builder does NOT run a segmenter serving has dropped",
+          "exclude_border_background(clean" not in _bt,
+          "train/serve skew made the accepted false-positive class unlearnable and "
+          "shifted every region Label ID the override ledger is keyed by")
+    _up = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "unified_pipeline.py")).read()
+    check("and serving does not run it either",
+          "clean = exclude_border_background" not in _up)
+
+    from common import SEGMENTATION_VERSION, load_hard_overrides
+    check("region IDs carry a segmentation version", SEGMENTATION_VERSION >= 2)
+    _led = os.path.join(PROJECT_ROOT, "manual_corrections_ledger.csv")
+    if os.path.exists(_led):
+        import csv as _csv
+        with open(_led, newline="") as fh:
+            _rows = list(_csv.DictReader(fh))
+        _has_ver = bool(_rows) and "SegVersion" in _rows[0]
+        _applied = sum(len(load_hard_overrides(n) or {})
+                       for n in {r["SourceImage"] for r in _rows})
+        check("ledger overrides from an older segmentation are NOT force-applied",
+              _has_ver or _applied == 0,
+              f"{len(_rows)} stale rows, {_applied} applied -- applying one force-sets "
+              f"IsCrack on whatever region holds that ID today")
+
+    # The gate must not grade an out-of-sample candidate against an in-sample incumbent.
+    from app_endpoints import promotion_decision as _pdec
+    check("a gate with no recorded out-of-sample baseline refuses",
+          _pdec(0.90, None)[0] is False and "establish_baseline" in _pdec(0.90, None)[1],
+          "and says how to establish one, so refusing does not brick retraining forever")
+    _b = joblib.load(PROD_MODEL_PATH)
+    check("the deployed bundle's baseline, if present, is labelled with its source",
+          ("loio_out_of_sample" not in _b)
+          or bool(_b.get("loio_out_of_sample_source")),
+          "so a refit-same-family estimate is never mistaken for the shipped weights")
+
+
     print("\n[cleanup]")
     removed = 0
     for n in created:

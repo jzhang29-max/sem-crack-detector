@@ -32,7 +32,7 @@ import pandas as pd
 from common import ORIGINAL_DIR, PAINT_DIR, PROJECT_ROOT, contrast_kwargs_for, load_correction_mask
 from detect_cracks import (
     load_as_uint8, find_field_of_view, flatten_background, segment_dark_regions,
-    clean_mask, compute_vesselness, exclude_border_background, extract_candidates,
+    clean_mask, compute_vesselness, extract_candidates,
     region_features_from_labeled,
 )
 
@@ -64,7 +64,24 @@ def process(image_name):
         flat = flatten_background(img8)
         clean = clean_mask(segment_dark_regions(flat, img8=img8), min_area_px=13)
         ves = compute_vesselness(flat)
-        clean = exclude_border_background(clean, ves)
+        # DELIBERATELY NOT CALLED -- serving does not call it either.
+        #
+        # unified_pipeline.py removed exclude_border_background() because it deleted main
+        # cracks (35-37% of the user's hand marks on two images). Leaving it here made the
+        # training builder and the inference pipeline run DIFFERENT segmenters over the
+        # same images, with two consequences:
+        #
+        #   (a) The accepted false-positive class became unlearnable. Off-specimen
+        #       background flooding the MAR Cast frames is tolerated on the grounds that
+        #       the user paints it not-crack once and the correction sticks. It does stick
+        #       for that image, via the pixel mask -- but this builder deleted exactly
+        #       those large, border-touching, low-vesselness regions BEFORE the mask vote,
+        #       so they produced zero negative rows. The user's most repeated correction
+        #       could never become training data, which is why the accepted cost was not
+        #       decaying with use.
+        #   (b) Region Label IDs diverged. extract_candidates renumbers survivors 1..N in
+        #       scan order, so removing regions shifts every later ID -- and the override
+        #       ledger is keyed by ID.
         labeled, df = extract_candidates(clean, flat, ves, min_area_px=40)
 
         mask = load_correction_mask(image_name, labeled.shape)
@@ -196,3 +213,29 @@ if __name__ == "__main__":
     print(f"images with >=1 negative: {int((per['neg'] > 0).sum())}  "
           f"(grouped CV needs at least ~3 to be meaningful)")
     print(f"\nWrote {OUT_CSV}")
+
+    # ACCOUNT FOR EVERY MASK. 7 of 39 hand-drawn masks used to contribute zero rows and
+    # nothing said so: the per-image worker catches any exception, prints FAILED and
+    # returns None while the pool carries on, the merge silently carries prior rows for
+    # images whose .tif is absent, and the process still exits 0. That is 18% of the
+    # labelling effort in the repo disappearing into a successful-looking run.
+    #
+    # Masks are the one artifact here a human made by hand. A build that drops one must say
+    # which, and must not report success.
+    masks = {f[:-len("_correction_mask.png")] for f in os.listdir(PAINT_DIR)
+             if f.endswith("_correction_mask.png")}
+    represented = set(allrows["SourceImage"].unique())
+    missing = sorted(masks - represented)
+    print(f"\nmasks on disk: {len(masks)}   represented in the training data: "
+          f"{len(masks & represented)}")
+    if missing:
+        print(f"\n{len(missing)} HAND-DRAWN MASK(S) CONTRIBUTED NO ROWS -- "
+              f"that labelling effort is not reaching the model:")
+        for n in missing:
+            _tif = os.path.join(ORIGINAL_DIR, f"{n}.tif")
+            why = ("source .tif missing" if not os.path.exists(_tif)
+                   else "mask produced no usable regions (shape mismatch, or every "
+                        "marked pixel fell outside a candidate)")
+            print(f"    {n:36s} {why}")
+        print("\nExiting non-zero: a build that discards human labels is not a success.")
+        sys.exit(2)

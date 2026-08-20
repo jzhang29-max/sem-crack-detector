@@ -109,9 +109,12 @@ def promotion_decision(new_loio, cur_loio):
     if new_loio is None:
         return False, "new model reported no held-out AUC; not deployed"
     if cur_loio is None:
-        return False, ("NOT deployed: the training run did not report the current "
-                       "model's held-out AUC, so there is nothing to compare "
-                       "against; production left unchanged")
+        return False, (
+            "NOT deployed: the deployed model has no recorded out-of-sample score "
+            "(loio_out_of_sample), so there is nothing valid to compare against -- "
+            "comparing against its in-sample score would bias every retrain toward "
+            "refusal. Run `python3 code/establish_baseline.py` once to measure and "
+            "record it, then retrain again. Production left unchanged.")
     if new_loio >= cur_loio - 1e-9:
         return True, None       # caller fills in the reason, it names the backup file
     return False, (f"NOT deployed: held-out AUC {new_loio:.4f} is worse than "
@@ -459,22 +462,40 @@ def register(app, get_stage, invalidate_stage=None):
                 m = _json.load(open(mj))
                 cv = (m.get("cv_results") or {}).get(m.get("best", ""), {})
                 new_loio = cv.get("loio_auc_exhaustive_image")
-                # BASELINE MUST BE LIKE-FOR-LIKE, AND MISSING MUST MEAN REFUSE.
+                # BOTH SIDES MUST BE OUT-OF-SAMPLE, AND MISSING MUST MEAN REFUSE.
                 #
-                # This used to read the CURRENT model's score out of its own bundle and
-                # then promote when that came back None:
-                #     elif cur_loio is None or new_loio >= cur_loio - 1e-9:
-                # The deployed bundle carries only scaler/clf/feature_names/sklearn_version
-                # -- no cv_results -- so cur_loio was ALWAYS None and the gate promoted
-                # unconditionally, while the Retrain tooltip promised "deployed only if it
-                # scores at least as well on held-out data". A retrain that collapsed
-                # specificity would have shipped silently.
+                # Two wrong versions preceded this one. The first read the incumbent's
+                # score from its own bundle and promoted when that came back None, so with
+                # the archived bundle (4 keys, no cv_results) every retrain was promoted
+                # unconditionally while the UI promised a held-out comparison.
                 #
-                # train_v3_weighted.py scores the model that is in production at retrain
-                # time on the same held-out image, in the same run, with the same code, and
-                # records it as production_on_held_out.auc. That is the honest comparison,
-                # and it does not depend on what metadata a bundle happens to carry.
-                cur_loio = ((m.get("production_on_held_out") or {}).get("auc"))
+                # The second was mine, and worse because it looked principled: it compared
+                # against production_on_held_out.auc, which is the DEPLOYED model scored on
+                # the held-out image it was TRAINED ON. train_v3_weighted.py prints
+                # "optimistic -- it was trained with this image's labels" beside that number
+                # (line 162) and "in-sample and optimistic. Compare LOIO AUC instead."
+                # (line 245). The gap is visible on disk: retrained_on_held_out 0.9153
+                # against production_on_held_out 0.9535. Grading an honest out-of-sample
+                # candidate against an in-sample incumbent biases the gate to refuse EVERY
+                # retrain, permanently and silently -- the user paints for weeks, clicks
+                # Retrain, and is told their labels made it worse when nothing about their
+                # labels was measured.
+                #
+                # The comparable quantity is each model's own out-of-sample LOIO, recorded
+                # in its bundle at promotion time. A bundle without it cannot be compared,
+                # so promotion is refused -- but refusing FOREVER would brick retraining,
+                # which is what code/establish_baseline.py exists to unblock.
+                cur_loio = None
+                _cur_src = "absent"
+                try:
+                    _curb = joblib.load(PROD_MODEL_PATH)
+                    _v = _curb.get("loio_out_of_sample")
+                    if _v is not None:
+                        cur_loio = float(_v)
+                        _cur_src = "loio_out_of_sample recorded in the deployed bundle"
+                except Exception:
+                    pass
+                out["baseline_source"] = _cur_src
                 out["loio_new"], out["loio_current"] = new_loio, cur_loio
                 # The single-image LOIO is the best-case figure. Report the grouped
                 # cross-image estimate beside it, and say what each one is, so the user is

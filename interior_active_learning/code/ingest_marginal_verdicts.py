@@ -41,7 +41,7 @@ from common import (ORIGINAL_DIR, PAINT_DIR, PROJECT_ROOT, contrast_kwargs_for,
                      load_correction_mask, save_correction_mask)
 from detect_cracks import (load_as_uint8, find_field_of_view, flatten_background,
                             segment_dark_regions, clean_mask, compute_vesselness,
-                            exclude_border_background, extract_candidates)
+                            extract_candidates)
 
 MANIFEST = os.path.join(PROJECT_ROOT, "figures", "marginal_calls_0.4_0.45_manifest.json")
 LOG = os.path.join(PROJECT_ROOT, "interior_active_learning", "labels",
@@ -113,7 +113,10 @@ def main():
         flat = flatten_background(img8)
         clean = clean_mask(segment_dark_regions(flat, img8=img8), min_area_px=13)
         ves = compute_vesselness(flat)
-        clean = exclude_border_background(clean, ves)
+        # Not called, matching unified_pipeline and build_training_data. Region Label
+        # IDs are assigned in scan order over the surviving regions, so a segmenter that
+        # deletes regions here produces IDs that mean something different from the ones
+        # the app shows -- and this script's output is keyed by ID.
         labeled, df = extract_candidates(clean, flat, ves, min_area_px=40)
 
         existing = load_correction_mask(name, labeled.shape)
