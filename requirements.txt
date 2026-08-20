@@ -9,7 +9,14 @@
 #           tifffile 2026.8.16, Python 3.12
 numpy>=2.3
 pandas>=2.2
-scikit-learn>=1.7
+# Pinned with a CEILING on purpose. The shipped bundles are pickled at 1.9.0, and
+# every module calls warnings.filterwarnings("ignore"), which swallows sklearn's
+# InconsistentVersionWarning -- so a clone made after 1.10 ships would silently
+# unpickle a 1.9.0 estimator and could report different numbers from the ones in
+# docs/MODEL_VALIDATION_BENCHMARK.md with nothing on screen saying so.
+# /api/pipeline_info reports sklearn_built vs sklearn_running; re-save with
+# python3 code/resave_models.py after a deliberate upgrade.
+scikit-learn>=1.9,<1.10
 scikit-image>=0.26
 scipy>=1.16
 Pillow>=12.0

@@ -13,6 +13,16 @@ VENV="${VENV:-.venv}"
 
 if [ ! -d "$VENV" ]; then
   echo "==> creating virtualenv in $VENV (first run only)"
+  # Check the interpreter BEFORE building a venv. Without this, an older python3 creates
+  # the venv fine, pip churns for minutes, and then dies in resolver backtracking with an
+  # error that names numpy rather than the actual cause -- while the README promises
+  # "nothing to configure".
+  PYV=$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')
+  if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)'; then
+    echo "  This app needs Python 3.11 or newer. Found $PYV at $(command -v python3)."
+    echo "  Install a newer Python, or point python3 at one, then run ./run again."
+    exit 1
+  fi
   python3 -m venv "$VENV"
 fi
 # shellcheck disable=SC1090

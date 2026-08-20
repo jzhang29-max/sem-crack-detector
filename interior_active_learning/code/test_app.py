@@ -892,6 +892,21 @@ def main():
         check("have a measurement CSV to aggregate", False, "run crack_measurements first")
 
 
+    # ---------- 16. metric honesty ----------
+    print("\n[16] the reported score says what it is")
+    from app_endpoints import label_balance as _lb
+    _b = _lb()
+    check("label balance is measurable", _b is not None and _b.get("total_negatives", 0) > 0)
+    if _b and _b.get("top_image_share") is not None:
+        check("a dominant negative-label source is flagged, not hidden",
+              (_b["top_image_share"] <= 0.5) or bool(_b.get("warning")),
+              f"{100*_b['top_image_share']:.0f}% of negatives from {_b.get('top_image')}")
+    _pi = requests.get(f"{BASE}/api/pipeline_info", timeout=30).json()
+    check("the app surfaces label balance without needing a retrain",
+          isinstance(_pi.get("label_balance"), dict),
+          "so a reader can discount a held-out AUC that rests on one frame")
+
+
     print("\n[cleanup]")
     removed = 0
     for n in created:

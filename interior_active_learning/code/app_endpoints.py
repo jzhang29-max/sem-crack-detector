@@ -47,6 +47,53 @@ _jobs = {}
 _jobs_lock = threading.Lock()
 
 
+def label_balance():
+    """How the not-crack labels are distributed across images.
+
+    This matters for interpreting every reported score. One image
+    (AS_24hr_BSE_Side_008) currently supplies 1023 of 1084 negatives -- 94.4% -- and 22 of
+    32 labelled images contain no not-crack label at all. The number the retrain result
+    used to print as "held-out AUC" is train-without-that-image / test-on-that-image, so it
+    largely measures "can the model rank the one frame that has negatives", and the model
+    actually shipped is refit on all rows including it. Surfacing the concentration is what
+    lets a reader discount the figure appropriately instead of taking 0.915 at face value.
+    """
+    import csv as _csv
+    path = os.path.join(PROJECT_ROOT, "training_data", "labeled_regions.csv")
+    if not os.path.exists(path):
+        return None
+    per, total_neg, images = {}, 0, set()
+    try:
+        with open(path, newline="") as fh:
+            for row in _csv.DictReader(fh):
+                img = row.get("SourceImage", "")
+                images.add(img)
+                v = str(row.get("IsCrack", "")).strip().lower()
+                if v in ("false", "0", "f", "no"):
+                    per[img] = per.get(img, 0) + 1
+                    total_neg += 1
+    except (OSError, ValueError):
+        return None
+    if not total_neg:
+        return {"total_negatives": 0, "n_images": len(images),
+                "images_with_negatives": 0,
+                "warning": "no not-crack labels at all: specificity is unmeasurable"}
+    top_img, top_n = max(per.items(), key=lambda kv: kv[1])
+    frac = top_n / total_neg
+    out = {"total_negatives": total_neg, "n_images": len(images),
+           "images_with_negatives": len(per),
+           "top_image": top_img, "top_image_negatives": top_n,
+           "top_image_share": frac}
+    if frac > 0.5:
+        out["warning"] = (
+            f"{top_n} of {total_neg} not-crack labels ({100 * frac:.0f}%) come from a "
+            f"single image ({top_img}), and only {len(per)} of {len(images)} labelled "
+            f"images carry any. Specificity and any held-out AUC therefore describe that "
+            f"one frame more than the corpus. Marking not-crack regions on more images is "
+            f"the single highest-value labelling you can do.")
+    return out
+
+
 def promotion_decision(new_loio, cur_loio):
     """Should a freshly trained candidate replace production? (promote, reason)
 
@@ -90,6 +137,14 @@ def _running_job_of_kind(*kinds):
 def _new_job(kind, note=""):
     jid = uuid.uuid4().hex[:12]
     with _jobs_lock:
+        # Finished records are never read again after the frontend stops polling, but they
+        # were kept for the life of the process -- one per detect, export, reapply and
+        # retrain across a long session. Reap the settled ones on the way in.
+        stale = [k for k, j in _jobs.items()
+                 if j.get("state") in ("done", "error")
+                 and (time.time() - j.get("started", 0)) > 3600]
+        for k in stale:
+            del _jobs[k]
         _jobs[jid] = {"id": jid, "kind": kind, "state": "running", "frac": 0.0,
                       "stage": "starting", "note": note, "started": time.time(),
                       "result": None, "error": None}
@@ -301,6 +356,7 @@ def register(app, get_stage, invalidate_stage=None):
             import sklearn
             built = b.get("sklearn_version")
             info["model"]["sklearn_built"] = built
+            info["label_balance"] = label_balance()
             info["model"]["sklearn_running"] = sklearn.__version__
             if built and built != sklearn.__version__:
                 info["model"]["version_mismatch"] = (
@@ -420,6 +476,19 @@ def register(app, get_stage, invalidate_stage=None):
                 # and it does not depend on what metadata a bundle happens to carry.
                 cur_loio = ((m.get("production_on_held_out") or {}).get("auc"))
                 out["loio_new"], out["loio_current"] = new_loio, cur_loio
+                # The single-image LOIO is the best-case figure. Report the grouped
+                # cross-image estimate beside it, and say what each one is, so the user is
+                # not handed 0.915 when the corpus-level number is 0.676 +/- 0.119.
+                out["pooled_auc"] = cv.get("pooled_auc")
+                out["pooled_auc_std"] = cv.get("pooled_auc_std")
+                out["spec_cross_image"] = cv.get("spec")
+                out["metric_note"] = (
+                    "loio_* is train-without-one-image / test-on-that-image, the "
+                    "best-case figure and the one the promotion gate compares. "
+                    "pooled_auc is the grouped cross-image estimate and is the number to "
+                    "quote. The deployed model is refit on all rows including the held-out "
+                    "image, so neither figure is a property of the shipped model.")
+                out["label_balance"] = label_balance()
                 _go, _why = promotion_decision(new_loio, cur_loio)
                 if not _go:
                     reason = _why
