@@ -1035,6 +1035,111 @@ def main():
           "a reapply starting mid-retrain re-renders from a model being replaced")
 
 
+    # ---------- 19. composing with better segmenters ----------
+    # The surveyed alternatives (ilastik, micro-sam, the commercial CNNs) segment better
+    # than the built-in detector. Everything this project does that they do not is
+    # downstream of the mask, so a mask can be imported. What must hold is the authority
+    # order -- human correction > imported mask > built-in detector -- and that an import
+    # never silently resamples or touches a correction mask.
+    print("\n[19] imported masks replace the detector, never the human")
+    import external_mask as _em
+    import unified_pipeline as _up
+    from unified_pipeline import run_unified_pipeline as _rup
+
+    # Neutralise human input inline rather than importing proposal_harness, which lives in
+    # experiments/ and is not on this suite's path -- depending on it crashed the whole run
+    # at section 19 with ModuleNotFoundError, taking the summary with it.
+    import contextlib as _ctx
+
+    @_ctx.contextmanager
+    def _noh():
+        _om, _oo = _up.load_correction_mask, _up.load_hard_overrides
+        _up.load_correction_mask = lambda *a, **k: None
+        _up.load_hard_overrides = lambda *a, **k: None
+        try:
+            yield
+        finally:
+            _up.load_correction_mask, _up.load_hard_overrides = _om, _oo
+
+    _n = "260708_316_H_b2_front_CBS_001"
+    _em.clear(_n)
+    _st = _rup(_n)
+    _shape = _st["labeled"].shape
+    _builtin = np.isin(_st["labeled"],
+                       _st["df"].loc[_st["df"]["IsCrack"], "Label"].tolist())
+    check("a frame with no import reports the built-in source",
+          _st.get("mask_source") == "built-in")
+
+    _mask_before = None
+    _mp = os.path.join(PAINT_DIR, f"{_n}_correction_mask.png")
+    if os.path.exists(_mp):
+        _mask_before = open(_mp, "rb").read()
+
+    _probe = np.zeros(_shape, dtype=np.uint8)
+    _probe[_shape[0] // 3:_shape[0] // 3 + 200, _shape[1] // 4:_shape[1] // 4 + 800] = 255
+    _pf = os.path.join(TMP, "apptest_extmask.png")
+    Image.fromarray(_probe).save(_pf)
+
+    _bad = os.path.join(TMP, "apptest_extmask_wrong.png")
+    Image.fromarray(np.ones((64, 64), dtype=np.uint8) * 255).save(_bad)
+    _refused = False
+    try:
+        _em.store(_n, _bad, "ilastik", _shape)
+    except ValueError:
+        _refused = True
+    check("a mask of the wrong shape is REFUSED, not resampled", _refused,
+          "a resampled foreign segmentation is wrong everywhere and invisible downstream")
+
+    _empty = os.path.join(TMP, "apptest_extmask_empty.png")
+    Image.fromarray(np.zeros(_shape, dtype=np.uint8)).save(_empty)
+    _refused_empty = False
+    try:
+        _em.store(_n, _empty, "ilastik", _shape)
+    except ValueError:
+        _refused_empty = True
+    check("an all-zero mask is refused (wrong layer exported)", _refused_empty)
+
+    _rec = _em.store(_n, _pf, "ilastik", _shape, note="test")
+    check("provenance records the tool and the file hash",
+          _rec["source_tool"] == "ilastik" and len(_rec["source_sha256"]) == 64)
+
+    with _noh():
+        _stx = _rup(_n)
+    _used = np.isin(_stx["labeled"],
+                    _stx["df"].loc[_stx["df"]["IsCrack"], "Label"].tolist())
+    check("with corrections neutralised the result IS exactly the imported mask",
+          bool(np.array_equal(_used, _probe > 0)) and _stx.get("mask_source") == "external",
+          f"{int(_used.sum())} px vs {int((_probe > 0).sum())} imported")
+
+    _st2 = _rup(_n)
+    _used2 = np.isin(_st2["labeled"],
+                     _st2["df"].loc[_st2["df"]["IsCrack"], "Label"].tolist())
+    _hand = load_correction_mask(_n, _shape)
+    if _hand is not None:
+        _added = _used2 & ~(_probe > 0)
+        check("with corrections on, every added pixel is hand-marked crack",
+              int((_added & ~(_hand == 1)).sum()) == 0,
+              "human correction > imported mask > built-in detector")
+
+    check("an exported CSV would name the mask source",
+          "ilastik" in _em.provenance_for(_n).get("mask_source", ""))
+
+    check("importing did not touch the correction mask",
+          _mask_before is None or open(_mp, "rb").read() == _mask_before,
+          "a mask import must never rewrite hand-drawn labels")
+
+    _em.clear(_n)
+    _st3 = _rup(_n)
+    _back = np.isin(_st3["labeled"],
+                    _st3["df"].loc[_st3["df"]["IsCrack"], "Label"].tolist())
+    check("clearing the import restores the built-in detector exactly",
+          bool(np.array_equal(_back, _builtin))
+          and _st3.get("mask_source") == "built-in")
+    for _f in (_pf, _bad, _empty):
+        if os.path.exists(_f):
+            os.remove(_f)
+
+
     print("\n[cleanup]")
     removed = 0
     for n in created:
