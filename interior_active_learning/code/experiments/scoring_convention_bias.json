@@ -242,7 +242,7 @@
    }
   }
  ],
- "means": {
+ "macro_means": {
   "recall": {
    "adjudicated": 0.5337648623054941,
    "unlabelled_as_background": 0.5337648623054941,
@@ -264,5 +264,28 @@
    "delta": -0.286325104253044
   }
  },
+ "micro": {
+  "recall": {
+   "adjudicated": 0.20127623062876224,
+   "unlabelled_as_background": 0.20127623062876224,
+   "delta": 0.0
+  },
+  "specificity": {
+   "adjudicated": 0.6966799672355733,
+   "unlabelled_as_background": 0.9628710918932427,
+   "delta": 0.26619112465766936
+  },
+  "precision": {
+   "adjudicated": 0.9826863523440221,
+   "unlabelled_as_background": 0.3541607849664185,
+   "delta": -0.6285255673776036
+  },
+  "f1": {
+   "adjudicated": 0.3341176617144481,
+   "unlabelled_as_background": 0.2566777000203327,
+   "delta": -0.07743996169411543
+  }
+ },
+ "averaging_note": "macro_means are means of per-image metrics; micro pools the four cells. They are not interconvertible and both are reported so neither can be mistaken for the other.",
  "mean_adjudicated_fraction": 0.08159745125629793
 }
