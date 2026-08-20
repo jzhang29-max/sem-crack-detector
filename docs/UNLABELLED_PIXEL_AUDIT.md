@@ -167,11 +167,24 @@ claims into a reproducible artefact, and **all of them survived execution**:
 | `segmentation_models_pytorch` | EXECUTED | `get_stats(..., mode="binary", ignore_index=255)` raises `ValueError: ``ignore_index`` parameter is not supported for 'binary' mode`. Verbatim. Binary mode is the object-versus-background case of a micrograph, so this is a **refusal**, not a bad default — and a refusal is a decision. |
 | MONAI 1.6.0 | EXECUTED | No `ignore_index` on `DiceMetric`, `MeanIoU`, `DiceLoss` or `DiceCELoss`. The binarised one-hot contract leaves a third state nowhere to live, so the caller must pre-filter — moving Dice 0.7111 → 0.8421. `ignore_empty` is a **false friend**, and the distinction is now measured: on an all-empty ground truth it writes `nan` and counts **0** cases, versus `0.0` and **1** when off. It drops whole cases with no positive label — a real feature, and a different question from excluding unreviewed pixels *inside* a case. |
 | datumaro 1.13.8 (CVAT's export path) | EXECUTED | A partially-annotated image exported to VOC writes annotated pixels `(128,0,0)` and **unannotated pixels `(0,0,0)` — class 0, background**. VOC's void colour `(224,224,192)` never appears. Yet the capability *is* in the library: `make_voc_categories()` carries `'ignored'` at palette index **21** with exactly that colour. The format supports void, the library knows about it, and this export path silently turns "nobody looked" into "background". |
+| Label Studio converter | EXECUTED | `brush.py` thresholds with `np.array((np.array(image) > 128) * 255)`. A mask encoding unreviewed as 255 imports **all 3456 unreviewed pixels as foreground** while the 512 genuine crack pixels encoded as `1` are **dropped** — the result is almost exactly inverted. The two conventions do not merely disagree, they corrupt each other on round-trip. |
+| elf 0.9.2 / micro-sam's scorer | EXECUTED | **Stronger than the source audit claimed.** `ignore_label=0` is the default and looks protective. It is not: a prediction lying entirely inside the ignored region drops precision 1.0000 → **0.5000**, which is *worse* than `ignore_label=None` (**0.6667**). It removes the ignored region from the ground-truth **objects** without exempting predictions that land there, so they are charged as unmatched false positives. `dice_score` has no mask argument at all and charges it too (0.8673 → 0.5537). |
 | mask file round-trip | EXECUTED | uint8 PNG and TIFF both carry three states losslessly. **The formats are innocent; the loss is in the exporter.** And a mask encoding unreviewed as 255 (the PASCAL/Cityscapes convention) is read as **foreground** by a `> 128` import threshold — the two conventions actively corrupt each other. |
 
-Three targets remain untested and the report names each rather than implying coverage:
-Label Studio's converter, ilastik (a desktop app, so this needs a headless invocation), and
-micro-sam. Eight of eleven are now executed.
+**Ten probes execute.** Two remain unexecuted and the report names both with the reason:
+
+- **ilastik** — there is *no PyPI distribution*; it ships via conda or a binary installer, so
+  its headless export could not be run in this environment. The source-level finding stands,
+  unexecuted, and is labelled as such.
+- **micro-sam's napari annotator** — the canvas and zarr fill value need an interactive
+  session. Its **scorer** is covered by the elf probe, which is the half that affects
+  reported numbers.
+
+The elf result deserves emphasis because it is the only place the executed evidence came out
+*stronger* than the source audit predicted. A parameter named `ignore_label`, on by default,
+does not protect predictions in the ignored region — and passing it is worse than omitting
+it. Anyone who read that signature and concluded their evaluation was safe would be wrong in
+the unsafe direction, which is the most dangerous shape a false friend can take.
 
 The datumaro result is the one worth dwelling on, because it is the export claim — the choke
 point of the whole argument — moved from *read* to *run*. It also sharpens the framing: this

@@ -138,6 +138,37 @@
    "supports_unreviewed": false,
    "status": "EXECUTED"
   },
+  "Label Studio brush converter": {
+   "threshold_source": [
+    "mask = np.array((np.array(image) > 128) * 255, dtype=np.uint8)"
+   ],
+   "void_encoded_values": [
+    0,
+    1,
+    255
+   ],
+   "void_pixels_become_foreground": true,
+   "crack_pixels_become_foreground": false,
+   "foreground_px_after_threshold": 3456,
+   "true_crack_px": 512,
+   "verdict": "the converter thresholds with `mask = np.array((np.array(image) > 128) * 255, dtype=np.uint8)`. A mask encoding unreviewed as 255 -- the PASCAL/Cityscapes convention -- therefore imports every one of its 3456 unreviewed pixels as FOREGROUND, while the 512 genuine crack pixels encoded as 1 are DROPPED. The result is 3456 foreground px, almost exactly inverted. The two conventions do not merely disagree, they corrupt each other on round-trip.",
+   "supports_unreviewed": false,
+   "status": "EXECUTED"
+  },
+  "elf / micro-sam matching": {
+   "matching_signature": "(segmentation: numpy.ndarray, groundtruth: numpy.ndarray, threshold: float = 0.5, criterion: str = 'iou', ignore_label: Optional[int] = 0) -> Dict[str, float]",
+   "dice_score_signature": "(segmentation: numpy.ndarray, groundtruth: numpy.ndarray, threshold_seg: Optional[float] = 0, threshold_gt: Optional[float] = 0) -> float",
+   "dice_score_has_mask_arg": false,
+   "precision_matched_only": 1.0,
+   "precision_with_ignored_region_prediction": 0.5,
+   "precision_same_without_ignoring": 0.6666666666666666,
+   "ignore_label_penalises_more_than_not_ignoring": true,
+   "dice_matched_only": 0.8672566369762706,
+   "dice_with_ignored_region_prediction": 0.5536723163059785,
+   "verdict": "ignore_label=0 is the DEFAULT and looks like it protects unreviewed territory. It does not. A prediction lying entirely inside the ignored region drops precision from 1.0000 to 0.5000 -- and that is WORSE than passing ignore_label=None (0.6667). The parameter removes the ignored region from the ground-truth OBJECTS without exempting predictions that fall there, so they are charged as unmatched false positives. dice_score has no mask argument at all and charges it too (0.8673 -> 0.5537).",
+   "supports_unreviewed": false,
+   "status": "EXECUTED"
+  },
   "mask file round-trip": {
    "png_uint8_preserves_three_states": true,
    "tiff_preserves_three_states": true,
@@ -153,8 +184,7 @@
   }
  },
  "not_tested": {
-  "label_studio_converter": "Label Studio brush export/import, incl. the >128 threshold",
-  "ilastik": "desktop app; headless export of Simple Segmentation vs LABELS",
-  "micro_sam": "napari annotator canvas and zarr fill value"
+  "ilastik": "NOT pip-installable -- no PyPI distribution exists (conda/binary only), so its headless export could not be executed here. The source-level finding stands unexecuted.",
+  "micro_sam annotator GUI": "the napari canvas and zarr fill value need an interactive session; its SCORER is covered by the elf probe above"
  }
 }
