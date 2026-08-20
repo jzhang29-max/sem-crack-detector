@@ -60,6 +60,32 @@ OUT_JSON = os.path.join(PROJECT_ROOT, "models", "crack_classifier_v3_metrics.jso
 FEATURES = ["LogArea", "Elongation", "Solidity", "Eccentricity",
             "Extent", "Circularity", "MeanDarkness", "MeanVesselness"]
 HELD = "AS_24hr_BSE_Side_008"
+
+#: Hold out the whole SPECIMEN that HELD belongs to, not just that one frame.
+#:
+#: Leave-one-image-out is near-duplicate leakage whenever the held frame has siblings from
+#: the same session: the model sees 14 other views of the same block, then "generalises" to
+#: the fifteenth without ever generalising to a new specimen. On this corpus the 38 labelled
+#: images come from 8 specimens and one session supplies 15 frames, so the trap is live --
+#: it simply is not armed for the CURRENT HELD, whose specimen (AS_24hr) has exactly one
+#: image. Making the holdout specimen-aware costs nothing today and prevents a silent
+#: regression the moment anyone points HELD at a frame with siblings.
+HOLD_OUT_WHOLE_SPECIMEN = True
+
+
+def held_out_images(all_images):
+    """Every image that must be excluded along with HELD, and why."""
+    if not HOLD_OUT_WHOLE_SPECIMEN:
+        return [HELD], "leave-one-image-out"
+    try:
+        from aggregate import specimen_key
+    except Exception:
+        return [HELD], "leave-one-image-out (specimen_key unavailable)"
+    sk = specimen_key(HELD)
+    sibs = sorted(n for n in set(all_images) if specimen_key(n) == sk)
+    if HELD not in sibs:
+        sibs.append(HELD)
+    return sibs, f"leave-one-SPECIMEN-out ({sk}, {len(sibs)} image(s))"
 SEEDS = [0, 1, 2, 3, 4]
 MODELS = {
     "LogisticRegression": lambda: LogisticRegression(max_iter=2000, class_weight="balanced"),
@@ -109,6 +135,8 @@ def main():
     y = df["IsCrack"].astype(bool).values
     groups = df["SourceImage"].values
     W = image_weights(groups)
+    _hi, _hh = held_out_images(groups)
+    print(f"holdout: {_hh} -> {len(_hi)} image(s), {int(np.isin(groups, _hi).sum())} of {len(groups)} rows")
     _per = pd.Series(W).groupby(groups).sum()
     print(f"weighting: per-image mass {_per.min():.3f}-{_per.max():.3f} (every image "
           f"equal), composed with class_weight=\"balanced\" on the estimator. The "
@@ -147,7 +175,8 @@ def main():
         oof_store[name] = oof_seed0
 
         # decisive test: hold out the exhaustively-labelled image completely
-        te = groups == HELD
+        _held_imgs, _held_how = held_out_images(groups)
+        te = np.isin(groups, _held_imgs)
         sc = StandardScaler().fit(X[~te])
         clf = factory()
         clf.fit(sc.transform(X[~te]), y[~te], sample_weight=W[~te])
@@ -197,7 +226,8 @@ def main():
     # score happens to fall. Sweep it on the held-out image and quote the
     # comparison at MATCHED recall, which is the only way to say "fewer false
     # positives" without secretly trading away sensitivity.
-    te = groups == HELD
+    _held_imgs, _held_how = held_out_images(groups)
+    te = np.isin(groups, _held_imgs)
     scH = StandardScaler().fit(X[~te])
     clfH = MODELS[best]()
     clfH.fit(scH.transform(X[~te]), y[~te], sample_weight=W[~te])

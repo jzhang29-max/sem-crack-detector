@@ -1140,6 +1140,42 @@ def main():
             os.remove(_f)
 
 
+    # ---------- 20. the holdout cannot leak across sibling frames ----------
+    print("\n[20] specimen-aware holdout")
+    from aggregate import specimen_key as _spec
+    from train_v3_weighted import held_out_images as _hoi
+    import train_v3_weighted as _tv
+
+    check("sibling frames from one session share a specimen key",
+          _spec("260708_316_H_b2_front_CBS_012") == _spec("260708_316_H_b2_front_CBS_013"),
+          "leave-one-IMAGE-out over siblings is near-duplicate leakage")
+    check("different sessions do not share one",
+          _spec("260708_316_H_b2_front_CBS_012") != _spec("260622_316_H_b2_front_CBS_01"))
+    check("families without a session token still get a distinct key",
+          _spec("MAR_Amb_HIP_ETD_0010") != _spec("MAR_Amb_Cast_ETD_0005"))
+
+    _grp = [f"260708_316_H_b2_front_CBS_{i:03d}" for i in range(1, 16)] + \
+           ["AS_24hr_BSE_Side_008"]
+    _orig = _tv.HELD
+    try:
+        _tv.HELD = "260708_316_H_b2_front_CBS_012"
+        _imgs, _how = _hoi(_grp)
+        check("holding out a sibling-rich frame excludes the WHOLE specimen",
+              len(_imgs) > 1 and "SPECIMEN" in _how,
+              f"{len(_imgs)} image(s) held out: {_how}")
+        check("and it does not drag in an unrelated specimen",
+              "AS_24hr_BSE_Side_008" not in _imgs)
+    finally:
+        _tv.HELD = _orig
+
+    _src = _code_only(os.path.join(_here, "..", "..", "code", "establish_baseline.py")) \
+        if os.path.exists(os.path.join(_here, "..", "..", "code", "establish_baseline.py")) \
+        else _code_only(os.path.join(PROJECT_ROOT, "code", "establish_baseline.py"))
+    check("establish_baseline uses the TRAINER's holdout, not its own",
+          "held_out_images" in _src,
+          "otherwise the gate's bar and the candidates it gates use two procedures again")
+
+
     print("\n[cleanup]")
     removed = 0
     for n in created:
