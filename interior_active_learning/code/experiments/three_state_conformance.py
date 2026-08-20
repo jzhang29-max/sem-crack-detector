@@ -291,20 +291,153 @@ def probe_mask_roundtrip(f, ref):
     return res
 
 
+def probe_monai(f, ref):
+    """MONAI: is there any way to exclude unreviewed pixels, and is ignore_empty one?"""
+    import inspect
+    import torch
+    import monai
+    from monai.losses import DiceCELoss, DiceLoss
+    from monai.metrics import DiceMetric, MeanIoU
+
+    has = {}
+    for cls in (DiceMetric, MeanIoU, DiceLoss, DiceCELoss):
+        has[cls.__name__] = "ignore_index" in inspect.signature(cls).parameters
+    ignore_empty_present = "ignore_empty" in inspect.signature(DiceMetric).parameters
+
+    # MONAI's contract is binarised one-hot: [B, C, ...] with values in {0, 1}. A third
+    # state has nowhere to live -- encode it and it necessarily becomes one of the two.
+    y_dense = torch.from_numpy(f["crack"].astype(np.float32))[None, None]
+    p_t = torch.from_numpy(f["pred"].astype(np.float32))[None, None]
+    dm_ = DiceMetric(include_background=False)
+    dm_(p_t, y_dense)
+    dice_dense = float(dm_.aggregate().item())
+    dm_.reset()
+
+    # The only route available: pre-filter, which one-hot cannot express spatially, so it
+    # has to be done by flattening to the adjudicated pixels only.
+    m = torch.from_numpy(f["adjudicated"].ravel())
+    y_adj = torch.from_numpy(f["crack"].ravel().astype(np.float32))[m][None, None]
+    p_adj = torch.from_numpy(f["pred"].ravel().astype(np.float32))[m][None, None]
+    dm2 = DiceMetric(include_background=False)
+    dm2(p_adj, y_adj)
+    dice_adj = float(dm2.aggregate().item())
+
+    # ignore_empty is about a whole case with an EMPTY ground truth, not about unreviewed
+    # pixels inside a case. Distinguishing the two needs the RAW buffer and the not-nans
+    # count: aggregate() alone collapses the NaN to 0.0 and both settings then look
+    # identical, which is how a probe ends up "demonstrating" something it never showed.
+    empty_y = torch.zeros_like(y_dense)
+    d_true = DiceMetric(include_background=False, ignore_empty=True, get_not_nans=True)
+    d_true(p_t, empty_y)
+    buf_true = d_true.get_buffer()
+    n_true = float(d_true.aggregate()[1].item())
+    d_false = DiceMetric(include_background=False, ignore_empty=False, get_not_nans=True)
+    d_false(p_t, empty_y)
+    buf_false = d_false.get_buffer()
+    n_false = float(d_false.aggregate()[1].item())
+    v_true = "nan" if bool(torch.isnan(buf_true).any()) else float(buf_true.flatten()[0])
+    v_false = "nan" if bool(torch.isnan(buf_false).any()) else float(buf_false.flatten()[0])
+
+    return {
+        "version": monai.__version__,
+        "ignore_index_available": has,
+        "ignore_empty_present": ignore_empty_present,
+        "dice_dense": dice_dense,
+        "dice_prefiltered": dice_adj,
+        "ignore_empty_true_on_empty_gt": v_true,
+        "ignore_empty_false_on_empty_gt": v_false,
+        "cases_counted_ignore_empty_true": n_true,
+        "cases_counted_ignore_empty_false": n_false,
+        "verdict": (f"no ignore_index on DiceMetric, MeanIoU, DiceLoss or DiceCELoss. The "
+                    f"input contract is binarised one-hot, so a third state has nowhere to "
+                    f"live and the caller must pre-filter -- which moves Dice from "
+                    f"{dice_dense:.4f} to {dice_adj:.4f}. ignore_empty is a FALSE FRIEND, and "
+                    f"here is the distinction: on a case whose ground truth is entirely empty "
+                    f"it writes {v_true} to the buffer and counts {n_true:.0f} case(s), versus "
+                    f"{v_false} and {n_false:.0f} when off. So it does drop whole cases with "
+                    f"no positive label -- a real feature, and a different question from "
+                    f"excluding unreviewed pixels INSIDE a case, which nothing here can do."),
+        "supports_unreviewed": False,
+    }
+
+
+def probe_datumaro(f, ref):
+    """Datumaro -- the library under CVAT's mask export. What do unannotated pixels become?"""
+    import tempfile
+    import datumaro as dm
+    from datumaro.components.annotation import AnnotationType
+    from datumaro.components.dataset import Dataset
+    from datumaro.components.media import Image as DmImage
+    from PIL import Image as PILImage
+
+    h, w = f["gt"].shape
+    item = dm.DatasetItem(
+        id="probe",
+        media=DmImage.from_numpy(np.zeros((h, w, 3), dtype=np.uint8)),
+        annotations=[dm.Mask(image=f["crack"], label=0)])
+    ds = Dataset.from_iterable(
+        [item], categories={AnnotationType.label:
+                            dm.LabelCategories.from_iterable(["crack"])})
+    out = {"version": dm.__version__}
+    with tempfile.TemporaryDirectory() as td:
+        ds.export(td, "voc", save_media=True)
+        seg = None
+        for root, _, files in os.walk(td):
+            if "SegmentationClass" in root:
+                for fn_ in files:
+                    if fn_.endswith(".png"):
+                        seg = os.path.join(root, fn_)
+        if seg is None:
+            out["verdict"] = "no SegmentationClass PNG produced"
+            out["supports_unreviewed"] = False
+            return out
+        a = np.asarray(PILImage.open(seg).convert("RGB"))
+        ann = {tuple(int(x) for x in v) for v in a[f["crack"]]}
+        unann = {tuple(int(x) for x in v) for v in a[~f["crack"]]}
+        out["colour_on_annotated"] = sorted(ann)
+        out["colour_on_unannotated"] = sorted(unann)
+        out["unannotated_is_voc_background"] = unann == {(0, 0, 0)}
+        out["voc_void_colour_present"] = any(c == (224, 224, 192) for c in ann | unann)
+
+    # Is the capability even in the library? Yes -- and unreachable from this path.
+    try:
+        from datumaro.plugins.data_formats.voc.format import make_voc_categories
+        cats = make_voc_categories()
+        labels = [c.name for c in cats[AnnotationType.label]]
+        pal = dict(cats[AnnotationType.mask].colormap)
+        void_idx = [k for k, v in pal.items() if tuple(v) == (224, 224, 192)]
+        out["voc_labels_include_ignored"] = "ignored" in labels
+        out["void_palette_index"] = void_idx[0] if void_idx else None
+        out["void_palette_name"] = (labels[void_idx[0]]
+                                    if void_idx and void_idx[0] < len(labels) else None)
+    except Exception as e:
+        out["voc_catalogue_probe"] = f"{type(e).__name__}: {e}"
+
+    out["verdict"] = (
+        f"unannotated pixels are written as {sorted(out['colour_on_unannotated'])} -- VOC "
+        f"class 0, background -- while VOC's void colour (224,224,192) does not appear. And "
+        f"the capability IS in the library: make_voc_categories() carries "
+        f"{out.get('void_palette_name')!r} at palette index {out.get('void_palette_index')} "
+        f"with exactly that colour. So the format supports void, the library knows about it, "
+        f"and this export path silently turns 'nobody looked' into 'background'.")
+    out["supports_unreviewed"] = False
+    return out
+
+
 PROBES = [
     ("sklearn.metrics", "sklearn", probe_sklearn),
     ("skimage.metrics", "skimage", probe_skimage),
     ("torch.nn.CrossEntropyLoss", "torch", probe_torch_loss),
     ("torchmetrics", "torchmetrics", probe_torchmetrics),
     ("segmentation_models_pytorch", "segmentation_models_pytorch", probe_smp),
+    ("MONAI", "monai", probe_monai),
+    ("datumaro (CVAT export path)", "datumaro", probe_datumaro),
     ("mask file round-trip", "PIL", probe_mask_roundtrip),
 ]
 
 #: Probes worth running that need a dependency this environment does not have. Listed so the
 #: report states what was NOT tested -- an absence recorded is worth more than a silent skip.
 NOT_TESTED = {
-    "monai": "MONAI metrics: ignore_index absent, one-hot contract forbids a third state",
-    "datumaro": "CVAT's exporter path: label map with a background entry and no void",
     "label_studio_converter": "Label Studio brush export/import, incl. the >128 threshold",
     "ilastik": "desktop app; headless export of Simple Segmentation vs LABELS",
     "micro_sam": "napari annotator canvas and zarr fill value",
