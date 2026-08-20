@@ -1417,8 +1417,11 @@ document.getElementById('installSamBtn').addEventListener('click', async () => {
 (async () => {
   try {
     const i = await (await fetch('/api/pipeline_info')).json();
-    if (!i.sam_available) {
-      // Only offer the install when SAM is genuinely missing.
+    // Deliberately NOT offering the install. With USE_SAM=false a fresh clone reports
+    // sam_available=false, so this used to reveal an Enable SAM button that downloads
+    // ~2.5 GB of torch plus a ~2.4 GB checkpoint and then changes nothing, with no
+    // message explaining why. Flip USE_SAM to revive both the stage and this offer.
+    if (USE_SAM && !i.sam_available) {
       document.getElementById('installSamBtn').style.display = '';
     }
   } catch (e) { }
