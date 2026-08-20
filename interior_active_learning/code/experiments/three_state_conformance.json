@@ -94,6 +94,50 @@
    "supports_unreviewed": false,
    "status": "EXECUTED"
   },
+  "MONAI": {
+   "version": "1.6.0",
+   "ignore_index_available": {
+    "DiceMetric": false,
+    "MeanIoU": false,
+    "DiceLoss": false,
+    "DiceCELoss": false
+   },
+   "ignore_empty_present": true,
+   "dice_dense": 0.7111111283302307,
+   "dice_prefiltered": 0.8421052694320679,
+   "ignore_empty_true_on_empty_gt": "nan",
+   "ignore_empty_false_on_empty_gt": 0.0,
+   "cases_counted_ignore_empty_true": 0.0,
+   "cases_counted_ignore_empty_false": 1.0,
+   "verdict": "no ignore_index on DiceMetric, MeanIoU, DiceLoss or DiceCELoss. The input contract is binarised one-hot, so a third state has nowhere to live and the caller must pre-filter -- which moves Dice from 0.7111 to 0.8421. ignore_empty is a FALSE FRIEND, and here is the distinction: on a case whose ground truth is entirely empty it writes nan to the buffer and counts 0 case(s), versus 0.0 and 1 when off. So it does drop whole cases with no positive label -- a real feature, and a different question from excluding unreviewed pixels INSIDE a case, which nothing here can do.",
+   "supports_unreviewed": false,
+   "status": "EXECUTED"
+  },
+  "datumaro (CVAT export path)": {
+   "version": "1.13.8",
+   "colour_on_annotated": [
+    [
+     128,
+     0,
+     0
+    ]
+   ],
+   "colour_on_unannotated": [
+    [
+     0,
+     0,
+     0
+    ]
+   ],
+   "unannotated_is_voc_background": true,
+   "voc_void_colour_present": false,
+   "voc_labels_include_ignored": true,
+   "void_palette_index": 21,
+   "void_palette_name": "ignored",
+   "verdict": "unannotated pixels are written as [(0, 0, 0)] -- VOC class 0, background -- while VOC's void colour (224,224,192) does not appear. And the capability IS in the library: make_voc_categories() carries 'ignored' at palette index 21 with exactly that colour. So the format supports void, the library knows about it, and this export path silently turns 'nobody looked' into 'background'.",
+   "supports_unreviewed": false,
+   "status": "EXECUTED"
+  },
   "mask file round-trip": {
    "png_uint8_preserves_three_states": true,
    "tiff_preserves_three_states": true,
@@ -109,8 +153,6 @@
   }
  },
  "not_tested": {
-  "monai": "MONAI metrics: ignore_index absent, one-hot contract forbids a third state",
-  "datumaro": "CVAT's exporter path: label map with a background entry and no void",
   "label_studio_converter": "Label Studio brush export/import, incl. the >128 threshold",
   "ilastik": "desktop app; headless export of Simple Segmentation vs LABELS",
   "micro_sam": "napari annotator canvas and zarr fill value"

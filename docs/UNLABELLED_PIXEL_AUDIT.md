@@ -165,12 +165,19 @@ claims into a reproducible artefact, and **all of them survived execution**:
 | `torch.nn.CrossEntropyLoss` | EXECUTED | `ignore_index` works — loss 0.3228 → 0.9182 when unreviewed pixels are excluded. But the default is `-100`, a sentinel no mask file contains, so it is only reachable if the caller first invents an encoding for UNREVIEWED. |
 | `torchmetrics` | EXECUTED | `BinaryJaccardIndex` accepts `ignore_index` and the answer changes; **0 of 3** inspected classes in `torchmetrics.segmentation` expose it. The asymmetry is inside one library, which is why a practitioner can reasonably believe their stack handles this. |
 | `segmentation_models_pytorch` | EXECUTED | `get_stats(..., mode="binary", ignore_index=255)` raises `ValueError: ``ignore_index`` parameter is not supported for 'binary' mode`. Verbatim. Binary mode is the object-versus-background case of a micrograph, so this is a **refusal**, not a bad default — and a refusal is a decision. |
+| MONAI 1.6.0 | EXECUTED | No `ignore_index` on `DiceMetric`, `MeanIoU`, `DiceLoss` or `DiceCELoss`. The binarised one-hot contract leaves a third state nowhere to live, so the caller must pre-filter — moving Dice 0.7111 → 0.8421. `ignore_empty` is a **false friend**, and the distinction is now measured: on an all-empty ground truth it writes `nan` and counts **0** cases, versus `0.0` and **1** when off. It drops whole cases with no positive label — a real feature, and a different question from excluding unreviewed pixels *inside* a case. |
+| datumaro 1.13.8 (CVAT's export path) | EXECUTED | A partially-annotated image exported to VOC writes annotated pixels `(128,0,0)` and **unannotated pixels `(0,0,0)` — class 0, background**. VOC's void colour `(224,224,192)` never appears. Yet the capability *is* in the library: `make_voc_categories()` carries `'ignored'` at palette index **21** with exactly that colour. The format supports void, the library knows about it, and this export path silently turns "nobody looked" into "background". |
 | mask file round-trip | EXECUTED | uint8 PNG and TIFF both carry three states losslessly. **The formats are innocent; the loss is in the exporter.** And a mask encoding unreviewed as 255 (the PASCAL/Cityscapes convention) is read as **foreground** by a `> 128` import threshold — the two conventions actively corrupt each other. |
 
-Five targets are **not** tested here and the report names each one rather than implying
-coverage: MONAI, Datumaro/CVAT's exporter, Label Studio's converter, ilastik (desktop app),
-and micro-sam. Installing those and extending the suite is mechanical and needs no
-annotation.
+Three targets remain untested and the report names each rather than implying coverage:
+Label Studio's converter, ilastik (a desktop app, so this needs a headless invocation), and
+micro-sam. Eight of eleven are now executed.
+
+The datumaro result is the one worth dwelling on, because it is the export claim — the choke
+point of the whole argument — moved from *read* to *run*. It also sharpens the framing: this
+is not a library that lacks the concept. It ships the void colour, names it `ignored`, and
+puts it at a known palette index. The concept is present and the export path does not reach
+for it.
 
 Two design choices worth stating, because they decide whether the artefact is trustworthy.
 Probes assert on **behaviour**, not version strings, so the suite stays meaningful as these
