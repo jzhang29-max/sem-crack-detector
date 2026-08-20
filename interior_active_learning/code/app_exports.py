@@ -29,6 +29,7 @@ Registered routes:
 """
 import io
 import os
+import time
 import sys
 import zipfile
 
@@ -150,7 +151,35 @@ def register(app, list_images):
                          download_name=f"{image_name}_regions.csv")
 
     @app.route("/api/export_all", methods=["POST"])
+    def _prune_old_exports(keep_newest=3, max_age_s=6 * 3600):
+        """Drop stale export zips before writing a new one.
+
+        Each export is a full zip of every rendered overlay and CSV, so a researcher who
+        exports a few times a day quietly loses gigabytes inside the project directory --
+        the same volume the correction masks live on -- with no UI anywhere that lists or
+        clears them, and no way to tell an old zip from the current one except by decoding
+        its job hex.
+        """
+        try:
+            zips = [os.path.join(EXPORT_DIR, f) for f in os.listdir(EXPORT_DIR)
+                    if f.startswith("crack_export_") and f.endswith(".zip")]
+        except OSError:
+            return 0
+        zips.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+        now = time.time()
+        removed = 0
+        for i, z in enumerate(zips):
+            if i < keep_newest and (now - os.path.getmtime(z)) < max_age_s:
+                continue
+            try:
+                os.remove(z)
+                removed += 1
+            except OSError:
+                pass
+        return removed
+
     def api_export_all():
+        _prune_old_exports()
         from app_endpoints import _new_job, _run_bg
         jid = _new_job("export_all")
 

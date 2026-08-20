@@ -7,16 +7,28 @@ DATA is CC BY 4.0 under the terms below.
 
 WHAT THIS COVERS
 
-Everything in this repository that is data rather than software:
+Everything in this repository that is DATA rather than SOFTWARE. Concretely: every
+tracked .tif, .png, .csv, .json and .joblib file, wherever it sits in the tree. The
+principal classes are
 
-  original/*.tif                                   the 62 SEM micrographs
-  interior_active_learning/paint/*_correction_mask.png   human crack verdicts
+  original/*.tif                                        the 62 SEM micrographs
+  interior_active_learning/paint/*_correction_mask.png   human crack verdicts (39 images)
+  interior_active_learning/paint/*_paint_template.png    rendered overlays
   interior_active_learning/paint/candidate_counts.json
+  interior_active_learning/paint/calibration.json        um/px per image, with provenance
   interior_active_learning/labels/*.csv
+  interior_active_learning/candidates/*
   training_data/labeled_regions.csv
   manual_corrections_ledger.csv
-  models/*.joblib, interior_active_learning/models/*.joblib
-  docs/img/**                                      figures
+  models/*.joblib, interior_active_learning/models/*.joblib, archive/**/*.joblib
+  docs/img/**                                           figures
+
+but the list is illustrative, not exhaustive: it is stated as a rule because an
+enumeration drifts. An audit found 74 tracked data files outside an earlier enumerated
+list -- superseded models and checkpoints among them, which is exactly the material
+someone reproducing the archive-model comparison would need. Anything data-shaped and
+tracked here is CC BY 4.0. Only source code is MIT (see LICENSE).
+
 
 The trained models are included here rather than under the MIT license because
 they are derived from the micrographs and the human labels: a model is a
