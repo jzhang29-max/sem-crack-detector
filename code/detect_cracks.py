@@ -540,12 +540,24 @@ def classify_with_model(df, model_path, proba_threshold=None, force_keep_area=50
     """proba_threshold=None means "use whatever threshold this model was
     calibrated at", read from the bundle and falling back to 0.5.
 
-    The threshold belongs to the model, not to the call site. The retrained
-    classifier is calibrated at 0.578, chosen on a held-out image to match the
-    previous model's recall exactly while cutting its false positives by 20%;
-    running it at a hardcoded 0.5 instead gives 93.5% recall at 64.4%
-    specificity, i.e. silently trades away the entire gain. Older bundles have
-    no "threshold" key and so still get 0.5, unchanged.
+    The threshold belongs to the model, not to the call site. A bundle that carries a
+    calibrated threshold should be run at it: crack_classifier_v3_weighted.joblib is
+    calibrated at 0.5615, chosen on a held-out image to match the previous model's recall
+    while cutting its false positives, and running that bundle at a hardcoded 0.5 instead
+    trades the gain away silently.
+
+    WHAT THE DEPLOYED BUNDLE ACTUALLY DOES, because this docstring used to imply
+    otherwise. models/crack_classifier.joblib has NO "threshold" key -- keys are
+    clf, scaler, feature_names, sklearn_version and the loio_* baseline record -- so it
+    falls back and the shipped operating point is exactly 0.5. That 0.5 is a library
+    default reached by omission, not a calibration decision, and it is the number every
+    crack count and crack length in this repo rests on. It is invisible in any figure it
+    produces, which is why experiments/threshold_sensitivity.py measures how far the
+    published quantities move across 0.3-0.7 rather than leaving it as an assumption.
+
+    Do not "fix" this by hardcoding 0.5615 here. That threshold was calibrated for the
+    v3_weighted bundle on its own held-out image and means nothing applied to a different
+    classifier; the fallback is correct, its consequences are the thing worth documenting.
     """
     import joblib
 
