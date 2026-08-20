@@ -24,16 +24,46 @@ than documenting the fix.
 
 | # | failure mode | measured magnitude | script |
 |---|---|---|---|
-| 1 | Unlabelled pixels scored as background | specificity **+0.488**, precision **−0.591**, recall **exactly unchanged** (n=10) | `experiments/scoring_convention_bias.py` |
+| 1 | Unlabelled pixels scored as background | macro: specificity **+0.488**, precision **−0.591**; micro: **+0.266** / **−0.629**; recall **exactly unchanged** under both (n=10) | `experiments/scoring_convention_bias.py` |
 | 2 | Calibration accepted without a cross-check | length error up to **+136%**, area up to **+458%** | `experiments/failure_mode_magnitudes.py` |
 | 3 | Model promotion gated on an in-sample baseline | **+0.029** AUC bar that every honest candidate must clear | same |
 | 4 | Train/serve preprocessing skew | **13.8%** of labelled regions unreachable; 6 of 38 images contributed nothing | same |
 
+### Result 1 generalises beyond this codebase
+
+`docs/UNLABELLED_PIXEL_AUDIT.md` audits six external targets from primary source. Training is
+the stage the field mostly gets right; export fails in zero-of-six default paths; scoring is
+*structural* -- `sklearn.metrics` has no `ignore_index`, `torchmetrics` has one in
+`classification/` and none in `segmentation/`, and `segmentation_models_pytorch.get_stats`
+raises `ValueError` for it in binary mode.
+
+The sharpest form: CVAT scores correctly and exports destructively; ilastik trains correctly
+and hides the faithful export. Metric hygiene inside a tool protects nobody, because the
+export imposes the convention on every downstream consumer -- an information-theoretic
+argument, not a quality judgement.
+
+**Obligation this creates.** The void label is fourteen-year-old prior art (PASCAL VOC 2011,
+Cityscapes, ADE20K, COCO-panoptic) and must be cited before a referee does it. The closest
+match to these exact semantics is **nnU-Net v2's ignore label**, not VOC's -- VOC void is
+boundary ambiguity, "a human looked and declined", where this is "a human never looked".
+What is new is the map of where the convention stopped, not the mechanism.
+
 ### Result 1 is the headline, and it has a control
 
-Only **8.16%** of pixels are adjudicated in the images that carry both classes (6.83% across
-all 38 masks; 92.83% UNREVIEWED). Treating unlabelled as background inflates the negative
-class ~2721× in aggregate and up to 2.5×10⁷× on one frame.
+Pixel census across the 38 masks, summing to 100%: crack **6.727%**, not-crack **0.034%**,
+UNREVIEWED **92.901%**, erased **0.338%**. So 6.761% is adjudicated, and treating the
+unreviewed remainder as negative inflates the negative class ~2721x in aggregate and up to
+2.5x10^7 on one frame. Across the 10 both-class images the adjudicated fraction is 8.16%.
+
+Three denominators appear in this paper -- 62 images, 38 masks, 10 both-class masks -- and
+each must be stated with its own number rather than blended.
+
+**The fragility, beside the finding:** adjudicated *negatives* are 0.034% of pixels, about
+three parts in ten thousand (145,441 px pooled, against 169,965,542 under the dense
+convention -- a factor of 1,169). Specificity under exclusion is estimated from that pool and
+is therefore high-variance. The dense convention's real attraction is that it always returns
+a number, which is why it persists; saying so makes this a diagnosis rather than an
+accusation.
 
 The convention moves specificity and precision **in opposite directions**: a paper reporting
 specificity this way flatters itself by nearly half, one reporting precision punishes itself
@@ -85,9 +115,16 @@ undermine the paper.
   both readings can still be wrong together against a certified reference specimen.
 - **Detector is weak.** Recall 0.597 at the deployed operating point. Stated openly; the
   composability path is the answer, not a defence.
-- **Failure modes are from one codebase.** Whether they generalise is argued, not
-  demonstrated. Strengthening this means auditing another tool's handling of unlabelled
-  pixels — feasible and not yet done.
+- **The external audit is read, not run.** Six tools were audited from primary source (see
+  `docs/UNLABELLED_PIXEL_AUDIT.md`), which answers the generality objection, but no external
+  behaviour was executed -- only a local sklearn/skimage signature probe. Fixable cheaply and
+  without annotation: push a three-state mask through each tool and record what emerges.
+- **Preferential review.** Excluding unreviewed pixels is unbiased only if the reviewed region
+  is representative, and annotators plausibly review the ambiguous, feature-dense parts. So
+  0.4599 is itself computed on a non-random sample and the true full-image specificity is
+  unknowable from this corpus. The honest deliverable is an **interval**: the two conventions
+  bracket the estimate, the bracket is enormous (specificity 0.46-0.95), and reporting either
+  endpoint without naming the convention is uninterpretable.
 
 ## What is needed from a person, not from more code
 
