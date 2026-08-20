@@ -80,6 +80,11 @@ def _parse_args(argv):
     ap.add_argument("--in", dest="indir", required=True, help="directory of micrographs")
     ap.add_argument("--out", dest="outdir", required=True, help="output directory")
     ap.add_argument("--glob", default="*.tif", help="filename pattern (default *.tif)")
+    ap.add_argument("--group-by", dest="group_by", default="family,condition",
+                    help="comma-separated name tokens to group by, or 'none' for one "
+                         "pooled group. Grouping parses tokens out of the FILENAME, so "
+                         "'none' is the right answer for files not named like this "
+                         "corpus (default: family,condition)")
     ap.add_argument("--model", help="Pass 1 classifier bundle (.joblib)")
     ap.add_argument("--threshold", type=float,
                     help="decision threshold for BOTH passes; default is each bundle's own")
@@ -324,12 +329,31 @@ def main(argv=None):
         # aggregate reads OUT_DIR from the same SEMCRACK_MEASUREMENTS_DIR this run set, so
         # it groups the CSVs just written rather than the repository's.
         import aggregate as ag
-        assert os.path.abspath(ag.OUT_DIR) == a.outdir, (
-            f"aggregate would read {ag.OUT_DIR}, not {a.outdir}")
-        res = ag.aggregate([r["image"] for r in ok], by=("family", "condition"),
-                           require_calibrated=False)
+        # Check the READ path, not just the write path. Asserting only on OUT_DIR passed
+        # while aggregate read the repository's CSVs through a second constant and wrote a
+        # header-only file here -- a guard that could not fail, certifying nothing.
+        for _nm in ("OUT_DIR", "MEAS_DIR"):
+            _d = getattr(ag, _nm, None)
+            assert _d and os.path.abspath(_d) == a.outdir, (
+                f"aggregate.{_nm} is {_d}, not {a.outdir}")
+        _by = () if a.group_by.strip().lower() in ("none", "") else tuple(
+            x.strip() for x in a.group_by.split(",") if x.strip())
+        res = ag.aggregate([r["image"] for r in ok], by=_by, require_calibrated=False)
         ag.write_report(res)
-        print(f"  -> {os.path.join(a.outdir, 'aggregate.csv')}")
+        _ng = len(res.get("groups", []))
+        print(f"  -> {os.path.join(a.outdir, 'aggregate.csv')} ({_ng} group(s))")
+        if ok and not _ng:
+            # An empty aggregate beside 60 measured frames is a bug or an unparseable
+            # naming convention, and either way it must not read as a success.
+            refusals.append({
+                "kind": "aggregate_empty",
+                "note": f"{len(ok)} image(s) measured but no group was formed. Grouping "
+                        f"parses family/condition/specimen out of the FILENAME; names that "
+                        f"do not follow that convention produce no groups. The per-image "
+                        f"CSVs and all_cracks.csv are complete and unaffected."})
+            print(f"  aggregate produced NO groups from {len(ok)} measured image(s) -- "
+                  f"filenames did not parse into {a.group_by}. Re-run with "
+                  f"--group-by none for a single pooled group.")
     except Exception as e:
         # Grouping depends on parsing a filename convention that a stranger's files will
         # not follow. That must not lose the per-image tables, which are the real output.
@@ -356,6 +380,7 @@ def main(argv=None):
                              "detector only; no human correction was applied"),
         "n_images": len(names), "n_ok": len(ok), "n_failed": len(failed),
         "n_calibrated": sum(1 for r in ok if r.get("units") == "um"),
+        "group_by": a.group_by,
         "config_fingerprint": fp,
         "images": results, "refusals": refusals,
     }
