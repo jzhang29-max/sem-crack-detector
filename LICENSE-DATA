@@ -53,7 +53,7 @@ Two caveats that matter for reuse:
     pixel values are bit-identical to the microscope's originals, verified
     per image. They are not resampled, contrast-adjusted, or cropped.
 
-  - Only 35 of the 62 images carry human correction masks, and those masks
+  - Only 39 of the 62 images carry human correction masks, and those masks
     adjudicate only 1.8-4% of each image's pixels. A mask value of 0 means
     "never reviewed", NOT "not a crack". Treating unreviewed pixels as
     negatives will produce badly optimistic specificity -- this is a real

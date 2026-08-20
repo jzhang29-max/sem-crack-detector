@@ -158,7 +158,11 @@ with the classifier trained on *other* images:
 |---|---|---|---|
 | Pass 1 (darkness threshold + classifier) | 0.697 | 0.575 | 0.476 |
 | **Pass 1 + Pass 2** — what the shipped overlays use | **0.715** | 0.597 | 0.476 |
-| **Pass 1 + Pass 2 + SAM** — best, opt-in | **0.776** | **0.678** | 0.395 |
+| Pass 1 + Pass 2 + SAM | 0.776 | 0.678 | 0.395 |
+
+> The SAM row is **not reachable in this build** — `USE_SAM = false`. It is kept for
+> reference because the stage still exists in `hybrid_detect.py`; the shipped overlays
+> are the `Pass 1 + Pass 2` row.
 
 **SAM is not part of the model.** `crack_classifier.joblib` is a LogisticRegression
 over 8 features and is identical whether or not SAM is installed. SAM is a
@@ -168,9 +172,10 @@ configuration, not a different trained model.
 
 Which means it only applies where it is actually run:
 
-**There is no SAM checkbox.** If PyTorch is installed, SAM is used — for new
-uploads, for Re-apply, and for the re-render after Retrain. If it is not installed,
-the pipeline runs alone and the model card says `Pass 1 + Pass 2, no SAM` with its
+**SAM is off in this build.** There is no SAM checkbox and no SAM stage: a single
+`USE_SAM = false` in `interior_active_learning/code/paint_frontend.py` switches it off
+for new uploads, Re-apply, and the re-render after Retrain, whether or not PyTorch is
+installed. The model card reads `Pass 1 + Pass 2 (archive model, no SAM)` with its
 f1, so the configuration on screen is never ambiguous.
 
 That was not always true, and the cost of the old design was real: the checkbox
@@ -201,18 +206,25 @@ declined — is in [docs/APP_COMPARISON.md](docs/APP_COMPARISON.md).
 
 ## Turning SAM on
 
-If PyTorch is not installed, **Advanced** shows an **Enable SAM** button that
-installs it into this app's own virtualenv — no terminal needed. It is ~2.5 GB and
-takes a few minutes; restart the app afterwards. Until then the checkbox is
-disabled and the pipeline runs alone, which is a working detector, just the 0.715
-one rather than 0.776.
+SAM is **disabled** in this build. It is a runtime proposal stage, not part of the
+model, and it was switched off deliberately: the deployed detector is the archived
+LogisticRegression on its own.
 
-Equivalent by hand, if you prefer:
+Do not install PyTorch expecting a change — with `USE_SAM = false` the output is
+byte-identical either way. To actually re-enable it, flip that one constant:
+
+```
+interior_active_learning/code/paint_frontend.py   const USE_SAM = false;   ->   true
+```
+
+and then install the dependencies (~2.5 GB, plus a ~2.4 GB checkpoint on first run):
 
 ```bash
 pip install torch transformers torchvision   # torchvision is required, not extra:
                                              # SAM's post-processing calls its NMS
 ```
+
+With SAM on, a re-render costs about 3 minutes per image instead of about 40 seconds.
 
 ## What ships here
 

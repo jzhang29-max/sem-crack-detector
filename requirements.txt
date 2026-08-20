@@ -26,19 +26,18 @@ tifffile>=2026.7
 # runs without it.
 #   rsvg-convert
 
-# ---- SAM: used automatically when present ----
-# Without these the app still runs, using the pipeline alone. Measured on 5
-# images with human ground truth: pipeline f1 0.715, pipeline+SAM f1 0.776.
-# Costs ~8 min/image on Apple MPS vs ~40s without (measured at 6144x4096), so the
-# app exposes it as a checkbox rather than forcing it.
-# The app has no SAM checkbox: if these are installed it uses SAM, because SAM is a
-# runtime stage rather than a separate model and it is the better-measured
-# configuration. They are still not hard requirements -- ~2.5 GB plus a ~2.4 GB
-# checkpoint on first use -- so without them the app runs the pipeline alone and the
-# model card says so.
+# ---- SAM: NOT USED IN THIS BUILD ----
+# SAM is switched off by `const USE_SAM = false` in
+# interior_active_learning/code/paint_frontend.py, so installing these changes nothing:
+# the output is byte-identical with or without them. Do not install them expecting an
+# improvement -- it is ~2.5 GB plus a ~2.4 GB checkpoint on first use.
+#
+# They are listed only so the stage in hybrid_detect.py can be revived. To actually use
+# it, flip USE_SAM to true and then:
 #   pip install torch transformers torchvision
-# torchvision is genuinely required, not optional-within-optional: SAM's
-# mask-generation post-processing calls its NMS.
+# torchvision is genuinely required, not optional-within-optional: SAM's mask-generation
+# post-processing calls its NMS. With SAM on, a re-render costs ~3 min/image instead of
+# ~40 s, and measured f1 on 5 images with human ground truth was 0.776 vs 0.715 without.
 
 # ---- test suite only ----
 # interior_active_learning/code/test_app.py drives the running server over HTTP.

@@ -727,6 +727,69 @@ def main():
         _ps._stage_cache.pop("LOCKPROBE", None)
 
 
+    # ---------- 14. physical units ----------
+    # Every exported number used to be in pixels, which is not a publishable quantity --
+    # the tool could out-segment its competitors and still be unusable for the paper. The
+    # rule that matters most here is that UNCALIBRATED stays uncalibrated: a silent 1.0
+    # default is indistinguishable from a real measurement.
+    print("\n[14] physical-unit calibration")
+    import calibration as _cal
+
+    _cal.clear("CALPROBE")
+    check("an uncalibrated image reports None, not 1.0",
+          _cal.get_um_per_px("CALPROBE") is None)
+    check("an uncalibrated export says so in its provenance",
+          _cal.provenance_header("CALPROBE")["calibrated"] is False
+          and "PIXELS" in _cal.provenance_header("CALPROBE").get("note", ""))
+
+    # The scale bar and HFW are two independent readings of the same frame. Three
+    # automatic bar detectors gave 0.400, 0.142 and 0.168 um/px for one image; only the
+    # last agrees with HFW. Disagreement must refuse, not average.
+    _refused = False
+    try:
+        _cal.set_from_scale_bar("CALPROBE", 400.0, 3200, 6016,
+                                hfw_um=1040.0, image_width_px=6144)
+    except ValueError:
+        _refused = True
+    check("a scale bar disagreeing with HFW is REFUSED, not stored", _refused
+          and _cal.get_um_per_px("CALPROBE") is None,
+          "a wrong calibration silently corrupts every exported length")
+
+    _rec = _cal.set_from_scale_bar("CALPROBE", 400.0, 3519, 3519 + 2379,
+                                   hfw_um=1040.0, image_width_px=6144)
+    check("an agreeing pair is stored with its cross-check recorded",
+          abs(_rec["um_per_px"] - 0.16814) < 1e-4
+          and _rec["detail"]["cross_check_rel_diff"] < 0.05,
+          f"{_rec['um_per_px']:.5f} um/px, {100*_rec['detail']['cross_check_rel_diff']:.2f}% apart")
+
+    _row = {"Area_px": 1000, "SkeletonLength_px": 200, "MaxWidth_px": 10,
+            "Tortuosity": 1.4, "Orientation_deg": 33.0, "BranchPointCount": 7}
+    _c = _cal.convert_row(_row, _rec["um_per_px"])
+    check("area converts as length squared",
+          abs(_c["Area_um2"] - 1000 * _rec["um_per_px"] ** 2) < 1e-9)
+    check("a length converts linearly",
+          abs(_c["SkeletonLength_um"] - 200 * _rec["um_per_px"]) < 1e-9)
+    check("ratios, angles and counts are NOT scaled",
+          _c["Tortuosity"] == 1.4 and _c["Orientation_deg"] == 33.0
+          and _c["BranchPointCount"] == 7,
+          "scaling a tortuosity or an angle is the obvious way to get this wrong")
+    check("provenance names the model behind the numbers",
+          _cal.provenance_header("CALPROBE", PROD_MODEL_PATH, 0.5).get("model")
+          == os.path.basename(PROD_MODEL_PATH))
+    _cal.clear("CALPROBE")
+    check("clearing a calibration returns it to uncalibrated",
+          _cal.get_um_per_px("CALPROBE") is None)
+
+    # The measurement CLI used to iterate a frozen 25-name list, silently skipping 20
+    # hand-corrected images including every MAR frame.
+    import crack_measurements as _cm
+    _all = _cm.all_images()
+    check("the measurement CLI derives its image list from disk",
+          len(_all) > 25 and any(n.startswith("MAR_Amb") for n in _all)
+          and not any(n.startswith("apptest") for n in _all),
+          f"{len(_all)} images, MAR frames included, test scratch excluded")
+
+
     print("\n[cleanup]")
     removed = 0
     for n in created:
