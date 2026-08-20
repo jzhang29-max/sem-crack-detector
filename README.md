@@ -366,7 +366,14 @@ python3 code/semcrack.py --in ./m --out ./r --um-per-px 0.0431   # one scale, cr
 python3 code/semcrack.py --in ./m --out ./r --scale-csv scale.csv # per-image: image,um_per_px
 python3 code/semcrack.py --in ./m --out ./r --from-metadata       # FEI/ZEISS TIFF tags
 python3 code/semcrack.py --in ./m --out ./r --threshold 0.6 --model my.joblib
+python3 code/semcrack.py --in ./m --out ./r --group-by none       # see below
 ```
+
+**If your files aren't named like this corpus, pass `--group-by none`.** Grouping parses
+`family` / `condition` / `specimen` out of the *filename*, which works for
+`MAR_Amb_HIP_CBS_0010` and for nothing else. Without that flag a run on your own images
+still writes every per-crack CSV and `all_cracks.csv`, but the aggregate forms zero groups —
+and it now says so as a refusal instead of printing a path to an empty file.
 
 `--from-metadata` reads FEI/Thermo INI blocks and ZEISS `CZ_SEM` tags, and cross-checks
 against any existing hand reading — a machine value never silently overwrites a human's.

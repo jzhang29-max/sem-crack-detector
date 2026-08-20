@@ -144,6 +144,19 @@ def _at_threshold(t):
         up.load_correction_mask, up.load_hard_overrides = real_corr, real_over
 
 
+def out_path(shard, nshard):
+    return OUT if nshard == 1 else OUT.replace(".json", f".shard{shard}.json")
+
+
+def _dump(path, thresholds, per_spec, per_frame):
+    tmp = path + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump({"thresholds": list(thresholds), "production": PRODUCTION,
+                   "per_spec": per_spec, "n_frames_done": len(per_frame),
+                   "per_frame": per_frame}, fh, indent=1)
+    os.replace(tmp, path)
+
+
 def _summarise(rows, n_px):
     """Frame-level quantities, each one something a paper actually prints."""
     if not rows:
@@ -207,12 +220,114 @@ def run(per_spec=4, shard=0, nshard=1):
         for k in list(_CACHE):
             if k[1] == name:
                 del _CACHE[k]
+        # Checkpoint after EVERY frame, not at the end. A frame costs minutes and this
+        # competes for the machine, so a shard that gets killed at frame 3 of 4 used to
+        # lose all three. Write to a temp file and replace, so a kill mid-write cannot
+        # leave a half-parsed JSON that --report silently skips.
+        _dump(out_path(shard, nshard), THRESHOLDS, per_spec, per_frame)
 
-    out = OUT if nshard == 1 else OUT.replace(".json", f".shard{shard}.json")
-    json.dump({"thresholds": list(THRESHOLDS), "production": PRODUCTION,
-               "per_spec": per_spec, "per_frame": per_frame}, open(out, "w"), indent=1)
+    out = out_path(shard, nshard)
+    _dump(out, THRESHOLDS, per_spec, per_frame)
     print(f"\n  -> {out}")
     return per_frame
+
+
+def report(paths=None):
+    """Merge shard files and answer the two questions: how big, and does the order flip?"""
+    import glob as _glob
+    paths = paths or sorted(_glob.glob(OUT.replace(".json", ".shard*.json"))) or [OUT]
+    per_frame = []
+    for p in paths:
+        try:
+            per_frame += json.load(open(p))["per_frame"]
+        except (OSError, ValueError, KeyError):
+            continue
+    if not per_frame:
+        print("no shard results found")
+        return None
+
+    # Only frames measured at EVERY threshold may enter the comparison. A frame present at
+    # 0.3 but missing at 0.7 would shift a condition's mean between columns for reasons
+    # that have nothing to do with the threshold.
+    keys = [str(t) for t in THRESHOLDS]
+    complete = [r for r in per_frame if all(k in r["levels"] for k in keys)]
+    dropped = len(per_frame) - len(complete)
+    print(f"{len(complete)} frame(s) measured at all {len(keys)} thresholds"
+          f"{f'; {dropped} incomplete frame(s) EXCLUDED' if dropped else ''}\n")
+    if not complete:
+        return None
+
+    METRICS = [("n_cracks", "crack count", 0),
+               ("total_length_px", "total length px", 0),
+               ("mean_length_px", "mean length px", 1),
+               ("area_fraction", "area fraction %", 3)]
+
+    def spec_mean(spec, key, metric):
+        vals = [r["levels"][key][metric] for r in complete
+                if r["specimen"] == spec and r["levels"][key].get(metric) is not None]
+        return float(np.mean(vals)) if vals else None
+
+    specs = [s for s in TRIO if any(r["specimen"] == s for r in complete)]
+    out = {"per_metric": {}, "n_frames": len(complete), "excluded_frames": dropped}
+
+    for metric, label, nd in METRICS:
+        print(f"{label}  (mean over frames, per specimen)")
+        head = "  " + " ".join(f"{('t=' + k):>13s}" for k in keys)
+        print(f"  {'specimen':16s}" + head[2:] + f" {'max/min':>9s}")
+        rows, orderings = {}, {}
+        for spec in specs:
+            v = [spec_mean(spec, k, metric) for k in keys]
+            if any(x is None for x in v):
+                continue
+            scale = 100.0 if metric == "area_fraction" else 1.0
+            rows[spec] = v
+            span = (max(v) / min(v)) if min(v) > 0 else float("inf")
+            cells = " ".join(f"{x * scale:13.{nd}f}" for x in v)
+            print(f"  {spec:16s}{cells} {span:9.3f}x")
+        for i, k in enumerate(keys):
+            orderings[k] = tuple(sorted(rows, key=lambda s: rows[s][i], reverse=True))
+        distinct = {v for v in orderings.values()}
+        stable = len(distinct) == 1
+        worst = max((max(v) / min(v)) if min(v) > 0 else float("inf")
+                    for v in rows.values()) if rows else None
+        print(f"  ranking across thresholds: "
+              f"{'STABLE  ' + ' > '.join(next(iter(distinct))) if stable else 'FLIPS'}")
+        if not stable:
+            for k in keys:
+                print(f"      t={k}: {' > '.join(orderings[k])}")
+        print()
+        out["per_metric"][metric] = {
+            "per_specimen": rows, "orderings": {k: list(v) for k, v in orderings.items()},
+            "ranking_stable": stable, "worst_span_ratio": worst}
+
+    flips = [m for m, d in out["per_metric"].items() if not d["ranking_stable"]]
+    spans = {m: d["worst_span_ratio"] for m, d in out["per_metric"].items()}
+    print("WHAT THIS MEANS")
+    biggest = max(spans, key=lambda m: spans[m] or 0)
+    print(f"  Largest movement in any published quantity: {spans[biggest]:.2f}x "
+          f"({biggest}) across a threshold range of {min(THRESHOLDS)}-{max(THRESHOLDS)}, "
+          f"a number that appears in no figure.")
+    if flips:
+        print(f"  The ordering of the conditions FLIPS for: {', '.join(flips)}. A "
+              f"comparison a paper exists to make is therefore decided by an undocumented "
+              f"library default, not by the specimens.")
+    else:
+        print(f"  The ordering of the three conditions is STABLE for every quantity "
+              f"measured. This is the weaker of the two possible findings and it is "
+              f"reported as such: an undocumented threshold moves the MAGNITUDE of every "
+              f"published number by up to {spans[biggest]:.2f}x, but it did not reverse a "
+              f"qualitative conclusion in this corpus. The prediction going in was that it "
+              f"would; it did not.")
+        print(f"  So the claim is 'state your threshold and report sensitivity', not "
+              f"'published comparisons are wrong'. Overstating this would be the same "
+              f"error the paper is about.")
+    print(f"  n = {len(specs)} specimen(s), one per condition, so the ordering itself is "
+          f"NOT a material finding either way -- it is the object whose stability is under "
+          f"test, not a result about the alloy.")
+
+    json.dump(out, open(OUT.replace(".json", "_report.json"), "w"), indent=1)
+    print(f"\n  -> {OUT.replace('.json', '_report.json')}")
+    return out
 
 
 if __name__ == "__main__":
@@ -220,5 +335,10 @@ if __name__ == "__main__":
     ap.add_argument("--per-spec", type=int, default=4)
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--nshard", type=int, default=1)
+    ap.add_argument("--report", action="store_true",
+                    help="merge shard files and print the sensitivity tables")
     a = ap.parse_args()
-    run(a.per_spec, a.shard, a.nshard)
+    if a.report:
+        report()
+    else:
+        run(a.per_spec, a.shard, a.nshard)
