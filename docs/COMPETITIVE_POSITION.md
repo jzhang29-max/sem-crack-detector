@@ -51,12 +51,16 @@ Annotation platforms own the human workflow and ignore both.
   missed.
 - **3D, serial sections, tomography, mosaic stitching.** Absent here, and decisive whenever
   a crack is longer than one field of view — which happens silently in this corpus.
-- **Batch, CLI, scripting, plugin API.** Everyone else has them.
+- **Scripting and a plugin API.** Everyone else has them. Batch and a CLI are now here
+  (`code/semcrack.py`), but an importable, documented Python API and a plugin surface
+  are not, and "import our module and read the source" is not an API.
 - **Multi-annotator and inter-rater agreement.** CVAT self-hosted does this for free, and it
   is exactly the evidence this tool cannot produce.
 - **Calibration convenience.** Fiji reads FEI/ZEISS metadata automatically and MIPAR
-  auto-detects the bar. Here a human clicks two points. Claim the refusal, not the
-  calibration.
+  auto-detects the bar. This now reads FEI/ZEISS tags too, so the *capability* gap is closed,
+  but the convenience gap is not: on files whose tags survived, Fiji is one click and this is
+  one flag; on files like this corpus, both are useless and a human still marks two points.
+  Claim the refusal and the cross-check, not the calibration.
 
 ## What changed after this survey
 

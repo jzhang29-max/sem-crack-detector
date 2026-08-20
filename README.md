@@ -469,7 +469,7 @@ this repo becomes unreproducible:
   `docs/img/README.md` records the exact command behind each one
 - `extended_features.py` → the extended-feature study
 - `ingest_labels.py`, `ingest_marginal_verdicts.py` → the CSV-era label ingest paths
-- `interior_active_learning/code/experiments/` (25 scripts) → produced every figure
+- `interior_active_learning/code/experiments/` (33 scripts) → produced every figure
   and table in the benchmark doc
 
 **Command-line tools you run yourself.** Not imported by the app; these are the

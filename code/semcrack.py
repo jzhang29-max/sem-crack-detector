@@ -126,11 +126,35 @@ def _configure_env(a):
         os.environ["SEMCRACK_MODEL"] = os.path.abspath(os.path.expanduser(a.model))
 
 
-def _config_fingerprint(a, model_path):
+def _effective_threshold(a, model_path):
+    """The number that will actually decide, whether or not the caller named it.
+
+    Fingerprinting on the raw flag was wrong in both directions. A first run with no
+    --threshold recorded null, so a second run passing the bundle's own value explicitly
+    was refused as a different configuration when it is the same one; and a manifest
+    reading `"threshold": null` never states the number its CSVs were produced at, which
+    is the thing a reader most needs and the thing this repo keeps finding missing.
+    """
+    if a.threshold is not None:
+        return float(a.threshold), "given on the command line"
+    try:
+        import joblib
+        bundle = joblib.load(model_path)
+        if isinstance(bundle, dict) and "threshold" in bundle:
+            return float(bundle["threshold"]), "read from the model bundle"
+    except Exception:
+        pass
+    return 0.5, ("the bundle carries no threshold key, so this is the 0.5 fallback -- a "
+                 "library default reached by omission, not a calibration decision")
+
+
+def _config_fingerprint(a, model_path, threshold):
     """What must match for two runs to be allowed to share an output directory."""
     return {"input_dir": os.path.abspath(os.path.expanduser(a.indir)),
             "model_sha256": _sha256(model_path) if os.path.exists(model_path) else None,
-            "threshold": a.threshold,
+            # The EFFECTIVE threshold, so "unspecified" and "specified as the same value"
+            # are correctly the same configuration.
+            "threshold": threshold,
             "corrections_dir": (os.path.abspath(os.path.expanduser(a.corrections))
                                 if a.corrections else None)}
 
@@ -185,7 +209,8 @@ def main(argv=None):
     import calibration as cal
 
     refusals = []
-    fp = _config_fingerprint(a, PROD_MODEL_PATH)
+    eff_threshold, eff_why = _effective_threshold(a, PROD_MODEL_PATH)
+    fp = _config_fingerprint(a, PROD_MODEL_PATH, eff_threshold)
     prev_path = os.path.join(a.outdir, "run_manifest.json")
     if os.path.exists(prev_path) and not a.force:
         try:
@@ -261,7 +286,7 @@ def main(argv=None):
     if a.dry_run:
         print(f"semcrack --dry-run\n  images     : {len(names)}\n  input      : {a.indir}\n"
               f"  output     : {a.outdir}\n  model      : {PROD_MODEL_PATH}\n"
-              f"  threshold  : {a.threshold if a.threshold is not None else 'bundle default'}\n"
+              f"  threshold  : {eff_threshold}  ({eff_why})\n"
               f"  corrections: {a.corrections or 'NONE (detector only)'}\n"
               f"  calibrated : {sum(1 for n in names if cal.get_um_per_px(n))}/{len(names)}\n"
               f"  refusals   : {len(refusals)}")
@@ -320,10 +345,9 @@ def main(argv=None):
         "input_dir": a.indir, "output_dir": a.outdir, "glob": a.glob,
         "model_path": PROD_MODEL_PATH,
         "model_sha256": fp["model_sha256"],
-        "threshold": a.threshold,
-        "threshold_note": ("as given on the command line" if a.threshold is not None else
-                           "each bundle's own; the shipped Pass 1 bundle carries no "
-                           "threshold key, so it runs at the 0.5 fallback"),
+        "threshold": eff_threshold,
+        "threshold_as_given": a.threshold,
+        "threshold_note": eff_why,
         "corrections_dir": a.corrections,
         "corrections_applied": bool(a.corrections),
         "corrections_note": ("human corrections from the named directory OVERRIDE the "
