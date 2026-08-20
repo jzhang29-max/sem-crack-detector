@@ -61,6 +61,34 @@ def measure_image(image_name):
     crack_mask = np.isin(labeled, df.loc[df["IsCrack"], "Label"].tolist())
     img_area = crack_mask.size
 
+    # HONOUR THE MERGE DECISION THE PIPELINE ALREADY PAID FOR.
+    #
+    # merge_large_cracks exists because "the main crack is often segmented into several
+    # large fragments ... each counts and displays as a separate crack even though they're
+    # obviously one". It returns the connector geometry as stage["bridge_mask"], and
+    # detect_cracks.save_bw_image ORs it into its own export -- but this CSV re-labelled
+    # the bare crack_mask, so it reported one row per FRAGMENT. That understates
+    # SkeletonLength_px for the main crack, which is the headline number in a fatigue or
+    # creep write-up, and gives a crack count that disagrees with the bw export for the
+    # same image.
+    #
+    # A bridge is only allowed to join things, never to become a crack on its own: after
+    # the union, components that contain no originally-detected crack pixel are dropped,
+    # so a connector whose endpoints both fell below threshold cannot invent a region.
+    bridge = stage.get("bridge_mask")
+    n_bridge_px = 0
+    if bridge is not None:
+        bridge = np.asarray(bridge, dtype=bool)
+        if bridge.shape == crack_mask.shape and bridge.any():
+            joined = measure.label(crack_mask | bridge, connectivity=2)
+            keep = np.unique(joined[crack_mask])
+            keep = keep[keep != 0]
+            merged_mask = np.isin(joined, keep.tolist())
+            n_bridge_px = int((merged_mask & ~crack_mask).sum())
+            crack_mask = merged_mask
+
+    fragments = measure.label(
+        np.isin(labeled, df.loc[df["IsCrack"], "Label"].tolist()), connectivity=2)
     groups = measure.label(crack_mask, connectivity=2)
     n_groups = groups.max()
     rows = []
@@ -69,6 +97,10 @@ def measure_image(image_name):
         if mask.sum() < 5:
             continue  # skeletonize/regionprops need a few pixels to be meaningful
         m = crack_shape_measurements(mask)
+        # How many separately-detected fragments this row merges. 1 means the pipeline
+        # found it whole; >1 means merge_large_cracks joined it, and the reader can see
+        # that rather than having to trust it.
+        m["NFragmentsMerged"] = int(len({int(v) for v in np.unique(fragments[mask])} - {0}))
         ys, xs = np.where(mask)
         m.update({
             "SourceImage": image_name,
@@ -82,7 +114,7 @@ def measure_image(image_name):
     cols = ["SourceImage", "CrackID", "Area_px", "AreaPct_of_image", "SkeletonLength_px",
             "MeanWidth_px", "MaxWidth_px", "Tortuosity", "BranchPointCount",
             "EllipseMajorAxis_px", "EllipseMinorAxis_px", "Orientation_deg",
-            "BoundaryRoughness", "CentroidX_px", "CentroidY_px"]
+            "BoundaryRoughness", "CentroidX_px", "CentroidY_px", "NFragmentsMerged"]
 
     # Physical units when this image has been calibrated. A crack length in PIXELS is not
     # a publishable quantity, so a CSV that only offers _px columns cannot be used for the
@@ -107,6 +139,7 @@ def measure_image(image_name):
     # in it can be traced to a model, a threshold, or a calibration.
     prov = _cal.provenance_header(image_name, PROD_MODEL_PATH, None)
     prov["n_cracks"] = int(len(out_df))
+    prov["bridge_px_added"] = n_bridge_px
     prov["columns"] = list(out_df.columns)
     _json.dump(prov, open(os.path.join(OUT_DIR, f"{image_name}_provenance.json"), "w"),
                indent=1)

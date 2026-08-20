@@ -4,7 +4,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SEM Crack Detection</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' role='img' aria-label='SEM Crack Detection'> <defs> <linearGradient id='field' x1='0' y1='0' x2='1' y2='1'> <stop offset='0' stop-color='#9aa1aa'/> <stop offset='1' stop-color='#4e545d'/> </linearGradient> </defs> <rect x='1' y='1' width='30' height='30' rx='7' fill='url(#field)'/> <rect x='1' y='1' width='30' height='30' rx='7' fill='none' stroke='#20242b' stroke-width='1.5'/> <path d='M5 8 L11 13 L9 17 L16 20 L14 24 L27 27' fill='none' stroke='#ff2222' stroke-width='4.2' stroke-linecap='round' stroke-linejoin='round'/> <path d='M5 8 L11 13 L9 17 L16 20 L14 24 L27 27' fill='none' stroke='#ff7a7a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' opacity='0.65'/> <circle cx='23' cy='10' r='3.1' fill='#00ccff' opacity='0.92'/> </svg>"> <defs> <linearGradient id="field" x1="0" y1="0" x2="1" y2="1"> <stop offset="0" stop-color="#9aa1aa"/> <stop offset="1" stop-color="#4e545d"/> </linearGradient> </defs> <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#field)"/> <rect x="1" y="1" width="30" height="30" rx="7" fill="none" stroke="#20242b" stroke-width="1.5"/> <path d="M5 8 L11 13 L9 17 L16 20 L14 24 L27 27" fill="none" stroke="#ff2222" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/> <path d="M5 8 L11 13 L9 17 L16 20 L14 24 L27 27" fill="none" stroke="#ff7a7a" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.65"/> <circle cx="23" cy="10" r="3.1" fill="#00ccff" opacity="0.92"/> </svg>"> <defs> <linearGradient id="field" x1="0" y1="0" x2="1" y2="1"> <stop offset="0" stop-color="#9aa1aa"/> <stop offset="1" stop-color="#4e545d"/> </linearGradient> </defs> <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#field)"/> <rect x="1" y="1" width="30" height="30" rx="7" fill="none" stroke="#20242b" stroke-width="1.5"/> <path d="M5 8 L11 13 L9 17 L16 20 L14 24 L27 27" fill="none" stroke="#ff2222" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/> <path d="M5 8 L11 13 L9 17 L16 20 L14 24 L27 27" fill="none" stroke="#ff7a7a" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.65"/> <circle cx="23" cy="10" r="3.1" fill="#00ccff" opacity="0.92"/> </svg>">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' role='img' aria-label='SEM Crack Detection'%3E %3Cdefs%3E %3ClinearGradient id='field' x1='0' y1='0' x2='1' y2='1'%3E %3Cstop offset='0' stop-color='%239aa1aa'/%3E %3Cstop offset='1' stop-color='%234e545d'/%3E %3C/linearGradient%3E %3C/defs%3E %3Crect x='1' y='1' width='30' height='30' rx='7' fill='url(%23field)'/%3E %3Crect x='1' y='1' width='30' height='30' rx='7' fill='none' stroke='%2320242b' stroke-width='1.5'/%3E %3Cpath d='M5 8 L11 13 L9 17 L16 20 L14 24 L27 27' fill='none' stroke='%23ff2222' stroke-width='4.2' stroke-linecap='round' stroke-linejoin='round'/%3E %3Cpath d='M5 8 L11 13 L9 17 L16 20 L14 24 L27 27' fill='none' stroke='%23ff7a7a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' opacity='0.65'/%3E %3Ccircle cx='23' cy='10' r='3.1' fill='%2300ccff' opacity='0.92'/%3E %3C/svg%3E">
 <style>
 /* Ported from the sibling TXM app's current frontend (app/static/index.html) so
    the two tools are one family. Its three stated design rules are followed here
@@ -49,6 +49,11 @@ button:disabled{opacity:.4;cursor:default}
 .brand p{margin:3px 0 0;font-size:11.5px;color:var(--ink3)}
 #dropTarget{margin:14px;padding:20px 14px;border:1.5px dashed var(--line2);border-radius:10px;
   text-align:center;color:var(--ink2);cursor:pointer;transition:.14s}
+/* Once a corpus is loaded the 108px dashed box is redundant -- the full-window #dropZone
+   already accepts drags -- so it collapses to one row and gives the list its height. */
+#dropTarget.slim{margin:8px 14px;padding:6px 10px;border-radius:7px}
+#dropTarget.slim span{display:none}
+#dropTarget.slim b{font-size:11.5px;font-weight:400;color:var(--ink2)}
 #dropTarget:hover{border-color:#44506b;background:#171c26}
 #dropTarget.hot{border-color:var(--brand);background:#17233a;color:var(--ink)}
 #dropTarget b{display:block;font-size:13px;font-weight:500;color:var(--ink)}
@@ -59,15 +64,23 @@ button:disabled{opacity:.4;cursor:default}
   background:var(--surface2);border:1px solid var(--line2);border-radius:6px}
 #imgSearch::placeholder{color:var(--ink3)}
 #imageList{flex:1;overflow-y:auto;padding-bottom:8px}
-.item{display:flex;gap:10px;align-items:center;padding:8px 18px;cursor:pointer;
+/* A 65-image worklist read through a 6-row porthole is not navigable. Fixed chrome
+   (brand + drop target + label + filter + model card) took ~440px of a 296px column,
+   leaving ~340px of list at ~53px per row. Rows are ~34px now and the chrome collapses,
+   which puts roughly 17 on screen instead of 6. */
+.item{display:flex;gap:8px;align-items:center;padding:5px 14px;cursor:pointer;
   border-left:2px solid transparent}
 .item:hover{background:#1a1e25}
 .item.sel{background:#1a2333;border-left-color:var(--brand)}
-.item .th{width:38px;height:30px;flex:0 0 38px;border-radius:4px;object-fit:contain;
+.item .th{width:26px;height:22px;flex:0 0 26px;border-radius:3px;object-fit:contain;
   background:#0b0d10;border:1px solid var(--line)}
 .item .tx{min-width:0;flex:1}
 .item .nm{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.item .sub{display:block;font-size:11px;color:var(--ink3);margin-top:1px}
+/* Shown on hover and on the selected row only. A second line on every row was the
+   single biggest cost in list height, and the candidate counts are reference detail
+   rather than something you scan down the list. */
+.item .sub{display:none;font-size:10.5px;color:var(--ink3);margin-top:1px}
+.item:hover .sub,.item.sel .sub{display:block}
 .item .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:0 0 6px}
 .item .dot.busy{background:var(--warn)}
 .item .x{flex:0 0 18px;width:18px;height:18px;border:0;padding:0;border-radius:4px;
@@ -75,7 +88,13 @@ button:disabled{opacity:.4;cursor:default}
   transition:opacity .12s,background .12s,color .12s}
 .item:hover .x,.item.sel .x{opacity:1}
 .item .x:hover{background:#3a2326;color:#ff8080}
-#modelcard{border-top:1px solid var(--line);padding:13px 18px;background:#13161b}
+#modelcard{border-top:1px solid var(--line);padding:10px 14px;background:#13161b}
+/* Collapsed by default: six rows of model metadata pinned to the bottom were competing
+   with the worklist, and two of the values wrap to two lines at this width. */
+#modelcard.collapsed .rows{display:none}
+#modelcard .sum{font-size:11px;color:var(--ink2);cursor:pointer;display:flex;
+  justify-content:space-between;gap:8px;align-items:baseline}
+#modelcard .sum .caret{color:var(--ink3);font-size:10px}
 #modelcard .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3)}
 #modelcard .v{font-size:12px;margin-top:3px}
 #modelcard .v b{font-weight:600}
@@ -167,9 +186,12 @@ button:disabled{opacity:.4;cursor:default}
   <select id="imageSelect" style="display:none"></select>
 
   <div id="modelcard">
-    <div class="k">Model</div>
-    <select id="mpick" title="Switch models. Roll back by picking an earlier one."></select>
-    <div class="v" id="modelCard">loading&hellip;</div>
+    <div class="sum" title="Show or hide the model details"><span id="modelSummary">model&hellip;</span><span class="caret">&#9656;</span></div>
+    <div class="rows">
+      <div class="k">Model</div>
+      <select id="mpick" title="Switch models. Roll back by picking an earlier one."></select>
+      <div class="v" id="modelCard">loading&hellip;</div>
+    </div>
   </div>
 </aside>
 
@@ -1100,6 +1122,7 @@ let _imgCache = [];
 function renderImageList() {
   const q = (document.getElementById('imgSearch').value || '').toLowerCase();
   const box = document.getElementById('imageList');
+  slimSidebar(_imgCache.length);
   box.innerHTML = '';
   let shown = 0;
   for (const info of _imgCache) {
@@ -1298,6 +1321,11 @@ refreshModelInfo = async function () {
       // provenance records the same string, which is what ties a CSV to a version
       // rather than to a moving `main`.
       (i.version ? '<div class="row"><span>version</span><b>' + i.version + '</b></div>' : '');
+    // The collapsed line has to carry enough to be useful on its own, otherwise
+    // collapsing the card just hides information rather than compacting it.
+    const _sum = document.getElementById('modelSummary');
+    if (_sum) _sum.textContent = m.family + ' \u00b7 thr ' + Number(m.threshold).toFixed(3)
+                                 + ' \u00b7 no SAM';
   } catch (e) { }
 };
 
@@ -1419,6 +1447,25 @@ refreshModelPicker();
 // from the marks rather than typed, so it does not inherit a hand-drawn line's aiming
 // error the way ImageJ's Set Scale does.
 let calibArm = false, calibMarks = [];
+
+// ---- sidebar density ------------------------------------------------------------
+// The list is the primary navigation for a 62-image corpus, so the chrome above and
+// below it yields once there is a corpus to navigate.
+function slimSidebar(nImages) {
+  const dt = document.getElementById('dropTarget');
+  if (dt) dt.classList.toggle('slim', nImages > 0);
+  const mc = document.getElementById('modelcard');
+  if (mc && !mc.dataset.wired) {
+    mc.dataset.wired = '1';
+    mc.classList.add('collapsed');
+    const sum = mc.querySelector('.sum');
+    if (sum) sum.addEventListener('click', () => {
+      mc.classList.toggle('collapsed');
+      const c = sum.querySelector('.caret');
+      if (c) c.textContent = mc.classList.contains('collapsed') ? '\u25b8' : '\u25be';
+    });
+  }
+}
 
 function setScaleState(txt, good) {
   const el = document.getElementById('scaleState');
