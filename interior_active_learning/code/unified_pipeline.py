@@ -70,6 +70,21 @@ def _load_unified_bundle():
     return joblib.load(path)
 
 
+#: Set to a float to run BOTH passes at that decision threshold instead of at whatever
+#: each model bundle carries. None -- the default, and the only value the app or any
+#: existing script ever sees -- means "use the bundle's own threshold", so this is inert
+#: unless a caller deliberately sets it.
+#:
+#: It exists because the batch CLI exposes --threshold, and the alternative was for a
+#: shipped entry point to monkeypatch classify_with_model at runtime. A patch that reaches
+#: into another module's namespace works right up until someone reorders an import, and
+#: then it fails by silently running at the default -- which is the exact class of error
+#: this pipeline is supposed to make impossible. EVERY decision point must honour it -- Pass 1, Pass 2's generic branch,
+#: and the interior_fill floor. A partially-applied override reports half a
+#: detector while claiming to report all of it.
+THRESHOLD_OVERRIDE = None
+
+
 def _score(bundle, feats_list, ctype):
     """feats_list: list of feature dicts. Returns list of (is_accepted, proba)."""
     if not feats_list:
@@ -80,7 +95,19 @@ def _score(bundle, feats_list, ctype):
     out = []
     for feats, proba in zip(feats_list, probas):
         if ctype == "interior_fill" and rule is not None:
-            accepted = (proba >= rule["floor"] and feats["MeanDistToCrack"] <= rule["dist_thr"]
+            # The interior_fill rule is a calibrated hybrid: a probability floor of 0.65
+            # AND two feature gates. Only the FLOOR is a threshold on the probability, so
+            # only the floor follows the override; dist_thr and bri_thr are conditions on
+            # geometry and brightness and mean nothing rescaled.
+            #
+            # This branch used rule["floor"] unconditionally, which meant --threshold moved
+            # Pass 1 and two of the three Pass 2 candidate types while interior_fill stayed
+            # at 0.65 -- so the manifest and the README claimed the whole detector had
+            # moved when it had not, and the threshold-sensitivity sweep measured a partly
+            # frozen detector and therefore understated the effect.
+            _floor = (THRESHOLD_OVERRIDE if THRESHOLD_OVERRIDE is not None
+                      else rule["floor"])
+            accepted = (proba >= _floor and feats["MeanDistToCrack"] <= rule["dist_thr"]
                         and feats["MeanFlatBrightness"] <= rule["bri_thr"])
         else:
             _t2 = (THRESHOLD_OVERRIDE if THRESHOLD_OVERRIDE is not None
@@ -88,20 +115,6 @@ def _score(bundle, feats_list, ctype):
             accepted = proba >= _t2
         out.append((accepted, float(proba)))
     return out
-
-
-#: Set to a float to run BOTH passes at that decision threshold instead of at whatever
-#: each model bundle carries. None -- the default, and the only value the app or any
-#: existing script ever sees -- means "use the bundle's own threshold", so this is inert
-#: unless a caller deliberately sets it.
-#:
-#: It exists because the batch CLI exposes --threshold, and the alternative was for a
-#: shipped entry point to monkeypatch classify_with_model at runtime. A patch that reaches
-#: into another module's namespace works right up until someone reorders an import, and
-#: then it fails by silently running at the default -- which is the exact class of error
-#: this pipeline is supposed to make impossible. BOTH passes must honour it: patching Pass
-#: 1 alone would report half a detector.
-THRESHOLD_OVERRIDE = None
 
 
 def score_pass1_candidates(df, labeled, img8, flat, vesselness, bundle=None):

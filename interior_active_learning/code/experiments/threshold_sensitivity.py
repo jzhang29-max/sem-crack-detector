@@ -117,11 +117,22 @@ def _install_memo():
 
 @contextlib.contextmanager
 def _at_threshold(t):
-    """Force BOTH passes to t: Pass 1 through classify_with_model, Pass 2 through the
-    bundle's threshold_default. Patching only one would report the sensitivity of half
-    the detector."""
+    """Force EVERY decision point to t, and neutralise human input.
+
+    This used to patch classify_with_model and the bundle's threshold_default only. That
+    left the interior_fill branch of _score on its own calibrated floor of 0.65, so one of
+    the three Pass 2 candidate types never moved and the measured sensitivity was the
+    sensitivity of a partly frozen detector -- an understatement, in a script whose whole
+    job is to state how much the threshold matters.
+
+    Setting up.THRESHOLD_OVERRIDE is now the primary mechanism, because every decision
+    point consults it. The classify_with_model and bundle patches are kept as belt and
+    braces so that a future caller who reads the threshold from somewhere else is still
+    covered.
+    """
     real_cls, real_bundle = up.classify_with_model, up._load_unified_bundle
     real_corr, real_over = up.load_correction_mask, up.load_hard_overrides
+    real_ovr = up.THRESHOLD_OVERRIDE
 
     def cls(df, model_path, proba_threshold=None, **k):
         return real_cls(df, model_path, proba_threshold=t, **k)
@@ -133,6 +144,7 @@ def _at_threshold(t):
             b["threshold_default"] = t
         return b
 
+    up.THRESHOLD_OVERRIDE = float(t)
     up.classify_with_model = cls
     up._load_unified_bundle = bundle
     up.load_correction_mask = lambda *a, **k: None
@@ -140,6 +152,7 @@ def _at_threshold(t):
     try:
         yield
     finally:
+        up.THRESHOLD_OVERRIDE = real_ovr
         up.classify_with_model, up._load_unified_bundle = real_cls, real_bundle
         up.load_correction_mask, up.load_hard_overrides = real_corr, real_over
 
@@ -191,7 +204,50 @@ def frames(per_spec):
     return out
 
 
+def _assert_override_reaches_every_branch():
+    """Prove the override moves every decision point before spending hours measuring.
+
+    A sweep whose threshold reaches only some branches produces plausible numbers that
+    understate the effect, and nothing in the output would show it -- which is exactly what
+    happened on the first run. So check it directly, against _score, with a fake bundle and
+    no images. Cheap, and it fails loudly.
+    """
+    import numpy as _np
+
+    class _Clf:
+        def predict_proba(self, X):
+            # one candidate, probability 0.70: above a 0.65 floor, below a 0.75 threshold
+            return _np.array([[0.30, 0.70]])
+
+    class _Scaler:
+        def transform(self, X):
+            return _np.asarray(X, dtype=float)
+
+    bundle = {"clf": _Clf(), "scaler": _Scaler(), "threshold_default": 0.5,
+              "interior_fill_rule": {"floor": 0.65, "dist_thr": 1e9, "bri_thr": 1e9}}
+    feats = [{c: 0.0 for c in up.INTERIOR_FEATURE_COLUMNS}]
+    saved = up.THRESHOLD_OVERRIDE
+    try:
+        for ctype in ("interior_fill", "concavity"):
+            up.THRESHOLD_OVERRIDE = None
+            base = up._score(bundle, feats, ctype)[0][0]
+            up.THRESHOLD_OVERRIDE = 0.75
+            raised = up._score(bundle, feats, ctype)[0][0]
+            up.THRESHOLD_OVERRIDE = 0.10
+            lowered = up._score(bundle, feats, ctype)[0][0]
+            if not (base and lowered and not raised):
+                raise AssertionError(
+                    f"THRESHOLD_OVERRIDE does not reach the {ctype!r} branch of _score: "
+                    f"p=0.70 gave accepted={base} at the bundle default, {raised} at "
+                    f"override 0.75 (should be False) and {lowered} at 0.10 (should be "
+                    f"True). Measuring sensitivity now would understate it.")
+    finally:
+        up.THRESHOLD_OVERRIDE = saved
+    print("  override verified to reach interior_fill and the generic Pass 2 branch")
+
+
 def run(per_spec=4, shard=0, nshard=1):
+    _assert_override_reaches_every_branch()
     _install_memo()
     plan = frames(per_spec)
     todo = [(s, n) for s in TRIO for n in plan.get(s, [])]
