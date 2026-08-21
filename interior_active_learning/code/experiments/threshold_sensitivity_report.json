@@ -219,6 +219,17 @@
  },
  "n_frames": 9,
  "excluded_frames": 0,
+ "frame_density_at_lowest_threshold": {
+  "min": 73,
+  "max": 1665,
+  "median": 538
+ },
+ "planned_frames_with_no_data": [
+  "MAR_Amb_AS_ETD_0006",
+  "MAR_Amb_Cast_ETD_0005",
+  "MAR_Amb_HIP_ETD_0010"
+ ],
+ "exclusion_is_not_random_note": "Frames are excluded when they did not finish at every threshold. The slowest frames are the densest, so exclusion correlates with density and the sample is biased toward sparser frames.",
  "count_vs_area_sensitivity": {
   "MAR_Amb_AS": {
    "count_span": 1.346514745308311,

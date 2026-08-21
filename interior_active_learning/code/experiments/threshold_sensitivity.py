@@ -236,10 +236,12 @@ def report(paths=None):
     """Merge shard files and answer the two questions: how big, and does the order flip?"""
     import glob as _glob
     paths = paths or sorted(_glob.glob(OUT.replace(".json", ".shard*.json"))) or [OUT]
-    per_frame = []
+    per_frame, per_spec_seen = [], None
     for p in paths:
         try:
-            per_frame += json.load(open(p))["per_frame"]
+            d = json.load(open(p))
+            per_frame += d["per_frame"]
+            per_spec_seen = per_spec_seen or d.get("per_spec")
         except (OSError, ValueError, KeyError):
             continue
     if not per_frame:
@@ -257,6 +259,39 @@ def report(paths=None):
     if not complete:
         return None
 
+    # Disclose the DENSITY of the frames that made it in. Threshold sensitivity plausibly
+    # depends on how crowded a frame is -- more marginal regions, more to gain or lose --
+    # so a sample that happens to exclude the densest frames could understate the effect
+    # without anything in the table showing it. Incomplete frames are excluded for a
+    # mechanical reason (they did not finish), which is not random with respect to density:
+    # the densest frames are the slowest, so they are exactly the ones most likely to be
+    # missing. Saying so is the difference between a sample and a biased sample nobody
+    # mentioned.
+    # A frame that was never written at all is invisible to everything above: the loop
+    # only sees frames some shard recorded. So compare against the PLAN, which is
+    # deterministic, rather than against what happens to be on disk. Without this the
+    # report silently describes whatever finished and reads as though that was the design.
+    if per_spec_seen:
+        planned = [n for s_ in TRIO for n in frames(per_spec_seen).get(s_, [])]
+        got = {r["image"] for r in per_frame}
+        never = [n for n in planned if n not in got]
+        if never:
+            print(f"  {len(never)} planned frame(s) produced NO data at all and are absent "
+                  f"from every table below: {', '.join(never)}.")
+            out_never = never
+        else:
+            out_never = []
+    else:
+        out_never = None
+
+    dens = sorted(r["levels"][keys[0]]["n_cracks"] for r in complete)
+    print(f"  Frame density at t={keys[0]}: {dens[0]}-{dens[-1]} cracks, median "
+          f"{dens[len(dens) // 2]}.")
+    if dropped:
+        print(f"  The {dropped} excluded frame(s) did not finish, and the slowest frames "
+              f"are the DENSEST ones, so this sample is biased toward sparser frames. "
+              f"Treat the spans below as a lower bound if sensitivity rises with density.")
+
     METRICS = [("n_cracks", "crack count", 0),
                ("total_length_px", "total length px", 0),
                ("mean_length_px", "mean length px", 1),
@@ -268,7 +303,14 @@ def report(paths=None):
         return float(np.mean(vals)) if vals else None
 
     specs = [s for s in TRIO if any(r["specimen"] == s for r in complete)]
-    out = {"per_metric": {}, "n_frames": len(complete), "excluded_frames": dropped}
+    out = {"per_metric": {}, "n_frames": len(complete), "excluded_frames": dropped,
+           "frame_density_at_lowest_threshold": {"min": dens[0], "max": dens[-1],
+                                                 "median": dens[len(dens) // 2]},
+           "planned_frames_with_no_data": out_never,
+           "exclusion_is_not_random_note": (
+               "Frames are excluded when they did not finish at every threshold. The "
+               "slowest frames are the densest, so exclusion correlates with density and "
+               "the sample is biased toward sparser frames.")}
 
     for metric, label, nd in METRICS:
         print(f"{label}  (mean over frames, per specimen)")
