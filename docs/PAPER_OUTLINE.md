@@ -29,7 +29,7 @@ than documenting the fix.
 | 3 | Model promotion gated on an in-sample baseline | **+0.029** AUC bar that every honest candidate must clear | same |
 | 1b | **Sparsity sensitivity of result 1** | gap **+0.488 [+0.285, +0.689]** at 8.16% adjudicated, and **+0.490** at 0.163% — invariant across a 50× thinning; interval excludes zero at every level | `experiments/sparsity_sensitivity.py` |
 | 4 | Train/serve preprocessing skew | **13.8%** of labelled regions unreachable; 6 of 38 images contributed nothing | same |
-| 5 | Decision threshold inherited as a library default | crack count **1.28–1.41×** across 0.3–0.7; area fraction **1.02–1.17×**; within one specimen the count is **15× more sensitive** than the area; condition ordering **stable** | `experiments/threshold_sensitivity.py` |
+| 5 | Decision threshold inherited as a library default | crack count **1.28–1.41×** across 0.3–0.7; area fraction **1.02–1.17×**; the count is **2.1–3.8× more sensitive** than the area within a specimen; condition ordering **stable** | `experiments/threshold_sensitivity.py` |
 
 ### Result 1 generalises beyond this codebase
 
@@ -123,18 +123,33 @@ about, committed in the paper about it.
 Three things keep it from being a null result.
 
 **Which quantity is fragile is not the one you would guess.** Within a single specimen — same
-frames, same threshold move — crack count moves **28.0%** while area fraction moves **1.8%**:
-the count is **15× more sensitive**. Raising the threshold deletes marginal regions, which
-changes *how many objects there are* far more than *how much dark area there is*. A paper
-reporting crack **area fraction** is nearly immune to this choice; one reporting crack
-**density** — a count, and the more commonly published figure — is not. The two are routinely
-treated as interchangeable measures of "how cracked" a specimen is, and under an undocumented
-threshold they are not.
+frames, same threshold move — crack count moves 34.7% while area fraction moves 16.7% on
+`MAR_Amb_AS`, and 40.5% against 10.8% on `MAR_Amb_HIP`: the count is **2.1–3.8× more
+sensitive**. Raising the threshold deletes marginal regions, which changes *how many objects
+there are* more than *how much dark area there is*. A paper reporting crack **area fraction**
+is the more robust of the two; one reporting crack **density** — a count, and the more
+commonly published figure — is not. The two are routinely treated as interchangeable measures
+of "how cracked" a specimen is, and under an undocumented threshold they are not.
 
-**The movement is not evenly spread.** 19.8% of one specimen's total crack length goes in the
-single step from 0.6 to 0.7. An operating point can sit beside a step change that a
-range-averaged sensitivity figure would hide, which is the argument for publishing the curve
-rather than one ratio.
+> **A number in an earlier draft of this section was an artefact, and the mechanism is worth
+> keeping.** That draft said **15×**, taking the maximum of the ratio across specimens. But
+> the ratio's denominator is *how much the area moved*, so maximising it selects whichever
+> specimen's area moved least — and an area that barely moves can mean the area is robust or
+> that the area is mostly not crack. `MAR_Amb_Cast` reported a crack-area fraction of **20.3%
+> against ~3.7%** for the other two, because off-specimen background floods the lower frame on
+> those captures, a failure `unified_pipeline.py` already documents. That large,
+> threshold-insensitive non-crack region dilutes the area movement to 1.8% and inflates the
+> ratio to 15×. The screen is now a relative one — a specimen whose area fraction exceeds 3×
+> the across-specimen median is excluded and named — and the headline is the range over the
+> specimens that survive it. Selecting the extreme of a ratio is a way to report a
+> segmentation failure as a sensitivity result.
+
+**The movement is not evenly spread.** Among the specimens that pass the screen above, the
+largest single step is **10.4%** of `MAR_Amb_HIP`'s crack count, in the move from 0.6 to 0.7
+alone. An operating point can sit beside a step change that a range-averaged sensitivity
+figure would hide, which is the argument for publishing the curve rather than one ratio. (An
+earlier draft cited 19.8% of a total crack length; that was measured on the excluded specimen
+and inherited the same contamination.)
 
 **The sample is biased in a stated direction.** Nine frames, three per specimen, density
 73–1665 cracks (median 538). Three planned frames produced no data because they did not
