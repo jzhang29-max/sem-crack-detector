@@ -164,7 +164,22 @@ def measure_image(image_name):
 
     # Provenance beside every table. Without this, once a CSV leaves the machine no number
     # in it can be traced to a model, a threshold, or a calibration.
-    prov = _cal.provenance_header(image_name, PROD_MODEL_PATH, None)
+    # The threshold that actually decided, recorded PER CSV. It used to be passed as None,
+    # so provenance_header omitted the key entirely and the only record of the operating
+    # point was a single field in the batch run manifest -- one value for a whole directory.
+    # A directory written across two runs (or one forced run) then had no way to say which
+    # row came from which threshold. Read it the same way the pipeline does, so the sidecar
+    # cannot disagree with the code that produced the numbers.
+    try:
+        import unified_pipeline as _upx
+        if _upx.THRESHOLD_OVERRIDE is not None:
+            _thr = float(_upx.THRESHOLD_OVERRIDE)
+        else:
+            import joblib as _jl
+            _thr = float(_jl.load(PROD_MODEL_PATH).get("threshold", 0.5))
+    except Exception:
+        _thr = None
+    prov = _cal.provenance_header(image_name, PROD_MODEL_PATH, _thr)
     # Where the mask came from. A CSV whose regions were segmented by another tool but does
     # not say so is worse than no CSV: the numbers read as native to this pipeline.
     import external_mask as _em

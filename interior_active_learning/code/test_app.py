@@ -1608,6 +1608,142 @@ def main():
     check("two inputs sharing a basename are refused, not silently overwritten", _rc == 3,
           "every output file is named from the basename, so the last one would win")
 
+    # ---- seven defects found by an adversarial review of this CLI, each pinned ----
+    # None of these were caught by the tests written alongside the code, which is why the
+    # reproductions rather than the reasoning are what is asserted here.
+
+    # A value left in the caller's environment must not reach the detector. SEMCRACK_THRESHOLD
+    # is a private parent->child channel that used to be written only when --threshold was
+    # given, so an inherited value moved the detector while the manifest reported the
+    # bundle's own 0.5 and the fingerprint judged two different runs identical.
+    _envdir = os.path.join(_md, "envtest")
+    _e_clean = os.path.join(_md, "env_clean")
+    _e_dirty = os.path.join(_md, "env_dirty")
+    _rc, _ = _cli("--in", _cin, "--out", _e_clean, "--group-by", "none")
+    _env2 = dict(os.environ, SEMCRACK_THRESHOLD="0.99")
+    _r2 = _sp.run([_py, _CLI, "--in", _cin, "--out", _e_dirty, "--group-by", "none"],
+                  capture_output=True, text=True, env=_env2)
+
+    def _rows(d):
+        _p = os.path.join(d, "all_cracks.csv")
+        if not os.path.exists(_p):
+            return None
+        with open(_p) as fh:
+            return max(0, len(fh.readlines()) - 1)
+    check("an inherited SEMCRACK_THRESHOLD does not silently move the detector",
+          _rows(_e_clean) is not None and _rows(_e_clean) == _rows(_e_dirty),
+          f"clean env {_rows(_e_clean)} rows vs inherited 0.99 {_rows(_e_dirty)} rows; the "
+          f"manifest reports the bundle threshold either way, so they must agree")
+    # Every precondition below is asserted rather than used as an `if`. A missing artifact
+    # must FAIL these checks, not skip them -- the block exists to catch guards that cannot
+    # fail, and it had six of its own.
+    check("the inherited-threshold run produced a manifest to inspect",
+          os.path.exists(os.path.join(_e_dirty, "run_manifest.json")))
+    if os.path.exists(os.path.join(_e_dirty, "run_manifest.json")):
+        _md2 = json.load(open(os.path.join(_e_dirty, "run_manifest.json")))
+        check("the manifest's threshold is the one that actually decided",
+              _md2.get("threshold") == 0.5 and _md2.get("threshold_as_given") is None)
+
+    # A mistyped --corrections path must not be created empty and then reported as applied.
+    _typo = os.path.join(_md, "no_such_corrections")
+    _rc, _out = _cli("--in", _cin, "--out", os.path.join(_md, "corr_typo"),
+                     "--corrections", _typo)
+    check("a --corrections path that does not exist is refused, not created",
+          _rc == 2 and not os.path.exists(_typo),
+          "a run reporting corrections_applied=true having applied none is worse than one "
+          "that stops")
+    _emptyc = os.path.join(_md, "empty_corrections")
+    os.makedirs(_emptyc, exist_ok=True)
+    _rc, _ = _cli("--in", _cin, "--out", os.path.join(_md, "corr_empty"),
+                  "--corrections", _emptyc)
+    check("a --corrections directory holding no masks is refused", _rc == 2)
+
+    # Basenames collide by CASE on this filesystem, so the guard must fold case.
+    _casedir = os.path.join(_md, "casedir")
+    os.makedirs(_casedir, exist_ok=True)
+    shutil.copy(os.path.join(_cin, "cli_synth_00.tif"),
+                os.path.join(_casedir, "Blob_01.tif"))
+    shutil.copy(os.path.join(_cin, "cli_synth_00.tif"),
+                os.path.join(_casedir, "blob_01.tiff"))
+    check("the case-collision fixture really holds two files on this filesystem",
+          len(os.listdir(_casedir)) == 2,
+          f"{os.listdir(_casedir)} -- if the filesystem collapsed them the check below "
+          f"would silently not run")
+    if len(os.listdir(_casedir)) == 2:
+        _rc, _ = _cli("--in", _casedir, "--out", os.path.join(_md, "case_out"),
+                      "--glob", "*.tif*")
+        check("basenames that collide only by case are refused",
+              _rc == 3,
+              "both write the same CSV, so one would silently overwrite the other and "
+              "all_cracks.csv would count the survivor twice")
+
+    # A scale refusal must CLEAR a stale record, not merely decline to overwrite it.
+    # _mixdir, not _cin: this needs TWO images so one can be omitted from the scale CSV.
+    # Pointed at the one-image _cin the check could not express its own scenario, and the
+    # failure message said so -- units={'cli_synth_00': 'um'} with no second frame at all.
+    _stale_out = os.path.join(_md, "stale_out")
+    _cli("--in", _mixdir, "--out", _stale_out, "--um-per-px", "0.05", "--group-by", "none")
+    _sc1 = os.path.join(_md, "scale_only_00.csv")
+    with open(_sc1, "w") as fh:
+        fh.write("image,um_per_px\ncli_synth_00,0.05\n")
+    _rc, _ = _cli("--in", _mixdir, "--out", _stale_out, "--scale-csv", _sc1,
+                  "--group-by", "none", "--force")
+    _sm = os.path.join(_stale_out, "run_manifest.json")
+    check("the stale-calibration run produced a manifest", os.path.exists(_sm))
+    if os.path.exists(_sm):
+        _smj = json.load(open(_sm))
+        _kinds = {r["kind"] for r in _smj["refusals"]}
+        check("a stale calibration from an earlier run is cleared, not inherited",
+              "stale_calibration_cleared" in _kinds,
+              f"refusals={sorted(_kinds)}")
+        _u = {i["image"]: i.get("units") for i in _smj["images"]}
+        check("the image the scale CSV omits is measured in PIXELS, as the refusal says",
+              _u.get("cli_synth_01") == "px" and _smj.get("n_calibrated") == 1,
+              f"units={_u}, n_calibrated={_smj.get('n_calibrated')} -- the refusal used to "
+              f"say PIXELS while the CSV carried micrometre columns at the stale scale")
+        _p01 = os.path.join(_stale_out, "cli_synth_01_crack_measurements.csv")
+        check("the omitted image was still measured, in pixels", os.path.exists(_p01))
+        if os.path.exists(_p01):
+            with open(_p01) as fh:
+                _hdr = fh.readline()
+            check("and its CSV carries no micrometre columns",
+                  not [c for c in _hdr.strip().split(",") if c.endswith(("_um", "_um2"))],
+                  _hdr.strip()[:120])
+
+    # --force must RECORD the conflict rather than skip computing it.
+    # _mixdir again: with one image the "which half came from which threshold" question
+    # cannot even be posed, and the check below silently skipped on a missing file rather
+    # than failing -- a guard that cannot fail, in a block written to catch exactly that.
+    _fdir = os.path.join(_md, "force_out")
+    _cli("--in", _mixdir, "--out", _fdir, "--threshold", "0.05", "--group-by", "none")
+    _cli("--in", _mixdir, "--out", _fdir, "--threshold", "0.95", "--group-by", "none",
+         "--glob", "cli_synth_00.tif", "--force")
+    _fm = os.path.join(_fdir, "run_manifest.json")
+    check("the forced run produced a manifest", os.path.exists(_fm))
+    if os.path.exists(_fm):
+        _fmj = json.load(open(_fm))
+        _forced = [r for r in _fmj["refusals"] if r["kind"] == "config_conflict_forced"]
+        check("--force records the configuration conflict it overrode",
+              bool(_forced) and _forced[0].get("differing_keys") == ["threshold"],
+              "it used to skip the comparison entirely, so nothing could be recorded")
+        check("the superseded manifest is kept rather than destroyed",
+              bool(_forced) and _forced[0].get("previous_manifest_kept_as")
+              and os.path.exists(os.path.join(
+                  _fdir, _forced[0]["previous_manifest_kept_as"])))
+        # The deep fix: each CSV's own sidecar names the threshold that produced it, so a
+        # mixed directory stays readable per row rather than per directory.
+        _t00 = os.path.join(_fdir, "cli_synth_00_provenance.json")
+        _t01 = os.path.join(_fdir, "cli_synth_01_provenance.json")
+        _v00 = (json.load(open(_t00)).get("threshold")
+                if os.path.exists(_t00) else "SIDECAR MISSING")
+        _v01 = (json.load(open(_t01)).get("threshold")
+                if os.path.exists(_t01) else "SIDECAR MISSING")
+        check("each CSV's sidecar records the threshold that produced THAT csv",
+              _v00 == 0.95 and _v01 == 0.05,
+              f"cli_synth_00={_v00}, cli_synth_01={_v01}: without this the only record of "
+              f"the operating point was one manifest field for a whole directory, so a "
+              f"forced mixed run was unreadable per row")
+
     # The batch entry point must not have changed where the app itself reads and writes.
     check("the overrides are inert for the app: repo paths unchanged",
           ORIGINAL_DIR.endswith("/sem-crack-detector/original")
@@ -1747,6 +1883,10 @@ def main():
               not _up2._score(_tight, _ff, "interior_fill")[0][0],
               "dist_thr is a distance, not a probability; rescaling it would be meaningless")
 
+        # Explicitly cleared first: the loop above leaves THRESHOLD_OVERRIDE at its last
+        # value, and a non-None override REPLACES the floor -- so these checks would have
+        # been testing the override, not the rule, and the one that failed said so.
+        _up2.THRESHOLD_OVERRIDE = None
         # THE FLOOR MUST ACTUALLY REJECT. A diagnostic written while investigating this
         # counted `sum(1 for acc, _ in out)`, which counts every element rather than the
         # accepted ones, so "accepted" always equalled "proposed" and the branch looked
