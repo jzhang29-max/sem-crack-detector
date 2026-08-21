@@ -230,27 +230,34 @@
   "MAR_Amb_HIP_ETD_0010"
  ],
  "exclusion_is_not_random_note": "Frames are excluded when they did not finish at every threshold. The slowest frames are the densest, so exclusion correlates with density and the sample is biased toward sparser frames.",
+ "area_outlier_note": "A specimen whose crack-area fraction exceeds 3x the across-specimen median (3.81%) is treated as contaminated by the off-specimen background that unified_pipeline.py documents on the MAR Cast frames, and is excluded from the count-vs-area contrast: a large threshold-insensitive non-crack region dilutes the area movement and inflates the ratio.",
  "count_vs_area_sensitivity": {
   "MAR_Amb_AS": {
    "count_span": 1.346514745308311,
    "area_span": 1.167247346570371,
    "count_pct": 34.65147453083111,
    "area_pct": 16.7247346570371,
-   "times_more_sensitive": 2.071869912522119
+   "area_fraction_at_mid": 0.03675576296537958,
+   "times_more_sensitive": 2.071869912522119,
+   "area_fraction_is_outlier": false
   },
   "MAR_Amb_Cast": {
    "count_span": 1.2802653399668324,
    "area_span": 1.018448379554566,
    "count_pct": 28.026533996683245,
    "area_pct": 1.844837955456602,
-   "times_more_sensitive": 15.191867618392862
+   "area_fraction_at_mid": 0.20313510674572702,
+   "times_more_sensitive": 15.191867618392862,
+   "area_fraction_is_outlier": true
   },
   "MAR_Amb_HIP": {
    "count_span": 1.4052287581699345,
    "area_span": 1.1078431300452187,
    "count_pct": 40.522875816993455,
    "area_pct": 10.784313004521874,
-   "times_more_sensitive": 3.7575760087825874
+   "area_fraction_at_mid": 0.038063883781433105,
+   "times_more_sensitive": 3.7575760087825874,
+   "area_fraction_is_outlier": false
   }
  },
  "largest_single_step": {
@@ -261,16 +268,16 @@
    "rel_change": 0.10409889394925186
   },
   "total_length_px": {
-   "specimen": "MAR_Amb_Cast",
+   "specimen": "MAR_Amb_AS",
    "from_threshold": "0.6",
    "to_threshold": "0.7",
-   "rel_change": 0.19800325793071016
+   "rel_change": 0.07336284390083808
   },
   "mean_length_px": {
-   "specimen": "MAR_Amb_Cast",
+   "specimen": "MAR_Amb_HIP",
    "from_threshold": "0.6",
    "to_threshold": "0.7",
-   "rel_change": 0.11249285715540061
+   "rel_change": 0.09357101879311784
   },
   "area_fraction": {
    "specimen": "MAR_Amb_AS",
@@ -278,5 +285,8 @@
    "to_threshold": "0.7",
    "rel_change": 0.06485067209332733
   }
- }
+ },
+ "largest_single_step_excluded_specimens": [
+  "MAR_Amb_Cast"
+ ]
 }

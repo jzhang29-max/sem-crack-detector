@@ -361,16 +361,57 @@ def report(paths=None):
         # difference in how much each quantity actually moved.
         ratios[spec] = {"count_span": cs, "area_span": as_,
                         "count_pct": 100 * (cs - 1), "area_pct": 100 * (as_ - 1),
+                        "area_fraction_at_mid": a[len(a) // 2],
                         "times_more_sensitive": ((cs - 1) / (as_ - 1)) if as_ > 1 else None}
+
+    # THE RATIO HAS A TRAP, and taking max() over specimens walks straight into it. The
+    # denominator is how much the AREA moved, so the specimen reported as "most sensitive"
+    # is whichever one's area moved least -- and an area that barely moves can mean the area
+    # is robust, or it can mean the area is mostly not crack.
+    #
+    # unified_pipeline.py records that off-specimen background floods the lower frame on the
+    # MAR Cast captures. Such a region is large, dark and nowhere near the decision boundary,
+    # so it sits in the area total at every threshold and dilutes the fraction that actually
+    # moves. That inflates Cast's ratio to ~15x, which is a measurement of a segmentation
+    # failure, not of area fraction being robust.
+    #
+    # So flag any specimen whose crack-area fraction is a gross outlier against the others
+    # and exclude it from the headline, naming it. A relative test rather than an absolute
+    # one, because what counts as an implausible area fraction depends on the material.
+    if len(ratios) >= 3:
+        fracs = sorted(v["area_fraction_at_mid"] for v in ratios.values())
+        med = fracs[len(fracs) // 2]
+        for spec, v in ratios.items():
+            v["area_fraction_is_outlier"] = bool(med > 0 and
+                                                 v["area_fraction_at_mid"] > 3 * med)
+        out["area_outlier_note"] = (
+            f"A specimen whose crack-area fraction exceeds 3x the across-specimen median "
+            f"({100 * med:.2f}%) is treated as contaminated by the off-specimen background "
+            f"that unified_pipeline.py documents on the MAR Cast frames, and is excluded "
+            f"from the count-vs-area contrast: a large threshold-insensitive non-crack "
+            f"region dilutes the area movement and inflates the ratio.")
+    else:
+        for v in ratios.values():
+            v["area_fraction_is_outlier"] = None
+        out["area_outlier_note"] = (
+            "Fewer than 3 specimens, so no across-specimen outlier test was possible. The "
+            "count-vs-area ratio is reported unscreened and may be inflated by a specimen "
+            "whose area is mostly not crack.")
     out["count_vs_area_sensitivity"] = ratios
 
     # Where in the range does the movement happen? A quantity that slides gently is a
     # different problem from one with a cliff: the second means an operating point can sit
     # right beside a discontinuity, and averaging the range hides it.
+    # Exclude the same contaminated specimens here. A step change measured on a frame whose
+    # segmentation is flooded by off-specimen background describes the flooding, not the
+    # threshold, and it was previously the number this section reported.
+    _excluded = {sp for sp, v in ratios.items() if v.get("area_fraction_is_outlier")}
     steps = {}
     for metric, d in out["per_metric"].items():
         worst = None
         for spec, vals in d["per_specimen"].items():
+            if spec in _excluded:
+                continue
             for i in range(len(vals) - 1):
                 if vals[i] <= 0:
                     continue
@@ -381,6 +422,7 @@ def report(paths=None):
         if worst:
             steps[metric] = worst
     out["largest_single_step"] = steps
+    out["largest_single_step_excluded_specimens"] = sorted(_excluded)
     print("WHAT THIS MEANS")
     biggest = max(spans, key=lambda m: spans[m] or 0)
     smallest = min(spans, key=lambda m: spans[m] if spans[m] else 9e9)
@@ -416,23 +458,42 @@ def report(paths=None):
               f"'published comparisons are wrong'. Overstating this would be the same "
               f"error the paper is about.")
     if ratios:
-        best = max(ratios, key=lambda k: ratios[k]["times_more_sensitive"] or 0)
-        r = ratios[best]
-        if r["times_more_sensitive"]:
-            print(f"  Within a SINGLE specimen -- same frames, same threshold move -- the "
-                  f"contrast is starker than the worst-case comparison above. On {best}, "
-                  f"crack count moves {r['count_pct']:.1f}% while area fraction moves "
-                  f"{r['area_pct']:.1f}%: the count is "
-                  f"{r['times_more_sensitive']:.0f}x more sensitive to a choice nobody "
-                  f"records.")
+        print(f"  Count vs area, within each specimen (same frames, same threshold move):")
+        for spec in sorted(ratios):
+            r = ratios[spec]
+            flag = ("  EXCLUDED: area fraction "
+                    f"{100 * r['area_fraction_at_mid']:.1f}% is >3x the median, so this "
+                    f"area is mostly not crack" if r.get("area_fraction_is_outlier") else "")
+            tms = r["times_more_sensitive"]
+            ratio_txt = f"{tms:5.2f}x" if tms else "  n/a"
+            print(f"    {spec:16s} count +{r['count_pct']:5.1f}%  area "
+                  f"+{r['area_pct']:5.1f}%  ratio {ratio_txt}{flag}")
+        usable = [r for r in ratios.values()
+                  if r["times_more_sensitive"] and not r.get("area_fraction_is_outlier")]
+        if usable:
+            lo = min(r["times_more_sensitive"] for r in usable)
+            hi = max(r["times_more_sensitive"] for r in usable)
+            print(f"  So on the {len(usable)} specimen(s) whose area is actually crack, the "
+                  f"count is {lo:.1f}-{hi:.1f}x more sensitive to the threshold than the "
+                  f"area fraction is. Raising the threshold deletes marginal regions, which "
+                  f"changes how many objects there are more than how much dark area there "
+                  f"is. A paper reporting crack AREA FRACTION is the more robust of the two; "
+                  f"one reporting CRACK DENSITY, a count, is not, and they are routinely "
+                  f"treated as interchangeable.")
+            if len(usable) < len(ratios):
+                print(f"  The excluded specimen would have read "
+                      f"{max(r['times_more_sensitive'] for r in ratios.values() if r['times_more_sensitive']):.0f}x. "
+                      f"Reporting that number would have been reporting a segmentation "
+                      f"failure as a sensitivity result.")
     if steps:
         worst_metric = max(steps, key=lambda m: steps[m]["rel_change"])
         w = steps[worst_metric]
-        print(f"  The movement is also not evenly spread. The largest single step is "
-              f"{100 * w['rel_change']:.1f}% in {worst_metric} on {w['specimen']}, between "
-              f"t={w['from_threshold']} and t={w['to_threshold']} alone. An operating point "
-              f"can therefore sit next to a step change, which a range-averaged sensitivity "
-              f"figure would hide -- so report the curve, not one ratio.")
+        print(f"  The movement is also not evenly spread. The largest single step, among "
+              f"the specimens not excluded above, is {100 * w['rel_change']:.1f}% in "
+              f"{worst_metric} on {w['specimen']}, between t={w['from_threshold']} and "
+              f"t={w['to_threshold']} alone. An operating point can therefore sit next to a "
+              f"step change, which a range-averaged sensitivity figure would hide -- so "
+              f"report the curve, not one ratio.")
     print(f"  n = {len(specs)} specimen(s), one per condition, so the ordering itself is "
           f"NOT a material finding either way -- it is the object whose stability is under "
           f"test, not a result about the alloy.")
