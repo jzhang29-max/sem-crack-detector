@@ -1531,6 +1531,60 @@ def main():
           f"how a SUCCESSFUL calibration showed no colour while a failed one went red")
 
 
+    # ---------- 25. the threshold override must reach EVERY decision point ----------
+    print("\n[25] threshold override coverage")
+    import unified_pipeline as _up2
+
+    class _FakeClf:
+        def predict_proba(self, X):
+            return np.array([[0.30, 0.70]])       # one candidate at p=0.70
+
+    class _FakeScaler:
+        def transform(self, X):
+            return np.asarray(X, dtype=float)
+
+    _fb = {"clf": _FakeClf(), "scaler": _FakeScaler(), "threshold_default": 0.5,
+           "interior_fill_rule": {"floor": 0.65, "dist_thr": 1e9, "bri_thr": 1e9}}
+    _ff = [{c: 0.0 for c in _up2.INTERIOR_FEATURE_COLUMNS}]
+    _saved_ovr = _up2.THRESHOLD_OVERRIDE
+    try:
+        # interior_fill carries its OWN calibrated floor (0.65). It used to ignore the
+        # override entirely, so --threshold moved Pass 1 and two of three Pass 2 candidate
+        # types while this one stayed put -- and the sensitivity sweep therefore measured a
+        # partly frozen detector and understated the effect.
+        for _ct in ("interior_fill", "concavity", "bridge_corridor"):
+            _up2.THRESHOLD_OVERRIDE = None
+            _base = _up2._score(_fb, _ff, _ct)[0][0]
+            _up2.THRESHOLD_OVERRIDE = 0.75
+            _hi = _up2._score(_fb, _ff, _ct)[0][0]
+            _up2.THRESHOLD_OVERRIDE = 0.10
+            _lo = _up2._score(_fb, _ff, _ct)[0][0]
+            check(f"the override moves the {_ct!r} decision",
+                  bool(_base) and bool(_lo) and not _hi,
+                  f"p=0.70: default={_base}, at 0.75={_hi} (want False), "
+                  f"at 0.10={_lo} (want True)")
+        _up2.THRESHOLD_OVERRIDE = None
+        check("with no override the interior_fill floor is the bundle's own 0.65",
+              _up2._score(_fb, _ff, "interior_fill")[0][0] is True
+              and _up2._score({**_fb, "interior_fill_rule":
+                               {**_fb["interior_fill_rule"], "floor": 0.9}},
+                              _ff, "interior_fill")[0][0] is False,
+              "the override must not silently replace a calibrated rule when unset")
+        # The two feature gates are NOT thresholds on probability and must not be rescaled.
+        _tight = {**_fb, "interior_fill_rule": {"floor": 0.1, "dist_thr": -1.0,
+                                                "bri_thr": 1e9}}
+        _up2.THRESHOLD_OVERRIDE = 0.10
+        check("the override does not override the geometry gate",
+              _up2._score(_tight, _ff, "interior_fill")[0][0] is False,
+              "dist_thr is a distance, not a probability; rescaling it would be meaningless")
+    finally:
+        _up2.THRESHOLD_OVERRIDE = _saved_ovr
+
+    check("the app itself still sees no override",
+          _up2.THRESHOLD_OVERRIDE is None,
+          "this must be inert unless a caller deliberately sets it")
+
+
     print("\n[cleanup]")
     removed = 0
     for n in created:
