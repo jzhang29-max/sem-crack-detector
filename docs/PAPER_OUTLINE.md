@@ -29,6 +29,7 @@ than documenting the fix.
 | 3 | Model promotion gated on an in-sample baseline | **+0.029** AUC bar that every honest candidate must clear | same |
 | 1b | **Sparsity sensitivity of result 1** | gap **+0.488 [+0.285, +0.689]** at 8.16% adjudicated, and **+0.490** at 0.163% — invariant across a 50× thinning; interval excludes zero at every level | `experiments/sparsity_sensitivity.py` |
 | 4 | Train/serve preprocessing skew | **13.8%** of labelled regions unreachable; 6 of 38 images contributed nothing | same |
+| 5 | Decision threshold inherited as a library default | crack count **1.28–1.41×** across 0.3–0.7; area fraction **1.02–1.17×**; within one specimen the count is **15× more sensitive** than the area; condition ordering **stable** | `experiments/threshold_sensitivity.py` |
 
 ### Result 1 generalises beyond this codebase
 
@@ -105,6 +106,42 @@ stays stable. The interval is dominated by **between-image variance at n=10**, n
 within-image sampling. The consequence is a labelling instruction that reverses the intuitive
 one: *to tighten the interval, mark not-crack on more IMAGES; marking existing images more
 thoroughly will not do it.*
+
+### Result 5 is a partial negative, and that is how it is reported
+
+Both passes accept a region when its probability clears a threshold. The shipped bundle
+carries **no threshold key**, so `bundle.get("threshold", 0.5)` returns the fallback and the
+operating point under every number in this repository is **0.5 by omission** — not a
+calibration decision, and absent from every figure it produces.
+
+The falsifiable prediction was that the ordering of the three superalloy conditions
+(AS / Cast / HIP, one specimen each) would flip somewhere in 0.3–0.7. **It did not**, on any
+of four quantities. So the honest claim is *state your threshold and report its sensitivity*,
+not *published comparisons are wrong*. Overstating this would be the same error the paper is
+about, committed in the paper about it.
+
+Three things keep it from being a null result.
+
+**Which quantity is fragile is not the one you would guess.** Within a single specimen — same
+frames, same threshold move — crack count moves **28.0%** while area fraction moves **1.8%**:
+the count is **15× more sensitive**. Raising the threshold deletes marginal regions, which
+changes *how many objects there are* far more than *how much dark area there is*. A paper
+reporting crack **area fraction** is nearly immune to this choice; one reporting crack
+**density** — a count, and the more commonly published figure — is not. The two are routinely
+treated as interchangeable measures of "how cracked" a specimen is, and under an undocumented
+threshold they are not.
+
+**The movement is not evenly spread.** 19.8% of one specimen's total crack length goes in the
+single step from 0.6 to 0.7. An operating point can sit beside a step change that a
+range-averaged sensitivity figure would hide, which is the argument for publishing the curve
+rather than one ratio.
+
+**The sample is biased in a stated direction.** Nine frames, three per specimen, density
+73–1665 cracks (median 538). Three planned frames produced no data because they did not
+finish, and the slowest frames are the *densest* — so exclusion correlates with the variable
+most likely to drive sensitivity. If sensitivity rises with density these spans are a lower
+bound. Partial evidence from the densest frame available (2,675 cracks) gives 1.26× over four
+of five levels, in line with the completed nine; it is excluded rather than partially counted.
 
 ### Why result 2 is worse than it looks
 
