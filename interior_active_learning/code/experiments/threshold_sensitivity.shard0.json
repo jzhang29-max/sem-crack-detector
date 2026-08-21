@@ -7,7 +7,8 @@
   0.7
  ],
  "production": 0.5,
- "per_spec": 4,
+ "per_spec": 3,
+ "n_frames_done": 3,
  "per_frame": [
   {
    "specimen": "MAR_Amb_AS",
@@ -125,11 +126,11 @@
      "max_length_is_censored": true
     },
     "0.4": {
-     "n_cracks": 1553,
-     "total_length_px": 74485.0,
-     "mean_length_px": 47.96200901481004,
+     "n_cracks": 1554,
+     "total_length_px": 74492.0,
+     "mean_length_px": 47.935649935649934,
      "max_length_px": 17530.0,
-     "area_fraction": 0.07658930619557698,
+     "area_fraction": 0.07658966382344563,
      "n_censored": 11,
      "max_length_is_censored": true
     },
@@ -143,11 +144,11 @@
      "max_length_is_censored": true
     },
     "0.6": {
-     "n_cracks": 1337,
-     "total_length_px": 70376.0,
-     "mean_length_px": 52.637247569184744,
+     "n_cracks": 1339,
+     "total_length_px": 70387.0,
+     "mean_length_px": 52.56684092606422,
      "max_length_px": 17577.0,
-     "area_fraction": 0.07518096764882405,
+     "area_fraction": 0.0751815636952718,
      "n_censored": 10,
      "max_length_is_censored": true
     },
