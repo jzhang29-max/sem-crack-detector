@@ -1241,27 +1241,69 @@ def main():
     _md = _tf.mkdtemp()
 
     def _vendor_tif(tag, block, w=2048):
-        _p = os.path.join(_md, f"v{tag}_{abs(hash(block)) % 99999}.tif")
+        # width in the name: same block at two widths must not share a file
+        _p = os.path.join(_md, f"v{tag}_{w}_{abs(hash(block)) % 99999}.tif")
         _im = Image.fromarray(np.zeros((64, w), np.uint8))
         _info = _TP.ImageFileDirectory_v2()
         _info[tag] = block
         _im.save(_p, tiffinfo=_info)
         return _p
 
-    # metres vs micrometres is a factor of a million; the key decides, never the magnitude
-    _fei_m = _cal2.read_instrument_metadata(
-        _vendor_tif(34682, "[EBeam]\nHorizontalFieldWidth=2.048e-4\n"))
-    _fei_um = _cal2.read_instrument_metadata(_vendor_tif(34683, "[EBeam]\nHFW=204.8\n"))
-    _zeiss = _cal2.read_instrument_metadata(
-        _vendor_tif(34118, "AP_IMAGE_PIXEL_SIZE = 0.05\n"))
-    check("an FEI field width in metres reads as um/px",
-          _fei_m and abs(_fei_m["um_per_px"] - 0.1) < 1e-9,
-          f"2.048e-4 m over 2048 px -> {_fei_m and _fei_m['um_per_px']}")
-    check("an FEI field width already in um reads the same",
-          _fei_um and abs(_fei_um["um_per_px"] - 0.1) < 1e-9,
-          "the key's meaning fixes the unit, not which magnitude looks plausible")
-    check("a ZEISS pixel size reads directly",
-          _zeiss and abs(_zeiss["um_per_px"] - 0.05) < 1e-9)
+    # THE UNIT IS NEVER PICKED BY MAGNITUDE. This block previously asserted the opposite
+    # of what it claimed: it checked that a unitless FEI "HFW=204.8" read as 204.8 um,
+    # while the code was deciding metres-vs-micrometres with `val < 1e-3`. That heuristic
+    # was wrong in both directions -- a routine 2 mm overview field (0.002 m) came out
+    # 1e6 too small, and 0.00104 m, the case the module docstring cites, was refused.
+    # A stated unit wins; with none stated the tag block's documented SI convention
+    # applies; an implausible RESULT is refused rather than reinterpreted.
+    def _md_read(tag, block, w=2048):
+        return _cal2.read_instrument_metadata(_vendor_tif(tag, block, w))
+
+    _cases = [
+        ("field width in metres",            34682, "[EBeam]\nHorizontalFieldWidth=2.048e-4\n", 2048, 0.1),
+        ("a 2 mm overview field",            34682, "[EBeam]\nHorizontalFieldWidth=0.002\n",    1536, 2000 / 1536),
+        ("the 1.04 mm frame in the docs",    34682, "[EBeam]\nHorizontalFieldWidth=0.00104\n",  6144, 1040 / 6144),
+        ("1e-3 exactly, the old cliff edge", 34682, "[EBeam]\nHorizontalFieldWidth=0.001\n",    1024, 1000 / 1024),
+        ("just below the old cliff",         34682, "[EBeam]\nHorizontalFieldWidth=0.0009999\n", 1024, 999.9 / 1024),
+        ("a pixel size, not a field width",  34682, "[Scan]\nPixelWidth=1.0e-7\n",              2048, 0.1),
+        ("a stated unit is believed",        34683, "[EBeam]\nHFW=204.8 um\n",                  2048, 0.1),
+        ("a stated unit with no space",      34683, "[EBeam]\nHFW=204.8um\n",                   2048, 0.1),
+        ("millimetres, stated",              34682, "[EBeam]\nHorizontalFieldWidth=1.04 mm\n",  6144, 1040 / 6144),
+        ("a ZEISS pixel size in metres",     34118, "AP_IMAGE_PIXEL_SIZE = 5e-8\n",             2048, 0.05),
+        ("a ZEISS pixel size in nm",         34118, "AP_IMAGE_PIXEL_SIZE = 2.5 nm\n",           2048, 0.0025),
+    ]
+    _wrong = []
+    for _lbl, _tg, _blk, _w, _exp in _cases:
+        _got = _md_read(_tg, _blk, _w)
+        if not (_got and abs(_got["um_per_px"] - _exp) / _exp < 1e-9):
+            _wrong.append(f"{_lbl}: got {_got and _got['um_per_px']}, want {_exp}")
+    check("every vendor form reads to the right pixel size",
+          not _wrong, "; ".join(_wrong) if _wrong else f"{len(_cases)} forms, incl. both "
+          f"sides of the 1e-3 boundary the old magnitude test broke on")
+
+    # An unstated unit is a CONVENTION, and applying it can produce nonsense. Nonsense must
+    # be refused, never quietly reinterpreted as the other unit -- reinterpreting is the
+    # magnitude heuristic again, and it turns a loud refusal into a silent wrong answer.
+    _absurd = [("a unitless 204.8 read as metres", 34683, "[EBeam]\nHFW=204.8\n"),
+               ("a 100 m field",   34682, "[EBeam]\nHorizontalFieldWidth=100\n"),
+               ("a negative width", 34682, "[EBeam]\nHorizontalFieldWidth=-2e-4\n"),
+               ("zero",            34682, "[EBeam]\nHorizontalFieldWidth=0\n"),
+               ("not a number",    34682, "[EBeam]\nHorizontalFieldWidth=abc\n")]
+    _leaked = [l for l, t, b in _absurd if _md_read(t, b) is not None]
+    check("an implausible result is refused, not reinterpreted as the other unit",
+          not _leaked, f"{_leaked} were accepted" if _leaked else
+          "including a unitless 204.8, which under the tag's metre convention is 1e5 um/px")
+
+    _prov = _md_read(34682, "[EBeam]\nHorizontalFieldWidth=2.048e-4\n")
+    check("the record says which unit was used and whether it was assumed",
+          _prov and _prov["detail"].get("unit_used") == "m"
+          and _prov["detail"].get("unit_was_assumed") is True
+          and _prov["detail"].get("unit_stated_in_file") is None,
+          "a reader must be able to see that the unit came from a convention, not the file")
+    _stated = _md_read(34683, "[EBeam]\nHFW=204.8 um\n")
+    check("a unit read from the file is recorded as not assumed",
+          _stated and _stated["detail"].get("unit_was_assumed") is False
+          and _stated["detail"].get("unit_stated_in_file") == "um")
 
     _plain = os.path.join(_md, "plain.tif")
     Image.fromarray(np.zeros((8, 8), np.uint8)).save(_plain)

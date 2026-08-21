@@ -53,6 +53,7 @@ the same reason: a silent default is indistinguishable from a real measurement.
 import json
 import math
 import os
+import re as _re
 import time
 
 from common import PAINT_DIR, VERSION, save_json_atomic
@@ -174,8 +175,66 @@ def set_from_hfw(image_name, hfw_um, image_width_px):
 #: parser.
 _FEI_TAGS = (34682, 34683)          # FEI_HELIOS / FEI_TITAN INI blocks
 _ZEISS_TAG = 34118                  # ZEISS CZ_SEM
+#: Keys that give a PIXEL SIZE directly. Everything else in _HFW_KEYS is a field WIDTH
+#: and must be divided by the image width in pixels.
+_PIXEL_SIZE_KEYS = ("PixelWidth", "AP_IMAGE_PIXEL_SIZE", "ap_image_pixel_size")
+
 _HFW_KEYS = ("HorizontalFieldWidth", "HFW", "Width", "PixelWidth", "AP_WIDTH",
              "AP_IMAGE_PIXEL_SIZE", "ap_image_pixel_size")
+
+#: Multipliers onto micrometres, for a unit written next to the value.
+_UNIT_TO_UM = {"m": 1e6, "meter": 1e6, "meters": 1e6, "metre": 1e6, "metres": 1e6,
+               "mm": 1e3, "um": 1.0, "\u00b5m": 1.0, "\u03bcm": 1.0,
+               "micron": 1.0, "microns": 1.0, "micrometer": 1.0, "micrometre": 1.0,
+               "nm": 1e-3, "pm": 1e-6, "a": 1e-4, "\u00c5": 1e-4}
+
+#: Unit assumed when the file states none. FEI/Thermo and ZEISS both write SI base units in
+#: these blocks, so the assumption is METRES -- a documented convention, not a guess about
+#: which magnitude looks plausible.
+_ASSUMED_UNIT = "m"
+
+#: Plausible pixel sizes for an electron micrograph, in um/px. 1e-4 um is 0.1 nm, finer
+#: than any SEM resolves; 1e3 um/px is a millimetre per pixel, coarser than any SEM frame.
+#: A result outside this is REFUSED rather than stored, because the alternative to refusing
+#: is exporting a length that is wrong by orders of magnitude with calibrated=true beside
+#: it.
+_PLAUSIBLE_UM_PER_PX = (1e-4, 1e3)
+
+
+#: "204.8um" with no space between number and unit.
+_re_unit = _re.compile(r"^\s*([-+0-9.eE]+)\s*([A-Za-z\u00b5\u03bc\u00c5]+)\s*$")
+
+
+def _value_and_unit(raw):
+    """Split "2.048e-4 m" into (0.0002048, 'm'), or (value, None) when no unit is written.
+
+    A vendor block may state its unit or not, and the two cases must be handled
+    differently: a stated unit is evidence, an absent one is a convention. Conflating them
+    is how a magnitude heuristic gets written.
+    """
+    txt = str(raw).strip()
+    # The glued form FIRST. float("204.8um") raises, so parsing the leading whitespace
+    # token before trying this regex threw the whole value away and the reader silently
+    # skipped a key that states its unit perfectly well.
+    m = _re_unit.match(txt)
+    if m:
+        cand = m.group(2).strip().rstrip(".,;").lower()
+        if cand in _UNIT_TO_UM:
+            try:
+                return float(m.group(1)), cand
+            except (TypeError, ValueError):
+                return None, None
+    parts = txt.split()
+    try:
+        val = float(parts[0])
+    except (TypeError, ValueError, IndexError):
+        return None, None
+    unit = None
+    if len(parts) > 1:
+        cand = parts[1].strip().rstrip(".,;").lower()
+        if cand in _UNIT_TO_UM:
+            unit = cand
+    return val, unit
 
 
 def read_instrument_metadata(image_path):
@@ -197,7 +256,17 @@ def read_instrument_metadata(image_path):
     measurement and said nothing -- and it happened to the data before any of this code
     ran.
 
-    Returns {"um_per_px": float, "source": str, "detail": dict} or None.
+    HOW THE UNIT IS DECIDED, since getting this wrong is a factor-of-a-million error:
+    a unit written next to the value is believed; with none written, the SI convention of
+    the tag block applies (FEI/Thermo and ZEISS both write metres); and a resulting pixel
+    size outside 1e-4 to 1e3 um/px is REFUSED rather than reinterpreted as the other unit.
+    Reinterpreting would be a magnitude heuristic, which is what this function used to do
+    and what made it wrong in both directions -- a 2 mm overview field read 1e6 too small,
+    and the 1.04 mm frame cited above was rejected outright.
+
+    Returns {"um_per_px": float, "source": str, "detail": dict} or None. The detail records
+    unit_used, unit_stated_in_file and unit_was_assumed, so a reader can tell a convention
+    from evidence.
     """
     try:
         from PIL import Image
@@ -226,25 +295,42 @@ def read_instrument_metadata(image_path):
             raw = kv.get(key)
             if raw is None:
                 continue
-            try:
-                val = float(str(raw).split()[0])
-            except (TypeError, ValueError):
+            val, unit = _value_and_unit(raw)
+            if val is None or not (val > 0):
                 continue
-            if not (val > 0):
+
+            # THE UNIT IS NEVER CHOSEN BY MAGNITUDE. An earlier version of this decided
+            # metres-vs-micrometres with `val < 1e-3`, which is precisely the heuristic the
+            # comment claimed it avoided, and it was wrong in both directions: an FEI
+            # HorizontalFieldWidth of 0.002 (a routine 2 mm overview field, in metres) came
+            # out as 0.002 um and stored a pixel size 1e6 too small, while 0.00104 -- the
+            # 1.04 mm frame this module's own docstring cites -- was rejected outright. A
+            # stated unit is used; when none is stated the tag's documented convention
+            # applies; and an implausible RESULT is refused rather than reinterpreted.
+            scale = _UNIT_TO_UM[unit] if unit else _UNIT_TO_UM[_ASSUMED_UNIT]
+            as_um = val * scale
+            um_per_px = as_um if key in _PIXEL_SIZE_KEYS else as_um / width_px
+
+            lo, hi = _PLAUSIBLE_UM_PER_PX
+            if not (lo < um_per_px < hi):
+                # Do NOT try the other unit to see if it looks better. That is the
+                # magnitude heuristic again, and it turns a loud refusal into a quiet
+                # wrong answer.
                 continue
-            # FEI records metres. A "HorizontalFieldWidth" of 0.0002 is 200 um, not
-            # 0.0002 um, and mistaking one for the other is a 1e6 error -- so the unit is
-            # decided by the key's own meaning, never by which magnitude looks plausible.
-            if key in ("PixelWidth", "AP_IMAGE_PIXEL_SIZE", "ap_image_pixel_size"):
-                um_per_px = val * 1e6 if val < 1e-3 else val
-            else:
-                hfw_um = val * 1e6 if val < 1e-3 else val
-                um_per_px = hfw_um / width_px
-            if 1e-6 < um_per_px < 1e4:
-                return {"um_per_px": float(um_per_px),
-                        "source": f"instrument_metadata:tag{tag}:{key}",
-                        "detail": {"tiff_tag": tag, "key": key, "raw": str(raw)[:80],
-                                   "image_width_px": width_px}}
+            return {"um_per_px": float(um_per_px),
+                    "source": f"instrument_metadata:tag{tag}:{key}",
+                    "detail": {"tiff_tag": tag, "key": key, "raw": str(raw)[:80],
+                               "image_width_px": width_px,
+                               "value_as_written": val,
+                               "unit_stated_in_file": unit,
+                               "unit_used": unit or _ASSUMED_UNIT,
+                               "unit_was_assumed": unit is None,
+                               "is_pixel_size_key": key in _PIXEL_SIZE_KEYS,
+                               "unit_note": (
+                                   f"the file states no unit, so the {_ASSUMED_UNIT!r} "
+                                   f"convention of this tag block was assumed"
+                                   if unit is None else
+                                   f"unit {unit!r} was read from the file")}}
     return None
 
 
