@@ -1,0 +1,166 @@
+{
+ "thresholds": [
+  0.3,
+  0.4,
+  0.5,
+  0.6,
+  0.7
+ ],
+ "production": 0.5,
+ "per_spec": 4,
+ "per_frame": [
+  {
+   "specimen": "MAR_Amb_AS",
+   "image": "MAR_Amb_AS_CBS_0004",
+   "levels": {
+    "0.3": {
+     "n_cracks": 731,
+     "total_length_px": 63754.0,
+     "mean_length_px": 87.21477428180575,
+     "max_length_px": 3946.0,
+     "area_fraction": 0.029384175936381023,
+     "n_censored": 17,
+     "max_length_is_censored": false
+    },
+    "0.4": {
+     "n_cracks": 692,
+     "total_length_px": 57591.0,
+     "mean_length_px": 83.22398843930635,
+     "max_length_px": 2906.0,
+     "area_fraction": 0.02606344223022461,
+     "n_censored": 17,
+     "max_length_is_censored": false
+    },
+    "0.5": {
+     "n_cracks": 650,
+     "total_length_px": 55234.0,
+     "mean_length_px": 84.97538461538461,
+     "max_length_px": 2906.0,
+     "area_fraction": 0.02540445327758789,
+     "n_censored": 17,
+     "max_length_is_censored": false
+    },
+    "0.6": {
+     "n_cracks": 588,
+     "total_length_px": 51949.0,
+     "mean_length_px": 88.34863945578232,
+     "max_length_px": 3121.0,
+     "area_fraction": 0.023614803949991863,
+     "n_censored": 13,
+     "max_length_is_censored": false
+    },
+    "0.7": {
+     "n_cracks": 514,
+     "total_length_px": 47147.0,
+     "mean_length_px": 91.72568093385215,
+     "max_length_px": 2321.0,
+     "area_fraction": 0.021112958590189617,
+     "n_censored": 11,
+     "max_length_is_censored": false
+    }
+   }
+  },
+  {
+   "specimen": "MAR_Amb_Cast",
+   "image": "MAR_Amb_Cast_CBS_0004",
+   "levels": {
+    "0.3": {
+     "n_cracks": 749,
+     "total_length_px": 153637.0,
+     "mean_length_px": 205.12283044058745,
+     "max_length_px": 92506.0,
+     "area_fraction": 0.25528685251871747,
+     "n_censored": 15,
+     "max_length_is_censored": true
+    },
+    "0.4": {
+     "n_cracks": 706,
+     "total_length_px": 151936.0,
+     "mean_length_px": 215.20679886685554,
+     "max_length_px": 92550.0,
+     "area_fraction": 0.2546958128611247,
+     "n_censored": 13,
+     "max_length_is_censored": true
+    },
+    "0.5": {
+     "n_cracks": 654,
+     "total_length_px": 150918.0,
+     "mean_length_px": 230.76146788990826,
+     "max_length_px": 92658.0,
+     "area_fraction": 0.2543038527170817,
+     "n_censored": 13,
+     "max_length_is_censored": true
+    },
+    "0.6": {
+     "n_cracks": 601,
+     "total_length_px": 151123.0,
+     "mean_length_px": 251.45257903494178,
+     "max_length_px": 97078.0,
+     "area_fraction": 0.2540404001871745,
+     "n_censored": 11,
+     "max_length_is_censored": true
+    },
+    "0.7": {
+     "n_cracks": 554,
+     "total_length_px": 110947.0,
+     "mean_length_px": 200.26534296028882,
+     "max_length_px": 59652.0,
+     "area_fraction": 0.2492141326268514,
+     "n_censored": 9,
+     "max_length_is_censored": true
+    }
+   }
+  },
+  {
+   "specimen": "MAR_Amb_HIP",
+   "image": "MAR_Amb_HIP_CBS_0007",
+   "levels": {
+    "0.3": {
+     "n_cracks": 73,
+     "total_length_px": 17482.0,
+     "mean_length_px": 239.4794520547945,
+     "max_length_px": 4303.0,
+     "area_fraction": 0.027520497639973957,
+     "n_censored": 7,
+     "max_length_is_censored": false
+    },
+    "0.4": {
+     "n_cracks": 70,
+     "total_length_px": 15689.0,
+     "mean_length_px": 224.12857142857143,
+     "max_length_px": 2065.0,
+     "area_fraction": 0.025474071502685547,
+     "n_censored": 7,
+     "max_length_is_censored": false
+    },
+    "0.5": {
+     "n_cracks": 63,
+     "total_length_px": 14869.0,
+     "mean_length_px": 236.015873015873,
+     "max_length_px": 2065.0,
+     "area_fraction": 0.02421251932779948,
+     "n_censored": 5,
+     "max_length_is_censored": false
+    },
+    "0.6": {
+     "n_cracks": 62,
+     "total_length_px": 12843.0,
+     "mean_length_px": 207.1451612903226,
+     "max_length_px": 2106.0,
+     "area_fraction": 0.022102991739908855,
+     "n_censored": 4,
+     "max_length_is_censored": false
+    },
+    "0.7": {
+     "n_cracks": 55,
+     "total_length_px": 12495.0,
+     "mean_length_px": 227.1818181818182,
+     "max_length_px": 2106.0,
+     "area_fraction": 0.021445751190185547,
+     "n_censored": 3,
+     "max_length_is_censored": false
+    }
+   }
+  }
+ ]
+}

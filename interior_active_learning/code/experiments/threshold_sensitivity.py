@@ -302,11 +302,63 @@ def report(paths=None):
 
     flips = [m for m, d in out["per_metric"].items() if not d["ranking_stable"]]
     spans = {m: d["worst_span_ratio"] for m, d in out["per_metric"].items()}
+
+    # WITHIN one specimen, how much more sensitive is the count than the area? Comparing
+    # worst-case spans across metrics is apples to apples but mixes specimens, and the
+    # sharper comparison is the one a single paper would actually make about a single
+    # material: the same frames, the same threshold move, two quantities.
+    ratios = {}
+    for spec in specs:
+        c = out["per_metric"].get("n_cracks", {}).get("per_specimen", {}).get(spec)
+        a = out["per_metric"].get("area_fraction", {}).get("per_specimen", {}).get(spec)
+        if not c or not a or min(c) <= 0 or min(a) <= 0:
+            continue
+        cs, as_ = max(c) / min(c), max(a) / min(a)
+        # Excess movement over unity: a span of 1.28 is 28% of movement, and 1.018 is 1.8%.
+        # Dividing the spans themselves (1.28/1.018 = 1.26) badly understates a 15x
+        # difference in how much each quantity actually moved.
+        ratios[spec] = {"count_span": cs, "area_span": as_,
+                        "count_pct": 100 * (cs - 1), "area_pct": 100 * (as_ - 1),
+                        "times_more_sensitive": ((cs - 1) / (as_ - 1)) if as_ > 1 else None}
+    out["count_vs_area_sensitivity"] = ratios
+
+    # Where in the range does the movement happen? A quantity that slides gently is a
+    # different problem from one with a cliff: the second means an operating point can sit
+    # right beside a discontinuity, and averaging the range hides it.
+    steps = {}
+    for metric, d in out["per_metric"].items():
+        worst = None
+        for spec, vals in d["per_specimen"].items():
+            for i in range(len(vals) - 1):
+                if vals[i] <= 0:
+                    continue
+                ch = abs(vals[i + 1] - vals[i]) / vals[i]
+                if worst is None or ch > worst["rel_change"]:
+                    worst = {"specimen": spec, "from_threshold": keys[i],
+                             "to_threshold": keys[i + 1], "rel_change": ch}
+        if worst:
+            steps[metric] = worst
+    out["largest_single_step"] = steps
     print("WHAT THIS MEANS")
     biggest = max(spans, key=lambda m: spans[m] or 0)
+    smallest = min(spans, key=lambda m: spans[m] if spans[m] else 9e9)
     print(f"  Largest movement in any published quantity: {spans[biggest]:.2f}x "
           f"({biggest}) across a threshold range of {min(THRESHOLDS)}-{max(THRESHOLDS)}, "
           f"a number that appears in no figure.")
+    # WHICH quantity is sensitive matters more than that some quantity is. Moving the
+    # threshold mostly adds and removes small marginal regions: that changes how many
+    # objects there are a great deal and how much dark area there is very little. So the
+    # robust quantity and the fragile one are not interchangeable, and "crack density" --
+    # a count per unit area, the thing a materials paper reports -- is the fragile one.
+    if biggest != smallest and spans[smallest]:
+        print(f"  The spread across quantities is the useful part: {biggest} moves "
+              f"{spans[biggest]:.2f}x while {smallest} moves only {spans[smallest]:.2f}x. "
+              f"Raising the threshold removes marginal regions, which changes HOW MANY "
+              f"objects there are far more than HOW MUCH dark area there is. So a paper "
+              f"reporting crack AREA FRACTION is nearly immune to this choice, and a paper "
+              f"reporting CRACK DENSITY -- a count, and the more common figure -- is not. "
+              f"Those two are not interchangeable and the threshold has to be stated "
+              f"alongside the second one.")
     if flips:
         print(f"  The ordering of the conditions FLIPS for: {', '.join(flips)}. A "
               f"comparison a paper exists to make is therefore decided by an undocumented "
@@ -321,6 +373,24 @@ def report(paths=None):
         print(f"  So the claim is 'state your threshold and report sensitivity', not "
               f"'published comparisons are wrong'. Overstating this would be the same "
               f"error the paper is about.")
+    if ratios:
+        best = max(ratios, key=lambda k: ratios[k]["times_more_sensitive"] or 0)
+        r = ratios[best]
+        if r["times_more_sensitive"]:
+            print(f"  Within a SINGLE specimen -- same frames, same threshold move -- the "
+                  f"contrast is starker than the worst-case comparison above. On {best}, "
+                  f"crack count moves {r['count_pct']:.1f}% while area fraction moves "
+                  f"{r['area_pct']:.1f}%: the count is "
+                  f"{r['times_more_sensitive']:.0f}x more sensitive to a choice nobody "
+                  f"records.")
+    if steps:
+        worst_metric = max(steps, key=lambda m: steps[m]["rel_change"])
+        w = steps[worst_metric]
+        print(f"  The movement is also not evenly spread. The largest single step is "
+              f"{100 * w['rel_change']:.1f}% in {worst_metric} on {w['specimen']}, between "
+              f"t={w['from_threshold']} and t={w['to_threshold']} alone. An operating point "
+              f"can therefore sit next to a step change, which a range-averaged sensitivity "
+              f"figure would hide -- so report the curve, not one ratio.")
     print(f"  n = {len(specs)} specimen(s), one per condition, so the ordering itself is "
           f"NOT a material finding either way -- it is the object whose stability is under "
           f"test, not a result about the alloy.")

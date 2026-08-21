@@ -1,0 +1,271 @@
+{
+ "per_metric": {
+  "n_cracks": {
+   "per_specimen": {
+    "MAR_Amb_AS": [
+     669.6666666666666,
+     637.6666666666666,
+     599.6666666666666,
+     555.0,
+     497.3333333333333
+    ],
+    "MAR_Amb_Cast": [
+     514.6666666666666,
+     487.3333333333333,
+     461.6666666666667,
+     430.6666666666667,
+     402.0
+    ],
+    "MAR_Amb_HIP": [
+     645.0,
+     601.0,
+     555.6666666666666,
+     512.3333333333334,
+     459.0
+    ]
+   },
+   "orderings": {
+    "0.3": [
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP",
+     "MAR_Amb_Cast"
+    ],
+    "0.4": [
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP",
+     "MAR_Amb_Cast"
+    ],
+    "0.5": [
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP",
+     "MAR_Amb_Cast"
+    ],
+    "0.6": [
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP",
+     "MAR_Amb_Cast"
+    ],
+    "0.7": [
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP",
+     "MAR_Amb_Cast"
+    ]
+   },
+   "ranking_stable": true,
+   "worst_span_ratio": 1.4052287581699345
+  },
+  "total_length_px": {
+   "per_specimen": {
+    "MAR_Amb_AS": [
+     46328.333333333336,
+     43918.666666666664,
+     43035.0,
+     41642.333333333336,
+     38587.333333333336
+    ],
+    "MAR_Amb_Cast": [
+     81826.66666666667,
+     80778.66666666667,
+     79980.0,
+     79396.0,
+     63675.333333333336
+    ],
+    "MAR_Amb_HIP": [
+     36084.666666666664,
+     34111.333333333336,
+     33230.0,
+     31509.0,
+     29806.666666666668
+    ]
+   },
+   "orderings": {
+    "0.3": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP"
+    ],
+    "0.4": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP"
+    ],
+    "0.5": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP"
+    ],
+    "0.6": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP"
+    ],
+    "0.7": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP"
+    ]
+   },
+   "ranking_stable": true,
+   "worst_span_ratio": 1.2850606723692064
+  },
+  "mean_length_px": {
+   "per_specimen": {
+    "MAR_Amb_AS": [
+     70.64275590029179,
+     71.03925292622779,
+     74.63948337052868,
+     79.66289593696979,
+     82.894434111071
+    ],
+    "MAR_Amb_Cast": [
+     145.96275831904504,
+     151.82928921918872,
+     158.42883231929892,
+     167.945810980242,
+     149.05310685579371
+    ],
+    "MAR_Amb_HIP": [
+     116.59493165371754,
+     113.21537866631235,
+     120.23961411983367,
+     113.90814594833819,
+     124.56664721355935
+    ]
+   },
+   "orderings": {
+    "0.3": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.4": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.5": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.6": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.7": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ]
+   },
+   "ranking_stable": true,
+   "worst_span_ratio": 1.1734314871304252
+  },
+  "area_fraction": {
+   "per_specimen": {
+    "MAR_Amb_AS": [
+     0.03897547398131169,
+     0.03751789119135567,
+     0.03675576296537958,
+     0.03570652152426995,
+     0.03339092960530619
+    ],
+    "MAR_Amb_Cast": [
+     0.20411930146836832,
+     0.2035713421479288,
+     0.20313510674572702,
+     0.2027726789030461,
+     0.2004218432333733
+    ],
+    "MAR_Amb_HIP": [
+     0.03990795877244737,
+     0.03873765468597412,
+     0.038063883781433105,
+     0.037035504976908364,
+     0.03602311346266005
+    ]
+   },
+   "orderings": {
+    "0.3": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.4": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.5": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.6": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.7": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ]
+   },
+   "ranking_stable": true,
+   "worst_span_ratio": 1.167247346570371
+  }
+ },
+ "n_frames": 9,
+ "excluded_frames": 0,
+ "count_vs_area_sensitivity": {
+  "MAR_Amb_AS": {
+   "count_span": 1.346514745308311,
+   "area_span": 1.167247346570371,
+   "count_pct": 34.65147453083111,
+   "area_pct": 16.7247346570371,
+   "times_more_sensitive": 2.071869912522119
+  },
+  "MAR_Amb_Cast": {
+   "count_span": 1.2802653399668324,
+   "area_span": 1.018448379554566,
+   "count_pct": 28.026533996683245,
+   "area_pct": 1.844837955456602,
+   "times_more_sensitive": 15.191867618392862
+  },
+  "MAR_Amb_HIP": {
+   "count_span": 1.4052287581699345,
+   "area_span": 1.1078431300452187,
+   "count_pct": 40.522875816993455,
+   "area_pct": 10.784313004521874,
+   "times_more_sensitive": 3.7575760087825874
+  }
+ },
+ "largest_single_step": {
+  "n_cracks": {
+   "specimen": "MAR_Amb_HIP",
+   "from_threshold": "0.6",
+   "to_threshold": "0.7",
+   "rel_change": 0.10409889394925186
+  },
+  "total_length_px": {
+   "specimen": "MAR_Amb_Cast",
+   "from_threshold": "0.6",
+   "to_threshold": "0.7",
+   "rel_change": 0.19800325793071016
+  },
+  "mean_length_px": {
+   "specimen": "MAR_Amb_Cast",
+   "from_threshold": "0.6",
+   "to_threshold": "0.7",
+   "rel_change": 0.11249285715540061
+  },
+  "area_fraction": {
+   "specimen": "MAR_Amb_AS",
+   "from_threshold": "0.6",
+   "to_threshold": "0.7",
+   "rel_change": 0.06485067209332733
+  }
+ }
+}
