@@ -129,6 +129,16 @@ def _configure_env(a):
         else os.path.join(a.outdir, "_no_corrections"))
     if a.model:
         os.environ["SEMCRACK_MODEL"] = os.path.abspath(os.path.expanduser(a.model))
+    # UNCONDITIONALLY, even when no --threshold was given. This is a private parent->child
+    # channel, and it used to be written only when the flag was present -- so a value left
+    # in the caller's environment was inherited, silently moved the detector, and was
+    # invisible to _effective_threshold and the config fingerprint, both of which report
+    # the bundle's own value. The run then produced numbers at one threshold and a manifest
+    # claiming another, and two runs at different thresholds were judged the same
+    # configuration and allowed to share an output directory. Every other SEMCRACK_* var
+    # here is set unconditionally; this one was the exception.
+    os.environ["SEMCRACK_THRESHOLD"] = ("" if a.threshold is None
+                                        else repr(float(a.threshold)))
 
 
 def _effective_threshold(a, model_path):
@@ -172,7 +182,13 @@ def _measure_one(name):
     import unified_pipeline as up
     t = os.environ.get("SEMCRACK_THRESHOLD")
     if t:
-        up.THRESHOLD_OVERRIDE = float(t)
+        try:
+            up.THRESHOLD_OVERRIDE = float(t)
+        except (TypeError, ValueError):
+            # float() used to sit outside the try below, so a non-numeric value aborted the
+            # whole batch with a bare ValueError instead of failing one image with a reason.
+            return {"image": name, "status": "failed",
+                    "error": f"SEMCRACK_THRESHOLD is not a number: {t!r}"}
     try:
         df = cm.measure_image(name)
         import calibration as cal
@@ -206,18 +222,39 @@ def main(argv=None):
     # Every output file is named from the basename, so two inputs that share one -- a.tif
     # beside a.tiff, or foo.TIF beside foo.tif -- write the same CSV twice and the second
     # silently wins. There is no correct guess about which the user meant.
-    _dupes = sorted({n for n in names if names.count(n) > 1})
+    # Case-FOLDED, because the filesystem is what decides whether two output paths
+    # collide. On macOS and Windows, Blob_01.tif and blob_01.tiff write to the same CSV;
+    # a case-sensitive check passed them both, one silently overwrote the other, and
+    # all_cracks.csv then counted the survivor twice while the lost frame vanished.
+    _folded = [n.casefold() for n in names]
+    _dupes = sorted({n for n in names if _folded.count(n.casefold()) > 1})
     if _dupes:
-        print(f"semcrack: {len(_dupes)} basename(s) appear more than once in {a.indir}: "
-              f"{', '.join(_dupes[:5])}. Every output file is named from the basename, so "
-              f"these would overwrite each other and the last one would silently win. "
-              f"Rename them or narrow --glob.", file=sys.stderr)
+        print(f"semcrack: {len(_dupes)} basename(s) collide in {a.indir} (ignoring case, "
+              f"because the filesystem does): {', '.join(_dupes[:6])}. Every output file is "
+              f"named from the basename, so these would overwrite each other and the last "
+              f"one would silently win. Rename them or narrow --glob.", file=sys.stderr)
         return EXIT_CONFLICT
+
+    # A mistyped --corrections path used to be CREATED, empty, by common.py's import-time
+    # makedirs. Zero corrections were then applied while the manifest asserted
+    # corrections_applied=true and "these numbers are part human judgement". Refuse before
+    # anything is created: a path the user got wrong is not a path to work around.
+    if a.corrections:
+        _cdir = os.path.abspath(os.path.expanduser(a.corrections))
+        if not os.path.isdir(_cdir):
+            print(f"semcrack: --corrections {_cdir} is not a directory. It will not be "
+                  f"created: a run that reports corrections_applied=true having applied "
+                  f"none is worse than a run that stops.", file=sys.stderr)
+            return EXIT_NOTHING
+        if not glob.glob(os.path.join(_cdir, "*_correction_mask.png")):
+            print(f"semcrack: --corrections {_cdir} holds no *_correction_mask.png. Nothing "
+                  f"would be applied, so the manifest would claim human judgement the "
+                  f"output does not contain. Drop the flag to run detector-only.",
+                  file=sys.stderr)
+            return EXIT_NOTHING
 
     os.makedirs(a.outdir, exist_ok=True)
     _configure_env(a)
-    if a.threshold is not None:
-        os.environ["SEMCRACK_THRESHOLD"] = repr(a.threshold)
     os.makedirs(os.environ["SEMCRACK_PAINT_DIR"], exist_ok=True)
 
     sys.path.insert(0, os.path.join(root, "interior_active_learning", "code"))
@@ -229,29 +266,91 @@ def main(argv=None):
     eff_threshold, eff_why = _effective_threshold(a, PROD_MODEL_PATH)
     fp = _config_fingerprint(a, PROD_MODEL_PATH, eff_threshold)
     prev_path = os.path.join(a.outdir, "run_manifest.json")
-    if os.path.exists(prev_path) and not a.force:
+    # The comparison runs ALWAYS. It used to be gated on `not a.force`, so a forced run
+    # never computed the conflict and therefore could not record it: the directory ended up
+    # half one threshold and half another, with a manifest naming only the new one, an empty
+    # refusals list, and the previous manifest overwritten -- no trace of either half. That
+    # is the exact outcome this module's docstring promises to prevent, produced by the flag
+    # meant to acknowledge it.
+    prev_full = None
+    if os.path.exists(prev_path):
         try:
-            prev = json.load(open(prev_path)).get("config_fingerprint")
+            prev_full = json.load(open(prev_path))
+            prev = (prev_full or {}).get("config_fingerprint")
         except (ValueError, OSError):
             prev = None
         if prev and prev != fp:
             differing = [k for k in fp if prev.get(k) != fp.get(k)]
-            print(f"semcrack: {a.outdir} was produced by a different configuration "
-                  f"({', '.join(differing)} differ). Mixing them gives a CSV set with no "
-                  f"way to tell which row came from which run. Use a new --out, or --force "
-                  f"if you meant it.", file=sys.stderr)
-            return EXIT_CONFLICT
+            if a.force:
+                # Keep the superseded manifest instead of destroying it, and say which
+                # earlier images it covers, so a reader can tell the halves apart.
+                _keep = os.path.join(
+                    a.outdir, f"run_manifest.superseded.{len(glob.glob(os.path.join(a.outdir, 'run_manifest.superseded.*.json')))}.json")
+                try:
+                    with open(_keep, "w") as _fh:
+                        json.dump(prev_full, _fh, indent=1)
+                except OSError:
+                    _keep = None
+                refusals.append({
+                    "kind": "config_conflict_forced", "forced": True,
+                    "differing_keys": differing,
+                    "previous_fingerprint": prev,
+                    "previous_images": [r.get("image") for r in
+                                        (prev_full or {}).get("images", [])
+                                        if r.get("status") == "ok"],
+                    "previous_manifest_kept_as": (os.path.basename(_keep) if _keep
+                                                  else None),
+                    "note": ("--force was passed, so this directory now holds CSVs from "
+                             "more than one configuration. The rows measured under the "
+                             "earlier one are listed in previous_images and their manifest "
+                             "is kept beside this one. Per-image *_provenance.json records "
+                             "each CSV's own threshold, so the halves remain "
+                             "distinguishable per row.")})
+                print(f"semcrack: --force: writing over a different configuration "
+                      f"({', '.join(differing)} differ). Recorded as a refusal; the "
+                      f"superseded manifest is kept.", file=sys.stderr)
+            else:
+                print(f"semcrack: {a.outdir} was produced by a different configuration "
+                      f"({', '.join(differing)} differ). Mixing them gives a CSV set with "
+                      f"no way to tell which row came from which run. Use a new --out, or "
+                      f"--force if you meant it.", file=sys.stderr)
+                return EXIT_CONFLICT
 
     # ---- scale, before any measuring, so a refusal costs nothing ----
-    sizes = set()
+    sizes, unreadable = set(), []
     if a.um_per_px is not None or a.from_metadata:
         from PIL import Image
         Image.MAX_IMAGE_PIXELS = None
         for p in paths:
+            wh = None
             try:
-                sizes.add(Image.open(p).size)
+                wh = Image.open(p).size
             except Exception:
-                pass
+                # The pipeline reads with tifffile, which decodes compressions PIL cannot
+                # (LERC, some tiled/deflate variants). Probing with PIL alone and swallowing
+                # the error dropped those frames from the size set, so the
+                # differently-sized-frames refusal could not fire and one scale was applied
+                # across two magnifications. A guard that silently loses its inputs cannot
+                # fail, which is the failure mode this repo keeps finding.
+                try:
+                    import tifffile as _tf
+                    with _tf.TiffFile(p) as _t:
+                        _sh = _t.pages[0].shape
+                    wh = (int(_sh[1]), int(_sh[0]))
+                except Exception:
+                    unreadable.append(os.path.basename(p))
+            if wh:
+                sizes.add(wh)
+
+    if a.um_per_px is not None and unreadable:
+        # Cannot show the frames share a magnification, so do not assume it.
+        print(f"semcrack: could not read the pixel dimensions of {len(unreadable)} file(s) "
+              f"({', '.join(unreadable[:4])}), so --um-per-px cannot be shown to apply to "
+              f"them. Use --scale-csv, or --force.", file=sys.stderr)
+        if not a.force:
+            return EXIT_CONFLICT
+        refusals.append({"kind": "size_unreadable_scale_forced", "forced": True,
+                         "files": unreadable[:20]})
 
     if a.um_per_px is not None and len(sizes) > 1:
         print(f"semcrack: --um-per-px {a.um_per_px} was given for images of "
@@ -277,6 +376,13 @@ def main(argv=None):
                 if nm and v > 0:
                     per_image_scale[os.path.splitext(nm)[0]] = v
 
+    # Which images this run actually established a scale for. Anything else must be
+    # CLEARED: calibration.json lives in --out, so a record left by an earlier run survived
+    # and silently supplied micrometre columns for a frame this run's manifest said was
+    # "measured in PIXELS". The refusal skipped set_manual but never cleared, so the
+    # refusal did not refuse -- it just declined to overwrite.
+    _scaled = set()
+
     for p, nm in zip(paths, names):
         want = per_image_scale.get(nm, a.um_per_px)
         meta = cal.read_instrument_metadata(p) if (a.from_metadata or want) else None
@@ -292,9 +398,11 @@ def main(argv=None):
             cal.set_manual(nm, want, note="semcrack --um-per-px/--scale-csv" +
                            (" (agrees with instrument metadata)" if meta else
                             " (NO independent cross-check available)"))
+            _scaled.add(nm)
         elif a.from_metadata:
             if meta:
                 cal.set_from_instrument_metadata(nm, p)
+                _scaled.add(nm)
             else:
                 refusals.append({"kind": "no_instrument_metadata", "image": nm,
                                  "note": "file carries no FEI/ZEISS pixel size; measured "
@@ -307,6 +415,24 @@ def main(argv=None):
                              "note": f"{os.path.basename(a.scale_csv)} has no row for this "
                                      f"image, so it is measured in PIXELS. If that was not "
                                      f"intended, add a row."})
+
+    # Enforce it. Every image this run did not scale is uncalibrated, whatever an earlier
+    # run left behind, so any stale record is removed before measuring.
+    _stale = []
+    for nm in names:
+        if nm not in _scaled and cal.get_um_per_px(nm) is not None:
+            _rec = cal.get_record(nm) or {}
+            cal.clear(nm)
+            _stale.append({"image": nm, "cleared_um_per_px": _rec.get("um_per_px"),
+                           "cleared_source": _rec.get("source")})
+    if _stale:
+        refusals.append({
+            "kind": "stale_calibration_cleared", "n": len(_stale), "images": _stale[:20],
+            "note": ("These images carried a calibration from an earlier run in this output "
+                     "directory but this run established no scale for them, so the records "
+                     "were removed and the images are measured in PIXELS. Leaving them would "
+                     "have produced micrometre columns at a scale this run never chose, "
+                     "beside a manifest saying the images were measured in pixels.")})
 
     if a.dry_run:
         print(f"semcrack --dry-run\n  images     : {len(names)}\n  input      : {a.indir}\n"
