@@ -105,7 +105,13 @@ def specimen_key(name):
         return f"{t['project']}_{t['condition']}_{t['process']}"
     if fam == "exposure":
         return f"{t['process']}_{t['exposure']}"
-    return f"unparsed:{name}"
+    # None, not a per-frame sentinel. This used to return f"unparsed:{name}", which is
+    # UNIQUE PER FRAME -- so for any filename this module cannot parse, every frame became
+    # its own "specimen": n_specimens equalled n_frames, dispersion_is_estimable flipped to
+    # True at three frames, and the sd columns that the pseudo-replication guard exists to
+    # blank were written after all. The guard inverted for exactly the users who need it,
+    # since a stranger's filenames never match this corpus's convention.
+    return None
 
 
 def group_key(name, by):
@@ -304,29 +310,76 @@ def aggregate(images, by=("condition",), require_calibrated=True):
         # So the same statistic is computed at all three levels and the specimen count is
         # carried, because a spread over 3 units is a different claim from a spread over
         # 16,075 and only one of them is defensible.
-        by_spec = {}
+        by_spec, unknown_spec_frames = {}, []
         for name in g["images"]:
             rr = _read_rows(name) or []
             lcol = ("SkeletonLength_um" if physical else "SkeletonLength_px")
-            vals = [r.get(lcol) for r in rr if isinstance(r.get(lcol), (int, float))]
-            if vals:
-                by_spec.setdefault(specimen_key(name), []).append(float(np.mean(vals))
-                                                                  if 'np' in dir() else
-                                                                  sum(vals) / len(vals))
-        spec_means = [sum(v) / len(v) for v in by_spec.values()]
-        rec["n_specimens"] = len(by_spec)
-        rec["specimens"] = sorted(by_spec)
+            # UNCENSORED cracks only. A crack touching the frame edge continues outside it,
+            # so its SkeletonLength is a lower bound, and averaging bounds with lengths
+            # gives neither. Measured on family=steel|condition=H: pooling them gave
+            # 297.09 +/- 162.18 px where the uncensored cracks alone give 102.04 +/- 10.48,
+            # because censored cracks carry 61.9% of the group's total length. The refused
+            # longest-crack figure was already blanked for this reason while this one -- the
+            # figure statistical_unit_note tells the reader to USE -- was not.
+            usable, n_cens, n_unk = [], 0, 0
+            for r in rr:
+                v = r.get(lcol)
+                if not isinstance(v, (int, float)):
+                    continue
+                c = _is_censored(r)
+                if c is True:
+                    n_cens += 1
+                elif c is None:
+                    n_unk += 1
+                else:
+                    usable.append(float(v))
+            sk = specimen_key(name)
+            if sk is None:
+                unknown_spec_frames.append(name)
+            if usable:
+                by_spec.setdefault(sk, []).append(sum(usable) / len(usable))
+            rec.setdefault("_censoring_tally", [0, 0, 0])
+            rec["_censoring_tally"][0] += len(usable)
+            rec["_censoring_tally"][1] += n_cens
+            rec["_censoring_tally"][2] += n_unk
+
+        # A frame whose specimen cannot be identified cannot be shown independent of any
+        # other, so it does not get to be counted as its own unit.
+        known = {k: v for k, v in by_spec.items() if k is not None}
+        spec_means = [sum(v) / len(v) for v in known.values()]
+        rec["n_specimens"] = len(known) if not unknown_spec_frames else None
+        rec["n_frames_with_unknown_specimen"] = len(unknown_spec_frames)
+        rec["specimens"] = sorted(known)
+        _tal = rec.pop("_censoring_tally", [0, 0, 0])
+        rec["n_cracks_uncensored"] = _tal[0]
+        rec["n_cracks_censored"] = _tal[1]
+        rec["n_cracks_censoring_unknown"] = _tal[2]
         rec["mean_crack_length_by_specimen"] = _describe(spec_means)
+        rec["mean_crack_length_by_specimen_note"] = (
+            f"Computed over UNCENSORED cracks only ({_tal[0]} of "
+            f"{_tal[0] + _tal[1] + _tal[2]}; {_tal[1]} censored, {_tal[2]} with censoring "
+            f"not recorded). Excluding censored cracks removes the longest ones, so this "
+            f"UNDERSTATES mean crack length -- it is a mean over cracks that fit inside the "
+            f"frame, not a mean crack length. A survival-style estimator would be the "
+            f"correct treatment and is not attempted here.")
         rec["statistical_unit_note"] = (
             f"n_cracks={len(g['rows'])} is a POOLED count and must not be used as a sample "
             f"size: cracks within a frame are not independent, nor are frames within a "
             f"specimen. The independent unit here is the specimen, and this group has "
-            f"{len(by_spec)}. Use mean_crack_length_by_specimen for any cross-condition "
-            f"claim.")
-        if len(by_spec) < 3:
+            f"{len(known) if not unknown_spec_frames else 'an UNKNOWN number of'}. Use "
+            f"mean_crack_length_by_specimen for any cross-condition claim, and read its "
+            f"note first: it covers uncensored cracks only.")
+        if unknown_spec_frames:
             rec["dispersion_is_estimable"] = False
             rec["dispersion_refusal"] = (
-                f"REFUSED: a spread cannot be estimated from {len(by_spec)} independent "
+                f"REFUSED: {len(unknown_spec_frames)} frame(s) have no identifiable "
+                f"specimen, so independence cannot be established for any of them and the "
+                f"number of independent units is UNKNOWN, not equal to the frame count. "
+                f"Name files so the specimen can be read, or supply the grouping.")
+        elif len(known) < 3:
+            rec["dispersion_is_estimable"] = False
+            rec["dispersion_refusal"] = (
+                f"REFUSED: a spread cannot be estimated from {len(known)} independent "
                 f"unit(s). Per-crack and per-frame dispersion look reassuringly small only "
                 f"because they measure variation WITHIN specimens, which is not the "
                 f"variation a cross-condition comparison is about.")
@@ -383,9 +436,11 @@ def write_report(result, stem="aggregate"):
         json.dump(result, fh, indent=1)
 
     cp = os.path.join(OUT_DIR, f"{stem}.csv")
-    fields = ["group", "units", "n_specimens", "n_frames", "n_cracks",
+    fields = ["group", "units", "n_specimens", "n_frames_with_unknown_specimen",
+              "n_frames", "n_cracks", "n_cracks_uncensored", "n_cracks_censored",
+              "n_cracks_censoring_unknown",
               "n_calibrated", "n_uncalibrated", "dispersion_is_estimable",
-              "mean_length_by_specimen", "sd_length_by_specimen",
+              "mean_length_by_specimen_uncensored_only", "sd_length_by_specimen",
               "longest_crack_is_valid_comparable", "longest_crack_mean",
               "longest_crack_sd", "frames_with_unknown_censoring"]
     with open(cp, "w", newline="") as fh:
@@ -402,11 +457,22 @@ def write_report(result, stem="aggregate"):
                 # weight each may carry, so a reader scanning the CSV meets the real n before
                 # the impressive one.
                 "n_specimens": g.get("n_specimens"),
+                "n_frames_with_unknown_specimen":
+                    g.get("n_frames_with_unknown_specimen"),
+                # The censoring split, in the CSV and not only the JSON. The specimen mean
+                # is computed over the uncensored column alone, so a reader needs to see how
+                # many cracks that left out before quoting it.
+                "n_cracks_uncensored": g.get("n_cracks_uncensored"),
+                "n_cracks_censored": g.get("n_cracks_censored"),
+                "n_cracks_censoring_unknown": g.get("n_cracks_censoring_unknown"),
                 "n_frames": g["n_images"], "n_cracks": g["n_cracks"],
                 "n_calibrated": g["n_calibrated"],
                 "n_uncalibrated": g["n_uncalibrated"],
                 "dispersion_is_estimable": g.get("dispersion_is_estimable"),
-                "mean_length_by_specimen": spec.get("mean"),
+                # Named for what it is. "mean_length_by_specimen" invited the reader to
+                # treat it as mean crack length; it is a mean over cracks that fit inside
+                # the frame, which understates the real mean by excluding the longest.
+                "mean_length_by_specimen_uncensored_only": spec.get("mean"),
                 # Blank, not 0.0, when dispersion has been refused. Two specimens gave
                 # "sd = 0.0" next to a False flag, and a reader quoting that number would
                 # be quoting a spread this group is not entitled to report at all -- the
