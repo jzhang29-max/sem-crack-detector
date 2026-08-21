@@ -316,14 +316,25 @@ so; it will not average micrometres with pixels.
 
 Two things it refuses, both of which it used to report:
 
-**The sample size is the specimen, not the crack.** A group of "2,915 cracks" is 23 frames
+**The sample size is the specimen, not the crack.** A group of "2,936 cracks" is 23 frames
 imaged on 3 specimens, and cracks within a frame share a thermal history, a polish and a
-field of view. A standard deviation over 2,915 dependent observations is pseudo-replication
+field of view. A standard deviation over 2,936 dependent observations is pseudo-replication
 and comes out far tighter than the data earns. Each group reports `n_specimens` beside
 `n_cracks`, means averaged per specimen first, and a note saying in words that `n_cracks`
 is a pooled count. Below three independent units, dispersion is **refused** — with one
 specimen, per-crack spread measures variation *within* that specimen, which is not the
-quantity anyone comparing conditions wants.
+quantity anyone comparing conditions wants. If a filename does not say which specimen a
+frame came from, `n_specimens` is **unknown** rather than equal to the frame count, and
+dispersion is refused on that ground alone.
+
+**Crack lengths are averaged over uncensored cracks only, and the column says so.** The
+per-specimen mean is `mean_length_by_specimen_uncensored_only`, with
+`n_cracks_uncensored`, `n_cracks_censored` and `n_cracks_censoring_unknown` beside it.
+Pooling edge-touching cracks in was worth 2.9× on one group — steel|H read 297.09 ± 162.18
+px where its uncensored cracks give 102.04 ± 10.48, because censored cracks carried 61.9% of
+that group's total length. Excluding them removes the *longest* cracks, so the figure is
+biased low and is a mean over cracks that fit inside the frame, not a mean crack length. A
+survival estimator is the right treatment and is not attempted.
 
 **Longest crack per frame is refused when censoring is unknown.** It is the quantity a
 fatigue study reports, and it is also the one most often wrong: a crack touching the frame
@@ -333,8 +344,11 @@ a length. Where the flag is present the figure is reported; where it is absent t
 is left **empty** rather than filled with a number beside a `False` a reader may not
 notice.
 
-Every CSV gets a `_provenance.json` naming the model, its mtime, the calibration and its
-source, and the tool version. Column definitions, including which quantities scale with
+Every CSV gets a `_provenance.json` naming the model, its mtime, the calibration, its
+source and its **uncertainty**, the **decision threshold that produced that CSV**, and the
+tool version. The threshold is per-CSV rather than per-run for a reason: a directory written
+across two runs, or one `--force` run, otherwise has a single manifest field claiming one
+operating point for rows produced at two. Column definitions, including which quantities scale with
 calibration and which must never be scaled, are in
 [docs/MEASUREMENTS.md](docs/MEASUREMENTS.md).
 
