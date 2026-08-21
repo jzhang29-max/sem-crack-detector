@@ -151,17 +151,28 @@ figure would hide, which is the argument for publishing the curve rather than on
 earlier draft cited 19.8% of a total crack length; that was measured on the excluded specimen
 and inherited the same contamination.)
 
-> **These spans are PROVISIONAL and are expected to grow.** Every figure in this section
-> was measured before a defect in the sweep's own instrument was found: `--threshold` and
-> `THRESHOLD_OVERRIDE` did not reach Pass 2's `interior_fill` branch, which kept its own
-> calibrated floor of 0.65 regardless. So one of three Pass-2 candidate types did not move
-> when the threshold moved, and the sweep measured a partly-frozen detector. Since the
-> frozen branch could only *fail* to respond, the numbers above are a **lower bound on the
-> true sensitivity**, not an estimate of it. The override now provably reaches every branch —
-> the sweep refuses to start unless a pre-flight check confirms it, and that check was
-> verified to fail against the old logic — and the sweep is being re-run. Any figure quoted
-> from this section before it is replaced should carry the same caveat: the direction of the
-> error is known, its size is not.
+> **A defect in the sweep's own instrument was found and its effect measured.**
+> `--threshold` and `THRESHOLD_OVERRIDE` did not reach Pass 2's `interior_fill` branch,
+> which kept its own calibrated floor of 0.65 regardless — so one of three Pass-2 candidate
+> types could not respond to the threshold, and the first run of this experiment measured a
+> partly-frozen detector. That branch is not a formality: on the smallest corpus frame its
+> floor rejects 19 of 22 candidates, so it is the most selective gate in Pass 2.
+>
+> The override now provably reaches every branch (the sweep refuses to start unless a
+> pre-flight check confirms it, and that check was verified to fail against the old logic),
+> and the experiment was re-run. **Three frames are complete under both versions, giving 75
+> comparisons across five thresholds and five quantities. Eight differ, all on one frame:
+> crack count moved by +1 at t=0.4 and +2 at t=0.6, a largest change of 2 in 1,665
+> (0.120%).**
+>
+> Every span reported above is unchanged to five decimal places — 1.38404× before and after
+> on the affected frame, and identically for total length and area fraction. The mechanism
+> is worth stating because it is a general caution about this kind of summary: a max/min
+> span is determined by the ENDPOINTS of the sweep, and both changes landed at interior
+> levels. So the curve genuinely moved and the statistic reporting it did not. A different
+> summary — mean absolute change across levels — would have registered the difference. The
+> conclusion here is that the defect did not affect the published figures, not that the
+> defect had no effect.
 
 **The sample is biased in a stated direction.** Nine frames, three per specimen, density
 73–1665 cracks (median 538). Three planned frames produced no data because they did not
