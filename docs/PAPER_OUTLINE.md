@@ -151,6 +151,18 @@ figure would hide, which is the argument for publishing the curve rather than on
 earlier draft cited 19.8% of a total crack length; that was measured on the excluded specimen
 and inherited the same contamination.)
 
+> **These spans are PROVISIONAL and are expected to grow.** Every figure in this section
+> was measured before a defect in the sweep's own instrument was found: `--threshold` and
+> `THRESHOLD_OVERRIDE` did not reach Pass 2's `interior_fill` branch, which kept its own
+> calibrated floor of 0.65 regardless. So one of three Pass-2 candidate types did not move
+> when the threshold moved, and the sweep measured a partly-frozen detector. Since the
+> frozen branch could only *fail* to respond, the numbers above are a **lower bound on the
+> true sensitivity**, not an estimate of it. The override now provably reaches every branch —
+> the sweep refuses to start unless a pre-flight check confirms it, and that check was
+> verified to fail against the old logic — and the sweep is being re-run. Any figure quoted
+> from this section before it is replaced should carry the same caveat: the direction of the
+> error is known, its size is not.
+
 **The sample is biased in a stated direction.** Nine frames, three per specimen, density
 73–1665 cracks (median 538). Three planned frames produced no data because they did not
 finish, and the slowest frames are the *densest* — so exclusion correlates with the variable
