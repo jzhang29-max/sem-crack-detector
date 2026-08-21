@@ -82,6 +82,11 @@ def held_out_images(all_images):
     except Exception:
         return [HELD], "leave-one-image-out (specimen_key unavailable)"
     sk = specimen_key(HELD)
+    if sk is None:
+        # specimen_key returns None when it cannot read the filename. Comparing against
+        # None would match every other unreadable name and hold out all of them, so fall
+        # back to the single image and say which rule was used.
+        return [HELD], "leave-one-image-out (specimen unidentifiable from the filename)"
     sibs = sorted(n for n in set(all_images) if specimen_key(n) == sk)
     if HELD not in sibs:
         sibs.append(HELD)

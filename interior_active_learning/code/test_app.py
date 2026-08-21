@@ -1215,6 +1215,85 @@ def main():
         check("every group states its statistical unit",
               all(bool(x.get("statistical_unit_note")) for x in _res["groups"]))
 
+    # SYNTHETIC FIXTURE, so the right answer is known independently of the code under
+    # test. Two specimens, two frames each. One crack per frame is enormous AND censored.
+    # If censored cracks are pooled the specimen mean is dominated by them; if they are
+    # excluded it is exactly 10.0.
+    _fake = {
+        "S1_f1": [{"SkeletonLength_px": 10.0, "LengthIsCensored": False},
+                  {"SkeletonLength_px": 9000.0, "LengthIsCensored": True}],
+        "S1_f2": [{"SkeletonLength_px": 10.0, "LengthIsCensored": False},
+                  {"SkeletonLength_px": 8000.0, "LengthIsCensored": True}],
+        "S2_f1": [{"SkeletonLength_px": 10.0, "LengthIsCensored": False},
+                  {"SkeletonLength_px": 7000.0, "LengthIsCensored": True}],
+        "S2_f2": [{"SkeletonLength_px": 10.0, "LengthIsCensored": False},
+                  {"SkeletonLength_px": 6000.0, "LengthIsCensored": True}],
+    }
+    _real_read, _real_spec = _ag2._read_rows, _ag2.specimen_key
+    try:
+        _ag2._read_rows = lambda n: list(_fake.get(n, []))
+        _ag2.specimen_key = lambda n: n.split("_")[0]
+        _ag2.parse_name = _ag2.parse_name  # untouched
+        _r = _ag2.aggregate(list(_fake), by=(), require_calibrated=False)
+        _g0 = _r["groups"][0] if _r["groups"] else {}
+        _m = (_g0.get("mean_crack_length_by_specimen") or {}).get("mean")
+        check("the specimen mean excludes right-censored cracks",
+              _m is not None and abs(_m - 10.0) < 1e-9,
+              f"got {_m}; pooling the censored cracks would give ~3757, and on the real "
+              f"corpus it did: family=steel|condition=H shipped 297.09 where the "
+              f"uncensored cracks give 102.04")
+        check("the censoring split is reported so the exclusion is visible",
+              _g0.get("n_cracks_uncensored") == 4 and _g0.get("n_cracks_censored") == 4
+              and _g0.get("n_cracks_censoring_unknown") == 0)
+        check("the figure is labelled as covering uncensored cracks only",
+              "UNCENSORED" in (_g0.get("mean_crack_length_by_specimen_note") or "")
+              and "UNDERSTATES" in (_g0.get("mean_crack_length_by_specimen_note") or ""),
+              "excluding censored cracks removes the longest ones, so the mean is biased "
+              "low and must not be called mean crack length")
+
+        # Censoring UNKNOWN must not be treated as uncensored.
+        _fake2 = {"S1_f1": [{"SkeletonLength_px": 10.0},
+                            {"SkeletonLength_px": 9000.0}]}
+        _ag2._read_rows = lambda n: list(_fake2.get(n, []))
+        _r2 = _ag2.aggregate(list(_fake2), by=(), require_calibrated=False)
+        _g2 = _r2["groups"][0] if _r2["groups"] else {}
+        check("cracks with no censoring flag are counted as unknown, not as uncensored",
+              _g2.get("n_cracks_censoring_unknown") == 2
+              and _g2.get("n_cracks_uncensored") == 0,
+              "a CSV predating the flag carries no evidence either way")
+    finally:
+        _ag2._read_rows, _ag2.specimen_key = _real_read, _real_spec
+
+    # An unidentifiable specimen must not become its own unit.
+    check("specimen_key returns None when the filename cannot be read",
+          _ag2.specimen_key("some_strangers_file_0001") is None,
+          "it used to return a per-frame unique string, so every foreign frame counted as "
+          "its own specimen and the pseudo-replication guard inverted")
+    _real_read2 = _ag2._read_rows
+    try:
+        _ag2._read_rows = lambda n: [{"SkeletonLength_px": 10.0,
+                                      "LengthIsCensored": False}]
+        _r3 = _ag2.aggregate(["alien_a", "alien_b", "alien_c", "alien_d"], by=(),
+                             require_calibrated=False)
+        _g3 = _r3["groups"][0] if _r3["groups"] else {}
+        check("four frames of unknown specimen do not become four specimens",
+              _g3.get("n_specimens") is None
+              and _g3.get("n_frames_with_unknown_specimen") == 4,
+              f"n_specimens={_g3.get('n_specimens')} -- it must be UNKNOWN, not 4")
+        check("dispersion is refused when specimen identity is unknown",
+              _g3.get("dispersion_is_estimable") is False
+              and "independence cannot be established"
+                  in (_g3.get("dispersion_refusal") or ""))
+    finally:
+        _ag2._read_rows = _real_read2
+
+    # The model holdout must not hold out every unreadable name together.
+    import train_v3_weighted as _tv
+    _sibs, _why = _tv.held_out_images(["alien_a", "alien_b", _tv.HELD])
+    check("the retrain holdout falls back when the specimen is unidentifiable",
+          _tv.HELD in _sibs and "alien_a" not in _sibs,
+          f"{_why}")
+
     # A refused figure must not be quotable from the CSV either -- that is exactly where a
     # reader would pick it up.
     _csvp = os.path.join(_ag2.OUT_DIR, "aggregate.csv")
