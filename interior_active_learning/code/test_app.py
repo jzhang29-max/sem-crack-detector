@@ -1694,6 +1694,7 @@ def main():
 
     # ---------- 25. the threshold override must reach EVERY decision point ----------
     print("\n[25] threshold override coverage")
+    import numpy as _np2
     import unified_pipeline as _up2
 
     class _FakeClf:
@@ -1745,6 +1746,35 @@ def main():
         check("the override does not override the geometry gate",
               not _up2._score(_tight, _ff, "interior_fill")[0][0],
               "dist_thr is a distance, not a probability; rescaling it would be meaningless")
+
+        # THE FLOOR MUST ACTUALLY REJECT. A diagnostic written while investigating this
+        # counted `sum(1 for acc, _ in out)`, which counts every element rather than the
+        # accepted ones, so "accepted" always equalled "proposed" and the branch looked
+        # like it never rejected anything. Measured properly on the smallest corpus frame,
+        # interior_fill accepts 3 of 22 candidates with the lowest accepted probability at
+        # 0.854 -- the floor is the most selective gate in Pass 2, which is why the
+        # override failing to reach it mattered. Assert that a below-floor candidate is
+        # rejected and an above-floor one is not, so the branch cannot silently go
+        # permissive.
+        _below = [{**_ff[0]}]
+        class _LowP:
+            def predict_proba(self, X):
+                return _np2.array([[0.4, 0.6]] * len(X))     # 0.60, under the 0.65 floor
+        class _HighP:
+            def predict_proba(self, X):
+                return _np2.array([[0.1, 0.9]] * len(X))     # 0.90, over it
+        _fb_lo = {**_fb, "clf": _LowP()}
+        _fb_hi = {**_fb, "clf": _HighP()}
+        check("a candidate under the interior_fill floor is rejected",
+              not _up2._score(_fb_lo, _below, "interior_fill")[0][0],
+              "p=0.60 against a floor of 0.65")
+        check("a candidate over the floor is accepted",
+              _up2._score(_fb_hi, _below, "interior_fill")[0][0],
+              "p=0.90 against the same floor and open geometry gates")
+        check("the deployed floor is the selective one, not a formality",
+              _up2._load_unified_bundle()["interior_fill_rule"]["floor"] > 0.5,
+              f"floor={_up2._load_unified_bundle()['interior_fill_rule']['floor']}; on the "
+              f"smallest corpus frame it rejects 19 of 22 candidates")
     finally:
         _up2.THRESHOLD_OVERRIDE = _saved_ovr
 
