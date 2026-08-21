@@ -94,6 +94,43 @@ def label_balance():
     return out
 
 
+def comparable_baseline(bundle, candidate_image):
+    """The deployed bundle's out-of-sample baseline, if it is comparable. (value, reason)
+
+    Pulled out of the retrain closure for the same reason promotion_decision was: the
+    logic was reachable only by actually retraining, so nothing tested it. It also makes
+    "a bundle carrying a baseline must name its source" a rule the code ENFORCES rather
+    than one a comment asserts -- the test for that invariant used to build a dict literal
+    containing the key and then check the key was there, which could not fail.
+
+    Every refusal returns None with a reason, and the reason is surfaced in the API
+    response, because a baseline silently ignored looks identical to no baseline at all.
+    """
+    if not isinstance(bundle, dict):
+        return None, "absent"
+    v = bundle.get("loio_out_of_sample")
+    if v is None:
+        return None, "absent"
+    if not bundle.get("loio_out_of_sample_source"):
+        # A figure with no provenance cannot be distinguished from a refit-same-family
+        # estimate, which is not the shipped weights' out-of-sample performance at all.
+        return None, ("ignored: the bundle records a baseline without naming its source, "
+                      "so it cannot be told apart from a refit estimate")
+    base_img = bundle.get("loio_out_of_sample_image")
+    if not base_img:
+        return None, ("ignored: the bundle records a baseline without saying which image "
+                      "it was held out on, so comparability cannot be established")
+    # A baseline measured on a different held-out image is a different quantity, and
+    # comparing across images is the class of error this gate exists to prevent.
+    if candidate_image and base_img != candidate_image:
+        return None, (f"ignored: baseline was measured on {base_img} but the candidate was "
+                      f"scored on {candidate_image}")
+    try:
+        return float(v), "loio_out_of_sample recorded in the deployed bundle"
+    except (TypeError, ValueError):
+        return None, "ignored: the recorded baseline is not a number"
+
+
 def promotion_decision(new_loio, cur_loio):
     """Should a freshly trained candidate replace production? (promote, reason)
 
@@ -569,21 +606,9 @@ def register(app, get_stage, invalidate_stage=None):
                 cur_loio = None
                 _cur_src = "absent"
                 try:
-                    _curb = joblib.load(PROD_MODEL_PATH)
-                    _v = _curb.get("loio_out_of_sample")
-                    # The baseline is only comparable if it was measured on the SAME
-                    # held-out image the candidate was scored on. establish_baseline.py
-                    # accepts --held, so a baseline can legitimately exist for a different
-                    # image; comparing across images would be a different quantity again,
-                    # which is the whole class of error this gate exists to avoid.
                     _cand_img = m.get("held_out_image") or cv.get("loio_image")
-                    _base_img = _curb.get("loio_out_of_sample_image")
-                    if _v is not None and _base_img and _cand_img and _base_img != _cand_img:
-                        _cur_src = (f"ignored: baseline was measured on {_base_img} but the "
-                                    f"candidate was scored on {_cand_img}")
-                    elif _v is not None:
-                        cur_loio = float(_v)
-                        _cur_src = "loio_out_of_sample recorded in the deployed bundle"
+                    cur_loio, _cur_src = comparable_baseline(
+                        joblib.load(PROD_MODEL_PATH), _cand_img)
                 except Exception:
                     pass
                 out["baseline_source"] = _cur_src
