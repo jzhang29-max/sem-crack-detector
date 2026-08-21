@@ -113,7 +113,12 @@ def _score(bundle, feats_list, ctype):
             _t2 = (THRESHOLD_OVERRIDE if THRESHOLD_OVERRIDE is not None
                    else bundle.get("threshold_default", 0.5))
             accepted = proba >= _t2
-        out.append((accepted, float(proba)))
+        # bool(), not the raw value. The chained `and` above returns whichever operand
+        # short-circuits, so a rejection came back as numpy.bool_ while an acceptance came
+        # back as a Python bool -- the same function returning two types depending on which
+        # comparison failed first. Any caller writing `x is False` then works for one
+        # rejection reason and silently fails for another.
+        out.append((bool(accepted), float(proba)))
     return out
 
 

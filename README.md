@@ -34,8 +34,10 @@ screen is never ambiguous about which model produced it.
 
 The image open here is `260622_316_H_b2_back_CBS_01`, where 14.9% of the frame is
 marked crack. **13.2 of those 14.9 points the detector found on its own**; a human
-forced only 10.9% of the red. Nothing in that image was marked *not*-crack, so the
-review there ran one way only — the reviewer added, and never overruled.
+forced only 10.9% of the red. The review there ran mostly one way — of that frame's
+453,764 hand-marked pixels, 411,002 add crack, 38,025 erase and 4,737 mark
+*not*-crack — so the reviewer overwhelmingly added rather than overruled, but not
+exclusively.
 
 ## Install
 

@@ -35,6 +35,7 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "code"))
 
+import joblib
 import numpy as np
 import requests
 import tifffile
@@ -238,7 +239,8 @@ def main():
 
     # ---------- 6. threshold comes from the bundle ----------
     print("\n[6] threshold plumbing")
-    import joblib
+    # joblib is imported at module scope; a function-local import here would make the
+    # name local for the WHOLE function and break every earlier use.
     from detect_cracks import classify_with_model
     b = joblib.load(PROD_MODEL_PATH)
     thr = float(b.get("threshold", 0.5))
@@ -992,11 +994,37 @@ def main():
     # bundle's real state separately rather than folding it into the same assertion.
     _b = joblib.load(PROD_MODEL_PATH)
     _has = "loio_out_of_sample" in _b
-    check("a bundle carrying a baseline must name its source",
-          all(bool(_probe.get("loio_out_of_sample_source"))
-              for _probe in [{"loio_out_of_sample": 0.9,
-                              "loio_out_of_sample_source": "refit-same-family"}]),
-          "a refit-same-family estimate must never be mistaken for the shipped weights")
+    # This check used to build a dict literal containing loio_out_of_sample_source and then
+    # assert the key was present, calling no production code at all -- a tautology
+    # certifying an invariant nothing enforced. comparable_baseline() now enforces it, so
+    # the rule can be exercised.
+    from app_endpoints import comparable_baseline as _cb
+    _good = {"loio_out_of_sample": 0.9, "loio_out_of_sample_source": "refit",
+             "loio_out_of_sample_image": "IMG_A"}
+    check("a comparable baseline is returned with its reason",
+          _cb(_good, "IMG_A") == (0.9, "loio_out_of_sample recorded in the deployed bundle"))
+    check("a baseline that does not name its source is refused",
+          _cb({k: v for k, v in _good.items()
+               if k != "loio_out_of_sample_source"}, "IMG_A")[0] is None,
+          "a figure with no provenance cannot be told apart from a refit estimate")
+    check("a baseline that does not say which image it held out is refused",
+          _cb({k: v for k, v in _good.items()
+               if k != "loio_out_of_sample_image"}, "IMG_A")[0] is None)
+    check("a baseline measured on a DIFFERENT image is refused",
+          _cb(_good, "IMG_B")[0] is None
+          and "IMG_A" in _cb(_good, "IMG_B")[1] and "IMG_B" in _cb(_good, "IMG_B")[1],
+          "comparing across held-out images is a different quantity")
+    check("an absent baseline is absent, and a non-numeric one is refused",
+          _cb({}, "IMG_A") == (None, "absent")
+          and _cb({**_good, "loio_out_of_sample": "abc"}, "IMG_A")[0] is None)
+    check("every refusal states a reason, since a silent one looks like no baseline",
+          all(_cb(_bd, "IMG_A")[1] for _bd in
+              [{}, _good, {**_good, "loio_out_of_sample": "abc"},
+               {k: v for k, v in _good.items() if k != "loio_out_of_sample_image"}]))
+    check("the deployed bundle's own baseline is still comparable to its own image",
+          _cb(joblib.load(PROD_MODEL_PATH),
+              joblib.load(PROD_MODEL_PATH).get("loio_out_of_sample_image"))[0] is not None,
+          "the stricter rule must not brick retraining")
     check("the deployed bundle's baseline state is reported, not assumed",
           (not _has) or bool(_b.get("loio_out_of_sample_source")),
           f"deployed bundle {'has' if _has else 'has no'} recorded baseline"
@@ -1202,10 +1230,22 @@ def main():
               and _g["n_specimens"] <= _g["n_images"],
               f"{_g['n_cracks']} cracks from {_g['n_images']} frames and "
               f"{_g['n_specimens']} specimen(s)")
-        check("a group whose censoring is unknown refuses the longest-crack comparable",
-              (_g.get("frames_with_unknown_censoring", 0) == 0)
-              or (_g.get("longest_crack_is_valid_comparable") is False),
-              "quoting a max over lower bounds is not a length")
+        # This used to inspect groups[0] only and pass on its first disjunct, because that
+        # group happens to have zero unknown-censoring frames -- so the branch it names was
+        # never reached. Assert over EVERY group, and require that at least one group
+        # actually exercises a refusal, so the check cannot pass by finding nothing.
+        _refusing = [x for x in _res["groups"]
+                     if x.get("longest_crack_is_valid_comparable") is False]
+        _bad_unknown = [x for x in _res["groups"]
+                        if x.get("frames_with_unknown_censoring", 0) > 0
+                        and x.get("longest_crack_is_valid_comparable") is not False]
+        check("no group with unknown censoring quotes the longest-crack comparable",
+              not _bad_unknown,
+              f"{len(_bad_unknown)} group(s) quote a max over lower bounds")
+        check("the refusal path is actually reached by this corpus",
+              bool(_refusing),
+              f"{len(_refusing)} of {len(_res['groups'])} groups refuse it; if none did, "
+              f"the check above would pass without testing anything")
         _single = [x for x in _res["groups"] if x.get("n_specimens") == 1]
         if _single:
             check("dispersion is refused when there is one independent unit",
@@ -1685,18 +1725,25 @@ def main():
                   f"p=0.70: default={_base}, at 0.75={_hi} (want False), "
                   f"at 0.10={_lo} (want True)")
         _up2.THRESHOLD_OVERRIDE = None
-        check("with no override the interior_fill floor is the bundle's own 0.65",
-              _up2._score(_fb, _ff, "interior_fill")[0][0] is True
-              and _up2._score({**_fb, "interior_fill_rule":
+        _at_065 = _up2._score(_fb, _ff, "interior_fill")[0][0]
+        _at_090 = _up2._score({**_fb, "interior_fill_rule":
                                {**_fb["interior_fill_rule"], "floor": 0.9}},
-                              _ff, "interior_fill")[0][0] is False,
-              "the override must not silently replace a calibrated rule when unset")
+                              _ff, "interior_fill")[0][0]
+        check("with no override the interior_fill floor is the bundle's own",
+              bool(_at_065) and not _at_090,
+              f"p=0.70 accepted at floor 0.65 ({_at_065}) and rejected at 0.9 ({_at_090}); "
+              f"the override must not silently replace a calibrated rule when unset")
+        check("acceptance is a plain bool whichever way it was decided",
+              type(_at_065) is bool and type(_at_090) is bool,
+              f"{type(_at_065).__name__} / {type(_at_090).__name__} -- the chained `and` "
+              f"used to return numpy.bool_ on the short-circuiting branch, so `is False` "
+              f"worked for one rejection reason and not another")
         # The two feature gates are NOT thresholds on probability and must not be rescaled.
         _tight = {**_fb, "interior_fill_rule": {"floor": 0.1, "dist_thr": -1.0,
                                                 "bri_thr": 1e9}}
         _up2.THRESHOLD_OVERRIDE = 0.10
         check("the override does not override the geometry gate",
-              _up2._score(_tight, _ff, "interior_fill")[0][0] is False,
+              not _up2._score(_tight, _ff, "interior_fill")[0][0],
               "dist_thr is a distance, not a probability; rescaling it would be meaningless")
     finally:
         _up2.THRESHOLD_OVERRIDE = _saved_ovr

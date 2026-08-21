@@ -70,12 +70,22 @@ dropdown and brush slider, which reads as the app losing its place.
 ## Deliberately not adopted
 
 **A live threshold slider.** TXM exposes one and defaults post-processing off,
-because there post-processing measurably deletes thin crack. Here the threshold is
-calibrated per model and stored in the bundle — 0.40 was chosen on a held-out
-image as the highest value beating the previous model on *both* recall and
-specificity. Exposing it as a slider invites moving off a calibrated operating
-point without the measurement that justified it. If it is wanted later, the
-honest version ships the calibration curve next to the slider.
+because there post-processing measurably deletes thin crack. The intent here was
+that a threshold is calibrated per model and stored in its bundle, so exposing a
+slider would invite moving off a calibrated operating point without the
+measurement that justified it.
+
+That reasoning is sound and it does not describe what ships. **The deployed
+bundle, `models/crack_classifier.joblib`, carries no `threshold` key at all**, so
+`bundle.get("threshold", 0.5)` returns the fallback and production runs at exactly
+**0.5** — a library default reached by omission. (An earlier draft of this
+paragraph cited 0.40 chosen on a held-out image; the bundle that does carry a
+calibrated threshold, `crack_classifier_v3_weighted.joblib`, stores 0.5615 and is
+not the one in use.) So the argument against a slider currently protects a number
+nobody chose. `experiments/threshold_sensitivity.py` measures what that number is
+worth: moving it across 0.3–0.7 changes crack count by 1.28–1.41× while leaving
+the ordering of conditions intact. If a slider is wanted later, the honest version
+ships that curve beside it.
 
 **A model registry with history.** This app keeps one backup
 (`crack_classifier_PREV.joblib`) plus the pre-deployment
