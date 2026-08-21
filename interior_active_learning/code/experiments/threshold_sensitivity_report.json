@@ -3,25 +3,25 @@
   "n_cracks": {
    "per_specimen": {
     "MAR_Amb_AS": [
-     669.6666666666666,
-     637.6666666666666,
-     599.6666666666666,
-     555.0,
-     497.3333333333333
+     1370.6666666666667,
+     1286.3333333333333,
+     1211.3333333333333,
+     1130.0,
+     1025.3333333333333
     ],
     "MAR_Amb_Cast": [
-     514.6666666666666,
-     487.3333333333333,
-     461.6666666666667,
-     430.6666666666667,
-     402.0
+     640.6666666666666,
+     607.3333333333334,
+     573.0,
+     533.0,
+     477.3333333333333
     ],
     "MAR_Amb_HIP": [
-     645.0,
-     601.0,
-     555.6666666666666,
-     512.3333333333334,
-     459.0
+     704.6666666666666,
+     656.0,
+     613.6666666666666,
+     568.0,
+     511.0
     ]
    },
    "orderings": {
@@ -52,30 +52,30 @@
     ]
    },
    "ranking_stable": true,
-   "worst_span_ratio": 1.4052287581699345
+   "worst_span_ratio": 1.3789954337899544
   },
   "total_length_px": {
    "per_specimen": {
     "MAR_Amb_AS": [
-     46328.333333333336,
-     43918.666666666664,
-     43035.0,
-     41642.333333333336,
-     38587.333333333336
+     57427.666666666664,
+     55318.0,
+     53972.666666666664,
+     51933.0,
+     49136.666666666664
     ],
     "MAR_Amb_Cast": [
-     81826.66666666667,
-     80778.66666666667,
-     79980.0,
-     79396.0,
-     63675.333333333336
+     93837.33333333333,
+     92104.33333333333,
+     86367.66666666667,
+     83704.66666666667,
+     81795.33333333333
     ],
     "MAR_Amb_HIP": [
-     36084.666666666664,
-     34111.333333333336,
-     33230.0,
-     31509.0,
-     29806.666666666668
+     37444.666666666664,
+     35715.333333333336,
+     34731.333333333336,
+     32966.666666666664,
+     30492.0
     ]
    },
    "orderings": {
@@ -106,30 +106,30 @@
     ]
    },
    "ranking_stable": true,
-   "worst_span_ratio": 1.2850606723692064
+   "worst_span_ratio": 1.2280160916524552
   },
   "mean_length_px": {
    "per_specimen": {
     "MAR_Amb_AS": [
-     70.64275590029179,
-     71.03925292622779,
-     74.63948337052868,
-     79.66289593696979,
-     82.894434111071
+     43.60943637333218,
+     44.40049265306684,
+     45.615840678912264,
+     46.34998587511962,
+     48.43225412450062
     ],
     "MAR_Amb_Cast": [
-     145.96275831904504,
-     151.82928921918872,
-     158.42883231929892,
-     167.945810980242,
-     149.05310685579371
+     144.7137676743458,
+     149.47846621791768,
+     148.36887334818107,
+     153.3210409774242,
+     164.85825665338274
     ],
     "MAR_Amb_HIP": [
-     116.59493165371754,
-     113.21537866631235,
-     120.23961411983367,
-     113.90814594833819,
-     124.56664721355935
+     73.39041398598921,
+     76.92046851811772,
+     76.99580674080686,
+     75.99911544707557,
+     73.04975730608119
     ]
    },
    "orderings": {
@@ -160,30 +160,30 @@
     ]
    },
    "ranking_stable": true,
-   "worst_span_ratio": 1.1734314871304252
+   "worst_span_ratio": 1.139202297768715
   },
   "area_fraction": {
    "per_specimen": {
     "MAR_Amb_AS": [
-     0.03897547398131169,
-     0.03751789119135567,
-     0.03675576296537958,
-     0.03570652152426995,
-     0.03339092960530619
+     0.025754766405831547,
+     0.024616532057105456,
+     0.023454032809434755,
+     0.02236363767247687,
+     0.020878523891906933
     ],
     "MAR_Amb_Cast": [
-     0.20411930146836832,
-     0.2035713421479288,
-     0.20313510674572702,
-     0.2027726789030461,
-     0.2004218432333733
+     0.24662665853590035,
+     0.24607071219306087,
+     0.24464991402298264,
+     0.24318199221091422,
+     0.24155331317186343
     ],
     "MAR_Amb_HIP": [
-     0.03990795877244737,
-     0.03873765468597412,
-     0.038063883781433105,
-     0.037035504976908364,
-     0.03602311346266005
+     0.0688727166917589,
+     0.0672622521718343,
+     0.06597219573126899,
+     0.06407936414082845,
+     0.06220489078097874
     ]
    },
    "orderings": {
@@ -214,76 +214,81 @@
     ]
    },
    "ranking_stable": true,
-   "worst_span_ratio": 1.167247346570371
+   "worst_span_ratio": 1.2335530298583404
   }
  },
  "n_frames": 9,
  "excluded_frames": 0,
  "frame_density_at_lowest_threshold": {
-  "min": 73,
-  "max": 1665,
-  "median": 538
+  "min": 110,
+  "max": 2678,
+  "median": 740
  },
- "planned_frames_with_no_data": [
-  "MAR_Amb_AS_ETD_0006",
-  "MAR_Amb_Cast_ETD_0005",
-  "MAR_Amb_HIP_ETD_0010"
- ],
+ "planned_frames_with_no_data": [],
  "exclusion_is_not_random_note": "Frames are excluded when they did not finish at every threshold. The slowest frames are the densest, so exclusion correlates with density and the sample is biased toward sparser frames.",
- "area_outlier_note": "A specimen whose crack-area fraction exceeds 3x the across-specimen median (3.81%) is treated as contaminated by the off-specimen background that unified_pipeline.py documents on the MAR Cast frames, and is excluded from the count-vs-area contrast: a large threshold-insensitive non-crack region dilutes the area movement and inflates the ratio.",
+ "area_outlier_note": "A specimen whose crack-area fraction exceeds 3x the across-specimen median (6.60%) is treated as contaminated by the off-specimen background that unified_pipeline.py documents on the MAR Cast frames, and is excluded from the count-vs-area contrast: a large threshold-insensitive non-crack region dilutes the area movement and inflates the ratio.",
  "count_vs_area_sensitivity": {
   "MAR_Amb_AS": {
-   "count_span": 1.346514745308311,
-   "area_span": 1.167247346570371,
-   "count_pct": 34.65147453083111,
-   "area_pct": 16.7247346570371,
-   "area_fraction_at_mid": 0.03675576296537958,
-   "times_more_sensitive": 2.071869912522119,
+   "count_span": 1.3368010403120938,
+   "area_span": 1.2335530298583404,
+   "count_pct": 33.68010403120938,
+   "area_pct": 23.355302985834037,
+   "area_fraction_at_mid": 0.023454032809434755,
+   "times_more_sensitive": 1.4420752345468506,
    "area_fraction_is_outlier": false
   },
   "MAR_Amb_Cast": {
-   "count_span": 1.2802653399668324,
-   "area_span": 1.018448379554566,
-   "count_pct": 28.026533996683245,
-   "area_pct": 1.844837955456602,
-   "area_fraction_at_mid": 0.20313510674572702,
-   "times_more_sensitive": 15.191867618392862,
+   "count_span": 1.3421787709497206,
+   "area_span": 1.0210030046676581,
+   "count_pct": 34.21787709497206,
+   "area_pct": 2.1003004667658143,
+   "area_fraction_at_mid": 0.24464991402298264,
+   "times_more_sensitive": 16.29189615315521,
    "area_fraction_is_outlier": true
   },
   "MAR_Amb_HIP": {
-   "count_span": 1.4052287581699345,
-   "area_span": 1.1078431300452187,
-   "count_pct": 40.522875816993455,
-   "area_pct": 10.784313004521874,
-   "area_fraction_at_mid": 0.038063883781433105,
-   "times_more_sensitive": 3.7575760087825874,
+   "count_span": 1.3789954337899544,
+   "area_span": 1.1071913450384046,
+   "count_pct": 37.89954337899544,
+   "area_pct": 10.719134503840454,
+   "area_fraction_at_mid": 0.06597219573126899,
+   "times_more_sensitive": 3.535690625527348,
    "area_fraction_is_outlier": false
   }
+ },
+ "count_vs_area_headline": {
+  "low": 1.4420752345468506,
+  "high": 3.535690625527348,
+  "n_specimens": 2,
+  "excluded_specimens": [
+   "MAR_Amb_Cast"
+  ],
+  "statement": "On the 2 specimen(s) whose area is actually crack, the crack count is 1.4-3.5x more sensitive to the threshold than the area fraction is."
  },
  "largest_single_step": {
   "n_cracks": {
    "specimen": "MAR_Amb_HIP",
    "from_threshold": "0.6",
    "to_threshold": "0.7",
-   "rel_change": 0.10409889394925186
+   "rel_change": 0.10035211267605634
   },
   "total_length_px": {
-   "specimen": "MAR_Amb_AS",
-   "from_threshold": "0.6",
-   "to_threshold": "0.7",
-   "rel_change": 0.07336284390083808
-  },
-  "mean_length_px": {
    "specimen": "MAR_Amb_HIP",
    "from_threshold": "0.6",
    "to_threshold": "0.7",
-   "rel_change": 0.09357101879311784
+   "rel_change": 0.07506572295247718
+  },
+  "mean_length_px": {
+   "specimen": "MAR_Amb_HIP",
+   "from_threshold": "0.3",
+   "to_threshold": "0.4",
+   "rel_change": 0.04809966779588431
   },
   "area_fraction": {
    "specimen": "MAR_Amb_AS",
    "from_threshold": "0.6",
    "to_threshold": "0.7",
-   "rel_change": 0.06485067209332733
+   "rel_change": 0.06640752288692645
   }
  },
  "largest_single_step_excluded_specimens": [

@@ -455,6 +455,20 @@ def report(paths=None):
             "whose area is mostly not crack.")
     out["count_vs_area_sensitivity"] = ratios
 
+    # The headline range, recorded rather than left to be recomputed by whoever writes it
+    # into a document. A figure a doc has to derive from the JSON is a figure that drifts
+    # from it, and this project has already published one number (15x) that no longer
+    # matched what the script computed.
+    _use = [v["times_more_sensitive"] for v in ratios.values()
+            if v.get("times_more_sensitive") and not v.get("area_fraction_is_outlier")]
+    out["count_vs_area_headline"] = ({
+        "low": min(_use), "high": max(_use), "n_specimens": len(_use),
+        "excluded_specimens": [k for k, v in ratios.items()
+                               if v.get("area_fraction_is_outlier")],
+        "statement": (f"On the {len(_use)} specimen(s) whose area is actually crack, the "
+                      f"crack count is {min(_use):.1f}-{max(_use):.1f}x more sensitive to "
+                      f"the threshold than the area fraction is.")} if _use else None)
+
     # Where in the range does the movement happen? A quantity that slides gently is a
     # different problem from one with a cliff: the second means an operating point can sit
     # right beside a discontinuity, and averaging the range hides it.
@@ -491,14 +505,19 @@ def report(paths=None):
     # robust quantity and the fragile one are not interchangeable, and "crack density" --
     # a count per unit area, the thing a materials paper reports -- is the fragile one.
     if biggest != smallest and spans[smallest]:
+        # Name the metrics that were actually computed. This sentence used to end with a
+        # fixed claim about AREA FRACTION being the insensitive one, regardless of which
+        # metric `smallest` turned out to be -- and on a later run `smallest` became
+        # mean_length_px, so the prose argued about a quantity the numbers beside it did not
+        # mention. Hardcoded phrasing that does not follow from the data is the exact defect
+        # this experiment exists to document, and it does not get an exemption here.
         print(f"  The spread across quantities is the useful part: {biggest} moves "
-              f"{spans[biggest]:.2f}x while {smallest} moves only {spans[smallest]:.2f}x. "
-              f"Raising the threshold removes marginal regions, which changes HOW MANY "
-              f"objects there are far more than HOW MUCH dark area there is. So a paper "
-              f"reporting crack AREA FRACTION is nearly immune to this choice, and a paper "
-              f"reporting CRACK DENSITY -- a count, and the more common figure -- is not. "
-              f"Those two are not interchangeable and the threshold has to be stated "
-              f"alongside the second one.")
+              f"{spans[biggest]:.2f}x, the most of any quantity measured, while "
+              f"{smallest} moves only {spans[smallest]:.2f}x, the least. Raising the "
+              f"threshold removes marginal regions, so quantities that COUNT objects move "
+              f"more than quantities that sum area or average a per-object size. The "
+              f"count-versus-area comparison a materials paper actually makes is quantified "
+              f"per specimen below, where the two are measured on the same frames.")
     if flips:
         print(f"  The ordering of the conditions FLIPS for: {', '.join(flips)}. A "
               f"comparison a paper exists to make is therefore decided by an undocumented "
