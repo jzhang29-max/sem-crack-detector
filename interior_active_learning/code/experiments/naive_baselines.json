@@ -1,0 +1,246 @@
+{
+ "requested": [
+  "AS_24hr_BSE_Side_008",
+  "260708_316_H_b2_front_CBS_012",
+  "260708_316_H_b2_front_CBS_015",
+  "MAR_Amb_HIP_CBS_0006",
+  "Cast_24hr_SE_Side_006"
+ ],
+ "scored": [
+  {
+   "image": "AS_24hr_BSE_Side_008",
+   "adjudicated_px": 1018189,
+   "crack_px": 884150,
+   "not_crack_px": 134039
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_012",
+   "adjudicated_px": 114174,
+   "crack_px": 96885,
+   "not_crack_px": 17289
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_015",
+   "adjudicated_px": 814127,
+   "crack_px": 809711,
+   "not_crack_px": 4416
+  },
+  {
+   "image": "MAR_Amb_HIP_CBS_0006",
+   "adjudicated_px": 454237,
+   "crack_px": 444504,
+   "not_crack_px": 9733
+  }
+ ],
+ "skipped": [
+  {
+   "image": "Cast_24hr_SE_Side_006",
+   "why": "no marked not-crack pixels (specificity undefined)"
+  }
+ ],
+ "macro_means": {
+  "otsu": {
+   "f1": 0.6760367886252923,
+   "recall": 0.598573729090526,
+   "specificity": 0.09076122338893922,
+   "precision": 0.8949353197738708
+  },
+  "otsu_clean": {
+   "f1": 0.7116969857164248,
+   "recall": 0.6600518658560663,
+   "specificity": 0.11325502016107392,
+   "precision": 0.9017717485061663
+  },
+  "frangi": {
+   "f1": 0.24063267694235396,
+   "recall": 0.15135700705648553,
+   "specificity": 0.8664268703701774,
+   "precision": 0.9364190487342172
+  },
+  "frangi_dark": {
+   "f1": 0.27415526458852135,
+   "recall": 0.1856537520391692,
+   "specificity": 0.80563919005421,
+   "precision": 0.919623632592379
+  },
+  "pipeline": {
+   "f1": 0.657736031024765,
+   "recall": 0.5305830525445699,
+   "specificity": 0.4554708694573847,
+   "precision": 0.9371305445322742
+  }
+ },
+ "per_method_per_image": {
+  "otsu": [
+   {
+    "recall": 0.7841112933325793,
+    "specificity": 0.1817232298062504,
+    "precision": 0.8634029638098369,
+    "f1": 0.821849051302736,
+    "adjudicated_px": 1018189,
+    "seconds": 0.11200404167175293
+   },
+   {
+    "recall": 0.5478453837023275,
+    "specificity": 0.05564231592341951,
+    "precision": 0.7647575823067503,
+    "f1": 0.6383787359432318,
+    "adjudicated_px": 114174,
+    "seconds": 0.030212879180908203
+   },
+   {
+    "recall": 0.19581060403032688,
+    "specificity": 0.12567934782608695,
+    "precision": 0.9762269796996509,
+    "f1": 0.32619362590292167,
+    "adjudicated_px": 814127,
+    "seconds": 0.09775996208190918
+   },
+   {
+    "recall": 0.8665276352968703,
+    "specificity": 0.0,
+    "precision": 0.9753537532792448,
+    "f1": 0.9177257413522799,
+    "adjudicated_px": 454237,
+    "seconds": 0.09514594078063965
+   }
+  ],
+  "otsu_clean": [
+   {
+    "recall": 0.8917921167222757,
+    "specificity": 0.26692231365498104,
+    "precision": 0.8891883632049565,
+    "f1": 0.8904883366489937,
+    "adjudicated_px": 1018189,
+    "seconds": 1.9345359802246094
+   },
+   {
+    "recall": 0.5524281364504309,
+    "specificity": 0.0352825495980103,
+    "precision": 0.7624107918690617,
+    "f1": 0.6406521192679219,
+    "adjudicated_px": 114174,
+    "seconds": 0.4712247848510742
+   },
+   {
+    "recall": 0.19598721025155888,
+    "specificity": 0.15081521739130435,
+    "precision": 0.9769149794081616,
+    "f1": 0.32647708079172644,
+    "adjudicated_px": 814127,
+    "seconds": 1.985755205154419
+   },
+   {
+    "recall": 1.0,
+    "specificity": 0.0,
+    "precision": 0.9785728595424855,
+    "f1": 0.9891704061570575,
+    "adjudicated_px": 454237,
+    "seconds": 1.694063663482666
+   }
+  ],
+  "frangi": [
+   {
+    "recall": 0.3279273878866708,
+    "specificity": 0.808257298249017,
+    "precision": 0.9185744428744321,
+    "f1": 0.4833137187569804,
+    "adjudicated_px": 1018189,
+    "seconds": 0.338958740234375
+   },
+   {
+    "recall": 0.1875316096402952,
+    "specificity": 0.8417490890161374,
+    "precision": 0.8691222195646975,
+    "f1": 0.30849817471771795,
+    "adjudicated_px": 114174,
+    "seconds": 0.08666491508483887
+   },
+   {
+    "recall": 0.02527444977282018,
+    "specificity": 0.84375,
+    "precision": 0.9673835972583313,
+    "f1": 0.04926185449880005,
+    "adjudicated_px": 814127,
+    "seconds": 0.3454856872558594
+   },
+   {
+    "recall": 0.06469458092615589,
+    "specificity": 0.9719510942155554,
+    "precision": 0.9905959352394075,
+    "f1": 0.12145695979591747,
+    "adjudicated_px": 454237,
+    "seconds": 0.3984661102294922
+   }
+  ],
+  "frangi_dark": [
+   {
+    "recall": 0.4600305378046712,
+    "specificity": 0.6408284156103821,
+    "precision": 0.8941630631442647,
+    "f1": 0.6075088739676289,
+    "adjudicated_px": 1018189,
+    "seconds": 0.4830200672149658
+   },
+   {
+    "recall": 0.17934664808793932,
+    "specificity": 0.7892301463358204,
+    "precision": 0.8266412940057088,
+    "f1": 0.29474576989949536,
+    "adjudicated_px": 114174,
+    "seconds": 0.1424241065979004
+   },
+   {
+    "recall": 0.028642318061629396,
+    "specificity": 0.8306159420289855,
+    "precision": 0.9687552213868004,
+    "f1": 0.05563959018822025,
+    "adjudicated_px": 814127,
+    "seconds": 0.5062999725341797
+   },
+   {
+    "recall": 0.07459550420243688,
+    "specificity": 0.9618822562416521,
+    "precision": 0.9889349518327418,
+    "f1": 0.13872682429874092,
+    "adjudicated_px": 454237,
+    "seconds": 0.6615028381347656
+   }
+  ],
+  "pipeline": [
+   {
+    "recall": 0.7250862410224509,
+    "specificity": 0.7504084632084692,
+    "precision": 0.9504032377620304,
+    "f1": 0.8225946147085053,
+    "adjudicated_px": 1018189,
+    "seconds": 0.031108856201171875
+   },
+   {
+    "recall": 0.635072508644269,
+    "specificity": 0.34906588003933137,
+    "precision": 0.8453759806548232,
+    "f1": 0.7252870311431737,
+    "adjudicated_px": 114174,
+    "seconds": 0.007901191711425781
+   },
+   {
+    "recall": 0.2941259288807982,
+    "specificity": 0.6184329710144928,
+    "precision": 0.9929745415732023,
+    "f1": 0.453825580985429,
+    "adjudicated_px": 814127,
+    "seconds": 0.0351259708404541
+   },
+   {
+    "recall": 0.46804753163076146,
+    "specificity": 0.10397616356724546,
+    "precision": 0.9597684181390413,
+    "f1": 0.6292368972619519,
+    "adjudicated_px": 454237,
+    "seconds": 0.03188514709472656
+   }
+  ]
+ },
+ "averaging_note": "macro_means average per-image metrics with equal weight. The adjudicated negative pools differ by orders of magnitude between these frames, so a specificity averaged this way gives a few-hundred-pixel estimate the same weight as a hundred-thousand-pixel one. Per-image numbers are in per_image; read them before quoting a specificity."
+}

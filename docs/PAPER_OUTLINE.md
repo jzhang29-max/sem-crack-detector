@@ -27,7 +27,7 @@ than documenting the fix.
 | 1 | Unlabelled pixels scored as background | macro: specificity **+0.488**, precision **−0.591**; micro: **+0.266** / **−0.629**; recall **exactly unchanged** under both (n=10) | `experiments/scoring_convention_bias.py` |
 | 2 | Calibration accepted without a cross-check | length error up to **+136%**, area up to **+458%** | `experiments/failure_mode_magnitudes.py` |
 | 3 | Model promotion gated on an in-sample baseline | **+0.029** AUC bar that every honest candidate must clear | same |
-| 1b | **Sparsity sensitivity of result 1** | gap **+0.488 [+0.285, +0.689]** at 8.16% adjudicated, and **+0.490** at 0.163% — invariant across a 50× thinning; interval excludes zero at every level | `experiments/sparsity_sensitivity.py` |
+| 1b | **Sparsity sensitivity of result 1** | gap **+0.488 [+0.279, +0.689]** at 8.16% adjudicated. Invariant under i.i.d. pixel thinning (**+0.470** at 0.163%) but **NOT** under whole-region thinning, where it swings to **+0.156 [−0.014, +0.391]** — the invariance was a property of the sampling model | `experiments/sparsity_sensitivity.py` |
 | 4 | Train/serve preprocessing skew | **13.8%** of labelled regions unreachable and 6 more images reached, both measured against a frozen 2026 snapshot; **0** marked images contribute no rows today, by enumeration | same |
 | 5 | Decision threshold inherited as a library default | crack count **1.34–1.38×** across 0.3–0.7; area fraction **1.02–1.23×**; the count is **1.4–3.5× more sensitive** than the area within a specimen; condition ordering **stable** | `experiments/threshold_sensitivity.py` |
 
@@ -118,34 +118,63 @@ something outside the area of interest — and nothing on disk distinguishes the
 needs the annotator, or an interface that records *why* a region was erased. That is a
 one-line addition to the paint tool and it is the cheapest of the outstanding annotation asks.
 
-### Result 1b answers the two objections the point estimate could not
+### Result 1b: one objection answered, the other now answered against us
 
-A single pair of numbers invites two immediate objections, and both are answerable from data
-already on disk.
+Two objections faced the point estimate, and only the first survives as first reported.
 
 *"0.4599 from 10 images and an adjudicated-negative class of three parts in ten thousand — how
-certain is that?"* Bootstrap over **images**, the unit of independence: the specificity gap is
-**+0.488 [+0.285, +0.689]**. The interval excludes zero, so the effect is not a noise artefact
-at this n.
+certain is that?"* Bootstrap over **images**: the specificity gap is **+0.488 [+0.279,
++0.689]**, and all ten images show it in the same direction.
 
-*"Your corpus is 8% reviewed. What happens at 1%? Is this a knife edge?"* Thinning the
-adjudicated region by up to 50× moves the gap from **+0.488 to +0.490**. It is a broad effect,
-which means it transfers to corpora far sparser than this one rather than being an artefact of
-how much this particular annotator happened to review.
+**What the interval does not establish.** The earlier write-up said "the interval excludes
+zero, so the effect is not a noise artefact". That cannot fail. All ten per-image gaps are
+strictly positive, and a percentile bootstrap of a strictly-positive sample cannot return a
+non-positive bound, so `lo > 0` is arithmetic rather than evidence. The interval characterises
+the *size* of the effect; the evidence that it is real is the 10-for-10 direction agreement,
+which is a different and better argument.
 
-The design has a built-in asymmetry worth stating in the paper: the dense convention is
-**invariant to thinning by construction**, because it never consults the adjudication. It is
-therefore a fixed reference line, and every bit of movement comes from the exclusion side. The
-dense number is not merely different — it is *indifferent to how much work the human did*.
+*"Your corpus is 8% reviewed. What happens at 1%? Is this a knife edge?"* **The original answer
+was an artefact of how thinning was modelled, and the honest answer is less comfortable.**
 
-**A prediction that failed, and the better conclusion that replaced it.** We expected the
-exclusion estimate's confidence interval to widen as review thinned — the honest price of
-declining to guess. It did not: 0.425 → 0.413, essentially flat. Thinning removes pixels, and
-even 0.163% of a 25-megapixel frame is tens of thousands of them, so each image's estimate
-stays stable. The interval is dominated by **between-image variance at n=10**, not by
-within-image sampling. The consequence is a labelling instruction that reverses the intuitive
-one: *to tighten the interval, mark not-crack on more IMAGES; marking existing images more
-thoroughly will not do it.*
+`_thin()` drew an i.i.d. random sample of adjudicated *pixels*. That is an unbiased,
+very-low-variance estimator of the statistic on the full mask, so a sweep built on it can
+hardly return anything but invariance — and duly did, +0.488 → +0.470 across a 50× thinning.
+The finding was a property of the sampling model.
+
+A reviewer who stops early leaves no scattered pixel sample. They mark a region, then another,
+and stop; what remains unreviewed is contiguous and whole-region shaped. Thinning by whole
+marked **regions** instead:
+
+| kept | mean adjudicated | negative pool px | specificity gap |
+|---|---|---|---|
+| 1.00 | 8.160% | 256–134,039 | +0.488 [+0.271, +0.685] |
+| 0.50 | 2.311% | 130–67,100 | +0.524 [+0.299, +0.749] |
+| 0.25 | 1.554% | 130–33,745 | +0.362 [+0.102, +0.658] |
+| 0.10 | 0.917% | 126–13,812 | +0.522 [+0.204, +0.813] |
+| 0.05 | 0.447% | 126–7,388 | **+0.156 [−0.014, +0.391]** |
+| 0.02 | 1.089% | 126–3,855 | +0.405 [+0.122, +0.707] |
+
+The gap swings between +0.156 and +0.524, the intervals widen, and at one level the interval
+**includes zero**. (Kept-fraction is non-monotonic because whole regions cannot be dropped to
+hit an arbitrary target; at the sparsest level one large region survives.)
+
+So the defensible claim is narrower than the one published: **the effect is present at every
+level of review effort tested, but its magnitude is not stable under realistic sparsity, and at
+5% region-level review it is not separable from zero.** A paper working on a corpus reviewed as
+thinly as most are cannot assume the effect transfers at the size measured here.
+
+**The published explanation for the flat interval was also measuring the wrong pool.** It read:
+"even 0.163% of a 25-megapixel frame is tens of thousands of pixels, so each image's estimate
+stays stable." That is the *adjudicated* count, which is crack-dominated. Specificity rests only
+on the negative part, and at the sparsest level that is **5 to 2,681 pixels per frame** — on one
+frame, five.
+
+The claim that survives intact is the design asymmetry: the dense specificity is computed once
+from the unthinned mask and never re-derived, so it is a fixed reference line and all movement
+comes from the exclusion side. Note the precise reason, since the earlier wording had it wrong:
+it is invariant because it is *exempted from the thinning*, not because it "never consults the
+adjudication" — `~crack` is the adjudication.
+
 
 ### Result 5 is a partial negative, and that is how it is reported
 

@@ -74,8 +74,7 @@ audit layer it actually owns.
 
 The other recommendation acted on: `experiments/naive_baselines.py` now compares the
 deployed pipeline against global Otsu, Otsu+cleanup, Frangi ridges and Frangi∩dark on
-identical adjudicated pixels. The pipeline wins by +0.101 f1 over the best naive method, and
-is the only one not degenerate at one end. That question had never been asked before.
+identical adjudicated pixels. The pipeline LOSES on f1 by 0.054 against Otsu + small-object cleanup on the four frames that carry a marked not-crack region; an earlier draft reported +0.101 in its favour from a two-frame subset the documented command does not produce. Where it does win is specificity, 0.455 against 0.113, and precision -- Otsu families collapse specificity (one scores f1 0.989 at specificity 0.000 by predicting almost everything) and Frangi families collapse recall, so the defensible claim is that the pipeline is the only method competitive on both sides of the confusion matrix, not that it wins on f1. That question had never been asked before.
 
 ### The survey's own list, closed out
 
