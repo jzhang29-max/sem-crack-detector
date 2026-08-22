@@ -1,0 +1,412 @@
+{
+ "per_image": [
+  {
+   "image": "260708_316_H_b2_front_CBS_003",
+   "px_crack": 455320,
+   "px_not_crack": 256,
+   "px_erased": 6365,
+   "erased_as_negative": {
+    "recall": 0.5955459896336642,
+    "precision": 0.9819090382387022,
+    "specificity": 0.24543120374565774,
+    "f1": 0.7414119319735332,
+    "tp": 271164,
+    "fp": 4996,
+    "fn": 184156,
+    "tn": 1625,
+    "negative_pool_px": 6621
+   },
+   "erased_excluded": {
+    "recall": 0.5955459896336642,
+    "precision": 0.9991304347826087,
+    "specificity": 0.078125,
+    "f1": 0.7462681638044913,
+    "tp": 271164,
+    "fp": 236,
+    "fn": 184156,
+    "tn": 20,
+    "negative_pool_px": 256
+   },
+   "unlabelled_as_background": {
+    "recall": 0.5955459896336642,
+    "precision": 0.20216024071594504,
+    "specificity": 0.8159854957432262,
+    "f1": 0.30185478323014137,
+    "tp": 271164,
+    "fp": 1070168,
+    "fn": 184156,
+    "tn": 4745504,
+    "negative_pool_px": 5815672
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_015",
+   "px_crack": 809711,
+   "px_not_crack": 4416,
+   "px_erased": 0,
+   "erased_as_negative": {
+    "recall": 0.4143478352152805,
+    "precision": 0.9968534678706089,
+    "specificity": 0.7601902173913043,
+    "f1": 0.5853793863934564,
+    "tp": 335502,
+    "fp": 1059,
+    "fn": 474209,
+    "tn": 3357,
+    "negative_pool_px": 4416
+   },
+   "erased_excluded": {
+    "recall": 0.4143478352152805,
+    "precision": 0.9968534678706089,
+    "specificity": 0.7601902173913043,
+    "f1": 0.5853793863934564,
+    "tp": 335502,
+    "fp": 1059,
+    "fn": 474209,
+    "tn": 3357,
+    "negative_pool_px": 4416
+   },
+   "unlabelled_as_background": {
+    "recall": 0.4143478352152805,
+    "precision": 0.5516455546347816,
+    "specificity": 0.9887930630933837,
+    "f1": 0.473239555820424,
+    "tp": 335502,
+    "fp": 272682,
+    "fn": 474209,
+    "tn": 24058855,
+    "negative_pool_px": 24331537
+   }
+  },
+  {
+   "image": "MAR_Amb_HIP_CBS_0006",
+   "px_crack": 444504,
+   "px_not_crack": 9733,
+   "px_erased": 59009,
+   "erased_as_negative": {
+    "recall": 0.4339825963320915,
+    "precision": 0.7734564510502828,
+    "specificity": 0.17805708300602252,
+    "f1": 0.5559976538845648,
+    "tp": 192907,
+    "fp": 56502,
+    "fn": 251597,
+    "tn": 12240,
+    "negative_pool_px": 68742
+   },
+   "erased_excluded": {
+    "recall": 0.4339825963320915,
+    "precision": 0.9766009041710331,
+    "specificity": 0.5251207233124422,
+    "f1": 0.600925497599033,
+    "tp": 192907,
+    "fp": 4622,
+    "fn": 251597,
+    "tn": 5111,
+    "negative_pool_px": 9733
+   },
+   "unlabelled_as_background": {
+    "recall": 0.4339825963320915,
+    "precision": 0.22484067079112138,
+    "specificity": 0.9730975125923697,
+    "f1": 0.29621582278675385,
+    "tp": 192907,
+    "fp": 665065,
+    "fn": 251597,
+    "tn": 24056255,
+    "negative_pool_px": 24721320
+   }
+  },
+  {
+   "image": "MAR_Amb_Cast_ETD_0003",
+   "px_crack": 26983,
+   "px_not_crack": 2865,
+   "px_erased": 0,
+   "erased_as_negative": {
+    "recall": 0.9684245636141274,
+    "precision": 0.9737293188254583,
+    "specificity": 0.7539267015706806,
+    "f1": 0.9710696965755589,
+    "tp": 26131,
+    "fp": 705,
+    "fn": 852,
+    "tn": 2160,
+    "negative_pool_px": 2865
+   },
+   "erased_excluded": {
+    "recall": 0.9684245636141274,
+    "precision": 0.9737293188254583,
+    "specificity": 0.7539267015706806,
+    "f1": 0.9710696965755589,
+    "tp": 26131,
+    "fp": 705,
+    "fn": 852,
+    "tn": 2160,
+    "negative_pool_px": 2865
+   },
+   "unlabelled_as_background": {
+    "recall": 0.9684245636141274,
+    "precision": 0.26594001567286457,
+    "specificity": 0.9971308144237835,
+    "f1": 0.41728813017997163,
+    "tp": 26131,
+    "fp": 72128,
+    "fn": 852,
+    "tn": 25066713,
+    "negative_pool_px": 25138841
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_013",
+   "px_crack": 222132,
+   "px_not_crack": 8322,
+   "px_erased": 11175,
+   "erased_as_negative": {
+    "recall": 0.644346604721517,
+    "precision": 0.9393211529374704,
+    "specificity": 0.5257731958762887,
+    "f1": 0.7643628440513955,
+    "tp": 143130,
+    "fp": 9246,
+    "fn": 79002,
+    "tn": 10251,
+    "negative_pool_px": 19497
+   },
+   "erased_excluded": {
+    "recall": 0.644346604721517,
+    "precision": 0.998757920004466,
+    "specificity": 0.9786109108387406,
+    "f1": 0.7833296847635727,
+    "tp": 143130,
+    "fp": 178,
+    "fn": 79002,
+    "tn": 8144,
+    "negative_pool_px": 8322
+   },
+   "unlabelled_as_background": {
+    "recall": 0.644346604721517,
+    "precision": 0.20886688293210404,
+    "specificity": 0.908688195905564,
+    "f1": 0.3154724317032932,
+    "tp": 143130,
+    "fp": 542139,
+    "fn": 79002,
+    "tn": 5395089,
+    "negative_pool_px": 5937228
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_016",
+   "px_crack": 5322088,
+   "px_not_crack": 822,
+   "px_erased": 1241,
+   "erased_as_negative": {
+    "recall": 0.2994206409213827,
+    "precision": 0.999570951940972,
+    "specificity": 0.6684440135724673,
+    "f1": 0.4608069470520067,
+    "tp": 1593543,
+    "fp": 684,
+    "fn": 3728545,
+    "tn": 1379,
+    "negative_pool_px": 2063
+   },
+   "erased_excluded": {
+    "recall": 0.2994206409213827,
+    "precision": 0.999570951940972,
+    "specificity": 0.1678832116788321,
+    "f1": 0.4608069470520067,
+    "tp": 1593543,
+    "fp": 684,
+    "fn": 3728545,
+    "tn": 138,
+    "negative_pool_px": 822
+   },
+   "unlabelled_as_background": {
+    "recall": 0.2994206409213827,
+    "precision": 0.6444921773258119,
+    "specificity": 0.9556208067583817,
+    "f1": 0.408881534551161,
+    "tp": 1593543,
+    "fp": 879013,
+    "fn": 3728545,
+    "tn": 18927859,
+    "negative_pool_px": 19806872
+   }
+  },
+  {
+   "image": "MAR_Amb_AS_CBS_0003",
+   "px_crack": 9183402,
+   "px_not_crack": 26284,
+   "px_erased": 307370,
+   "erased_as_negative": {
+    "recall": 0.09591989983668361,
+    "precision": 0.7437257419982894,
+    "specificity": 0.09027915145629904,
+    "f1": 0.16992429930925593,
+    "tp": 880871,
+    "fp": 303532,
+    "fn": 8302531,
+    "tn": 30122,
+    "negative_pool_px": 333654
+   },
+   "erased_excluded": {
+    "recall": 0.09591989983668361,
+    "precision": 0.9979075990293615,
+    "specificity": 0.929729112768224,
+    "f1": 0.1750169876774765,
+    "tp": 880871,
+    "fp": 1847,
+    "fn": 8302531,
+    "tn": 24437,
+    "negative_pool_px": 26284
+   },
+   "unlabelled_as_background": {
+    "recall": 0.09591989983668361,
+    "precision": 0.5696456621370726,
+    "specificity": 0.9583618803207674,
+    "f1": 0.16419225385565797,
+    "tp": 880871,
+    "fp": 665478,
+    "fn": 8302531,
+    "tn": 15316944,
+    "negative_pool_px": 15982422
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_012",
+   "px_crack": 96885,
+   "px_not_crack": 17289,
+   "px_erased": 11873,
+   "erased_as_negative": {
+    "recall": 0.5766011250451566,
+    "precision": 0.7474744771665975,
+    "specificity": 0.35282216583224746,
+    "f1": 0.6510121080048012,
+    "tp": 55864,
+    "fp": 18873,
+    "fn": 41021,
+    "tn": 10289,
+    "negative_pool_px": 29162
+   },
+   "erased_excluded": {
+    "recall": 0.5766011250451566,
+    "precision": 0.8800945254037023,
+    "specificity": 0.5597778934582682,
+    "f1": 0.696732352207533,
+    "tp": 55864,
+    "fp": 7611,
+    "fn": 41021,
+    "tn": 9678,
+    "negative_pool_px": 17289
+   },
+   "unlabelled_as_background": {
+    "recall": 0.5766011250451566,
+    "precision": 0.26244110061400994,
+    "specificity": 0.972691698971549,
+    "f1": 0.36070612239627053,
+    "tp": 55864,
+    "fp": 156999,
+    "fn": 41021,
+    "tn": 5592132,
+    "negative_pool_px": 5749131
+   }
+  },
+  {
+   "image": "AS_24hr_BSE_Side_008",
+   "px_crack": 884150,
+   "px_not_crack": 134039,
+   "px_erased": 0,
+   "erased_as_negative": {
+    "recall": 0.6652264887179777,
+    "precision": 0.9518553702891526,
+    "specificity": 0.7780571326255791,
+    "f1": 0.7831383454311714,
+    "tp": 588160,
+    "fp": 29749,
+    "fn": 295990,
+    "tn": 104290,
+    "negative_pool_px": 134039
+   },
+   "erased_excluded": {
+    "recall": 0.6652264887179777,
+    "precision": 0.9518553702891526,
+    "specificity": 0.7780571326255791,
+    "f1": 0.7831383454311714,
+    "tp": 588160,
+    "fp": 29749,
+    "fn": 295990,
+    "tn": 104290,
+    "negative_pool_px": 134039
+   },
+   "unlabelled_as_background": {
+    "recall": 0.6652264887179777,
+    "precision": 0.7783147453168255,
+    "specificity": 0.9931008051586558,
+    "f1": 0.7173409015790624,
+    "tp": 588160,
+    "fp": 167524,
+    "fn": 295990,
+    "tn": 24114150,
+    "negative_pool_px": 24281674
+   }
+  },
+  {
+   "image": "260622_316_H_b2_back_CBS_01",
+   "px_crack": 411002,
+   "px_not_crack": 4737,
+   "px_erased": 38025,
+   "erased_as_negative": {
+    "recall": 0.896363034729758,
+    "precision": 0.908334874317344,
+    "specificity": 0.1305832280997147,
+    "f1": 0.9023092456774354,
+    "tp": 368407,
+    "fp": 37178,
+    "fn": 42595,
+    "tn": 5584,
+    "negative_pool_px": 42762
+   },
+   "erased_excluded": {
+    "recall": 0.896363034729758,
+    "precision": 0.9898092423428264,
+    "specificity": 0.19928224614735066,
+    "f1": 0.9407713463448766,
+    "tp": 368407,
+    "fp": 3793,
+    "fn": 42595,
+    "tn": 944,
+    "negative_pool_px": 4737
+   },
+   "unlabelled_as_background": {
+    "recall": 0.896363034729758,
+    "precision": 0.11360383112698164,
+    "specificity": 0.883881087894714,
+    "f1": 0.2016507239364276,
+    "tp": 368407,
+    "fp": 2874503,
+    "fn": 42595,
+    "tn": 21880319,
+    "negative_pool_px": 24754822
+   }
+  }
+ ],
+ "summary": {
+  "erased_excluded": {
+   "macro_specificity": 0.5730703149791422,
+   "macro_precision": 0.9764309734660189,
+   "pooled_negative_px": 208763
+  },
+  "erased_as_negative": {
+   "macro_specificity": 0.44835640931762616,
+   "macro_precision": 0.9016230844634878,
+   "pooled_negative_px": 643821
+  },
+  "unlabelled_as_background": {
+   "macro_specificity": 0.9447351360862395,
+   "macro_precision": 0.38219508812675185,
+   "pooled_negative_px": 176519519
+  }
+ },
+ "interval_note": "Macro specificity under the adjudicated convention lies between 0.4484 and 0.5731 depending on whether an erasure is read as a not-crack verdict. The corpus cannot decide it."
+}

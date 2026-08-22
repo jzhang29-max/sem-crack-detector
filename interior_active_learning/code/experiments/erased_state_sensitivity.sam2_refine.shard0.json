@@ -1,0 +1,167 @@
+{
+ "detector": {
+  "detector_mode": "refine",
+  "git_commit": "9cbca64",
+  "pipeline_default_at_runtime": "refine",
+  "note": "detector_mode is what this experiment PINNED, not what the pipeline defaults to. 'off' is the bare two-pass detector; 'refine' is the shipped default since commit 4d97602, which applies SAM 2 to each accepted candidate's boundary.",
+  "sam2_model": "facebook/sam2.1-hiera-tiny"
+ },
+ "per_image": [
+  {
+   "image": "260708_316_H_b2_front_CBS_003",
+   "px_crack": 455320,
+   "px_not_crack": 256,
+   "px_erased": 6365,
+   "erased_as_negative": {
+    "recall": 0.5955459896336642,
+    "precision": 0.9819090382387022,
+    "specificity": 0.24543120374565774,
+    "f1": 0.7414119319735332,
+    "tp": 271164,
+    "fp": 4996,
+    "fn": 184156,
+    "tn": 1625,
+    "negative_pool_px": 6621
+   },
+   "erased_excluded": {
+    "recall": 0.5955459896336642,
+    "precision": 0.9991304347826087,
+    "specificity": 0.078125,
+    "f1": 0.7462681638044913,
+    "tp": 271164,
+    "fp": 236,
+    "fn": 184156,
+    "tn": 20,
+    "negative_pool_px": 256
+   },
+   "unlabelled_as_background": {
+    "recall": 0.5955459896336642,
+    "precision": 0.20216024071594504,
+    "specificity": 0.8159854957432262,
+    "f1": 0.30185478323014137,
+    "tp": 271164,
+    "fp": 1070168,
+    "fn": 184156,
+    "tn": 4745504,
+    "negative_pool_px": 5815672
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_015",
+   "px_crack": 809711,
+   "px_not_crack": 4416,
+   "px_erased": 0,
+   "erased_as_negative": {
+    "recall": 0.4143478352152805,
+    "precision": 0.9968534678706089,
+    "specificity": 0.7601902173913043,
+    "f1": 0.5853793863934564,
+    "tp": 335502,
+    "fp": 1059,
+    "fn": 474209,
+    "tn": 3357,
+    "negative_pool_px": 4416
+   },
+   "erased_excluded": {
+    "recall": 0.4143478352152805,
+    "precision": 0.9968534678706089,
+    "specificity": 0.7601902173913043,
+    "f1": 0.5853793863934564,
+    "tp": 335502,
+    "fp": 1059,
+    "fn": 474209,
+    "tn": 3357,
+    "negative_pool_px": 4416
+   },
+   "unlabelled_as_background": {
+    "recall": 0.4143478352152805,
+    "precision": 0.5516455546347816,
+    "specificity": 0.9887930630933837,
+    "f1": 0.473239555820424,
+    "tp": 335502,
+    "fp": 272682,
+    "fn": 474209,
+    "tn": 24058855,
+    "negative_pool_px": 24331537
+   }
+  },
+  {
+   "image": "MAR_Amb_HIP_CBS_0006",
+   "px_crack": 444504,
+   "px_not_crack": 9733,
+   "px_erased": 59009,
+   "erased_as_negative": {
+    "recall": 0.4339825963320915,
+    "precision": 0.7734564510502828,
+    "specificity": 0.17805708300602252,
+    "f1": 0.5559976538845648,
+    "tp": 192907,
+    "fp": 56502,
+    "fn": 251597,
+    "tn": 12240,
+    "negative_pool_px": 68742
+   },
+   "erased_excluded": {
+    "recall": 0.4339825963320915,
+    "precision": 0.9766009041710331,
+    "specificity": 0.5251207233124422,
+    "f1": 0.600925497599033,
+    "tp": 192907,
+    "fp": 4622,
+    "fn": 251597,
+    "tn": 5111,
+    "negative_pool_px": 9733
+   },
+   "unlabelled_as_background": {
+    "recall": 0.4339825963320915,
+    "precision": 0.22484067079112138,
+    "specificity": 0.9730975125923697,
+    "f1": 0.29621582278675385,
+    "tp": 192907,
+    "fp": 665065,
+    "fn": 251597,
+    "tn": 24056255,
+    "negative_pool_px": 24721320
+   }
+  },
+  {
+   "image": "MAR_Amb_Cast_ETD_0003",
+   "px_crack": 26983,
+   "px_not_crack": 2865,
+   "px_erased": 0,
+   "erased_as_negative": {
+    "recall": 0.9684245636141274,
+    "precision": 0.9737293188254583,
+    "specificity": 0.7539267015706806,
+    "f1": 0.9710696965755589,
+    "tp": 26131,
+    "fp": 705,
+    "fn": 852,
+    "tn": 2160,
+    "negative_pool_px": 2865
+   },
+   "erased_excluded": {
+    "recall": 0.9684245636141274,
+    "precision": 0.9737293188254583,
+    "specificity": 0.7539267015706806,
+    "f1": 0.9710696965755589,
+    "tp": 26131,
+    "fp": 705,
+    "fn": 852,
+    "tn": 2160,
+    "negative_pool_px": 2865
+   },
+   "unlabelled_as_background": {
+    "recall": 0.9684245636141274,
+    "precision": 0.26594001567286457,
+    "specificity": 0.9971308144237835,
+    "f1": 0.41728813017997163,
+    "tp": 26131,
+    "fp": 72128,
+    "fn": 852,
+    "tn": 25066713,
+    "negative_pool_px": 25138841
+   }
+  }
+ ]
+}

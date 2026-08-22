@@ -14,28 +14,36 @@ and "our software is careful" is not a finding. This is the paper that *is* here
 This is a claim about **everyone's numbers**, not about this repo's software. That is what
 makes it a contribution rather than a release note.
 
-> **Which detector every result below was measured with.** All of them: the **bare two-pass
-> detector** (`--sam2 off`), which was the shipped default until commit `4d97602`. As of that
-> commit the shipped default applies SAM 2 boundary refinement, which changes the predicted
-> mask and therefore changes every figure derived from it — measured on the same ten frames,
-> f1 0.638 → 0.676, specificity 0.460 → 0.569.
+> **Which detector every result below was measured with.** Results 1 and 1c have now been
+> measured under **both** configurations and both are reported; results 1b, 2, 3, 4 and 5 are
+> still bare-detector only and say so in their sections.
 >
-> Nothing here has been re-measured under the new default yet, and two consequences must be
-> stated rather than discovered by a referee:
+> | | bare detector (`--sam2 off`) | shipped default (`--sam2 refine`) |
+> |---|---|---|
+> | result 1, macro specificity gap | +0.4879 | **+0.3717** |
+> | result 1, micro specificity gap | +0.2662 | **+0.2001** |
+> | result 1, precision gap | −0.5905 | −0.5942 |
+> | result 1, per-frame direction | 10/10 positive | **9/10 positive, 1 negative** |
+> | result 1c, erased-as-negative gap | +0.5988 | **+0.4964** |
 >
-> 1. **Result 1's arms do not move together.** The adjudicated negative pool is 208,763 px and
->    fp-sensitive; the dense pool is 176,519,519 px and barely moves. A detector that makes
->    fewer false positives raises adjudicated specificity and shrinks the gap, so the
->    published +0.488 / +0.678 pair describes the bare detector and is expected to be
->    *smaller* under the default.
-> 2. **The 10-for-10 direction agreement, named above as the real evidence, is not established
->    for the default.** On `260708_316_H_b2_front_CBS_013` the refined detector's adjudicated
->    specificity rises to 0.9786 against a dense 0.906, which makes that frame's gap negative.
->    So the claim "all ten images show it in the same direction" is a property of the bare
->    detector and must not be quoted for the shipped one until re-measured.
+> **The effect survives the better detector and shrinks, which is the honest headline.** It
+> shrinks for a reason predicted in advance: the adjudicated negative pool is 208,763 px and
+> false-positive-sensitive, the dense pool is 176,519,519 px and barely moves, so a detector
+> making fewer false positives raises adjudicated specificity and closes the gap. A gap of
+> **+0.372 macro / +0.200 micro** on the shipped detector is still the difference between
+> reporting specificity 0.57 and reporting 0.94 for the same predictions.
 >
-> Every experiment now pins its detector explicitly (`DETECTOR` in each script) and stamps it
-> into its result JSON, so this class of ambiguity cannot recur silently.
+> **The 10-for-10 claim does not survive, and it was named as the real evidence.** Result 1b
+> below argues that unanimous direction — not the bootstrap interval — is what shows the
+> effect is real. Under the shipped detector it is **9 of 10**: on
+> `260708_316_H_b2_front_CBS_013` the refined detector's adjudicated specificity reaches 0.979
+> against a dense 0.909, so that frame's gap is **−0.070**. The claim as written belongs to the
+> bare detector. For the shipped one the correct statement is nine of ten in the same
+> direction, with the exception named — which is weaker evidence and still evidence.
+>
+> Every experiment now pins its detector (`DETECTOR` in each script, `--detector` to override)
+> and stamps mode plus git commit into its result JSON, and each configuration writes its own
+> file, so a re-measurement can never overwrite the number it is compared against.
 
 ## Results, all measured on the shipped corpus
 
@@ -47,7 +55,7 @@ than documenting the fix.
 
 | # | failure mode | measured magnitude | script |
 |---|---|---|---|
-| 1 | Unlabelled pixels scored as background | specificity gap **+0.678** out-of-sample (**+0.488** in-sample, superseded); precision **−0.591**; micro **+0.266** / **−0.629**; recall **exactly unchanged** under both (n=10) | `scoring_convention_bias.py`, `oos_convention_gap.py` |
+| 1 | Unlabelled pixels scored as background | specificity gap **+0.372** macro / **+0.200** micro on the shipped detector (**+0.488** / **+0.266** bare, **+0.678** bare out-of-sample); precision **−0.594**; recall **exactly unchanged** under every configuration (n=10) | `scoring_convention_bias.py`, `oos_convention_gap.py` |
 | 2 | Calibration accepted without a cross-check | length error up to **+136%**, area up to **+458%** | `experiments/failure_mode_magnitudes.py` |
 | 3 | Model promotion gated on an in-sample baseline | **+0.029** AUC bar that every honest candidate must clear | same |
 | 1b | **Sparsity sensitivity of result 1** | gap **+0.488 [+0.279, +0.689]** at 8.16% adjudicated. Invariant under i.i.d. pixel thinning (**+0.470** at 0.163%) but **NOT** under whole-region thinning, where it swings to **+0.156 [−0.014, +0.391]** — the invariance was a property of the sampling model | `experiments/sparsity_sensitivity.py` |
