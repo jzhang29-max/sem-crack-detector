@@ -61,8 +61,10 @@ Three denominators appear in this paper -- 62 images, 38 masks, 10 both-class ma
 each must be stated with its own number rather than blended.
 
 **The fragility, beside the finding:** adjudicated *negatives* are 0.034% of pixels, about
-three parts in ten thousand (145,441 px pooled, against 169,965,542 under the dense
-convention -- a factor of 1,169). Specificity under exclusion is estimated from that pool and
+three parts in ten thousand. The negative CLASS is 208,763 px against 176,519,519 under the
+dense convention, a factor of **846**; an earlier draft published 1,169, which is the ratio
+of the two *true-negative* counts (145,441 against 169,965,542) presented as the ratio of the
+classes. Specificity under exclusion is estimated from that pool and
 is therefore high-variance. The dense convention's real attraction is that it always returns
 a number, which is why it persists; saying so makes this a diagnosis rather than an
 accusation.
