@@ -271,17 +271,33 @@ classifier is best on my features", not "is the machinery worth anything". So
 against plain alternatives on identical pixels, under an identical protocol: adjudicated
 pixels only, human corrections neutralised so the pipeline cannot see the answer.
 
-Measured on two adjudicated frames (run the script for the full set):
+Measured on the **4** frames of the default set that carry a marked not-crack region
+(`Cast_24hr_SE_Side_006` has none, so specificity is undefined there and it is skipped and
+named). Reproduce with `python3 interior_active_learning/code/experiments/naive_baselines.py`;
+the numbers land in `naive_baselines.json`.
 
 | method | f1 | recall | specificity | precision |
 |---|---|---|---|---|
-| global Otsu | 0.585 | 0.455 | 0.041 | 0.882 |
-| Otsu + small-object cleanup | 0.592 | 0.463 | 0.020 | 0.880 |
-| Frangi ridges (98th pct) | 0.241 | 0.141 | 0.837 | 0.934 |
-| Frangi ∩ darker-than-median | 0.238 | 0.139 | 0.729 | 0.912 |
-| **deployed two-pass pipeline** | **0.693** | **0.564** | 0.175 | 0.922 |
+| global Otsu | 0.676 | 0.599 | 0.091 | 0.895 |
+| Otsu + small-object cleanup | **0.712** | 0.660 | 0.113 | 0.902 |
+| Frangi ridges (98th pct) | 0.241 | 0.151 | 0.866 | 0.936 |
+| Frangi ∩ darker-than-median | 0.274 | 0.186 | 0.806 | 0.920 |
+| **deployed two-pass pipeline** | 0.658 | 0.531 | **0.455** | **0.937** |
 
-**+0.101 f1 over the best naive method.** The two families fail in opposite directions —
+**The pipeline LOSES on f1: −0.054 against Otsu + cleanup.** An earlier version of this table
+reported +0.101 in the pipeline's favour, from a two-frame subset that the documented command
+does not produce and that no committed artefact recorded. The sign was wrong, and the
+correction is the honest headline.
+
+**Why f1 is the wrong scoreboard here, and what the pipeline actually buys.** On
+`MAR_Amb_HIP_CBS_0006` Otsu+cleanup scores f1 **0.989 at specificity 0.000** — it predicts
+essentially everything as crack, and where the adjudicated region is crack-dominated that
+scores near-perfectly. The pipeline's advantage is in the column f1 barely sees: specificity
+**0.455 against 0.113**, four times better at not firing on pixels a human marked *not*
+crack, at the best precision in the table. So the defensible claim is that the pipeline is the
+only method that is competitive on *both* sides of the confusion matrix — Otsu families
+collapse specificity, Frangi families collapse recall — and not that it wins on f1, which it
+does not. The two families fail in opposite directions —
 Otsu takes nearly everything dark (specificity 0.02–0.04), Frangi is precise but finds a
 seventh of the crack — and the pipeline is the only one that is not degenerate at one end.
 
