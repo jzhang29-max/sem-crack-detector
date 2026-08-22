@@ -51,6 +51,220 @@
    },
    "gap_specificity": 0.8874965250076448,
    "gap_precision": -0.584577488879622
+  },
+  {
+   "image": "MAR_Amb_HIP_CBS_0006",
+   "specimen": "MAR_Amb_HIP",
+   "arm": "in_sample",
+   "holdout": "held out specimen MAR_Amb_HIP: 528 of 4787 rows, 7 frame(s)",
+   "adjudicated": {
+    "recall": 0.46804753163076146,
+    "precision": 0.9597684181390413,
+    "specificity": 0.10397616356724546,
+    "tp": 208049,
+    "fp": 8721,
+    "fn": 236455,
+    "tn": 1012
+   },
+   "dense": {
+    "recall": 0.46804753163076146,
+    "precision": 0.2682533726850867,
+    "specificity": 0.9770432970407729,
+    "tp": 208049,
+    "fp": 567520,
+    "fn": 236455,
+    "tn": 24153800
+   },
+   "gap_specificity": 0.8730671334735274,
+   "gap_precision": -0.6915150454539547
+  },
+  {
+   "image": "MAR_Amb_HIP_CBS_0006",
+   "specimen": "MAR_Amb_HIP",
+   "arm": "out_of_sample",
+   "holdout": "held out specimen MAR_Amb_HIP: 528 of 4787 rows, 7 frame(s)",
+   "adjudicated": {
+    "recall": 0.5088368158666738,
+    "precision": 0.9628737212698115,
+    "specificity": 0.10397616356724546,
+    "tp": 226180,
+    "fp": 8721,
+    "fn": 218324,
+    "tn": 1012
+   },
+   "dense": {
+    "recall": 0.5088368158666738,
+    "precision": 0.2537046737610052,
+    "specificity": 0.9730868335509593,
+    "tp": 226180,
+    "fp": 665329,
+    "fn": 218324,
+    "tn": 24055991
+   },
+   "gap_specificity": 0.8691106699837138,
+   "gap_precision": -0.7091690475088064
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_012",
+   "specimen": "260708_316_H_b2",
+   "arm": "in_sample",
+   "holdout": "deployed bundle, this frame's labels in the fit",
+   "rows_held_out": 903,
+   "adjudicated": {
+    "recall": 0.635072508644269,
+    "precision": 0.8453759806548232,
+    "specificity": 0.34906588003933137,
+    "tp": 61529,
+    "fp": 11254,
+    "fn": 35356,
+    "tn": 6035
+   },
+   "dense": {
+    "recall": 0.635072508644269,
+    "precision": 0.25837648076527375,
+    "specificity": 0.9692809226298722,
+    "tp": 61529,
+    "fp": 176608,
+    "fn": 35356,
+    "tn": 5572523
+   },
+   "gap_specificity": 0.6202150425905408,
+   "gap_precision": -0.5869994998895495
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_012",
+   "specimen": "260708_316_H_b2",
+   "arm": "out_of_sample",
+   "holdout": "held out specimen 260708_316_H_b2: 903 of 4787 rows, 15 frame(s)",
+   "rows_held_out": 903,
+   "adjudicated": {
+    "recall": 0.6327398462094236,
+    "precision": 0.792550647067189,
+    "specificity": 0.0718954248366013,
+    "tp": 61303,
+    "fp": 16046,
+    "fn": 35582,
+    "tn": 1243
+   },
+   "dense": {
+    "recall": 0.6327398462094236,
+    "precision": 0.207973158187567,
+    "specificity": 0.959391949844246,
+    "tp": 61303,
+    "fp": 233461,
+    "fn": 35582,
+    "tn": 5515670
+   },
+   "gap_specificity": 0.8874965250076448,
+   "gap_precision": -0.584577488879622
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_012",
+   "specimen": "260708_316_H_b2",
+   "arm": "volume_control",
+   "holdout": "volume-matched control: 903 rows dropped at random from OTHER specimens, 260708_316_H_b2 left in: 903 of 4787 rows, 22 frame(s)",
+   "rows_held_out": 903,
+   "adjudicated": {
+    "recall": 0.635454404706611,
+    "precision": 0.8285133698475285,
+    "specificity": 0.26294175487304067,
+    "tp": 61566,
+    "fp": 12743,
+    "fn": 35319,
+    "tn": 4546
+   },
+   "dense": {
+    "recall": 0.635454404706611,
+    "precision": 0.22967674544403202,
+    "specificity": 0.9640834414801124,
+    "tp": 61566,
+    "fp": 206489,
+    "fn": 35319,
+    "tn": 5542642
+   },
+   "gap_specificity": 0.7011416866070717,
+   "gap_precision": -0.5988366244034965
+  },
+  {
+   "image": "MAR_Amb_HIP_CBS_0006",
+   "specimen": "MAR_Amb_HIP",
+   "arm": "in_sample",
+   "holdout": "deployed bundle, this frame's labels in the fit",
+   "rows_held_out": 528,
+   "adjudicated": {
+    "recall": 0.46804753163076146,
+    "precision": 0.9597684181390413,
+    "specificity": 0.10397616356724546,
+    "tp": 208049,
+    "fp": 8721,
+    "fn": 236455,
+    "tn": 1012
+   },
+   "dense": {
+    "recall": 0.46804753163076146,
+    "precision": 0.2682533726850867,
+    "specificity": 0.9770432970407729,
+    "tp": 208049,
+    "fp": 567520,
+    "fn": 236455,
+    "tn": 24153800
+   },
+   "gap_specificity": 0.8730671334735274,
+   "gap_precision": -0.6915150454539547
+  },
+  {
+   "image": "MAR_Amb_HIP_CBS_0006",
+   "specimen": "MAR_Amb_HIP",
+   "arm": "out_of_sample",
+   "holdout": "held out specimen MAR_Amb_HIP: 528 of 4787 rows, 7 frame(s)",
+   "rows_held_out": 528,
+   "adjudicated": {
+    "recall": 0.5088368158666738,
+    "precision": 0.9628737212698115,
+    "specificity": 0.10397616356724546,
+    "tp": 226180,
+    "fp": 8721,
+    "fn": 218324,
+    "tn": 1012
+   },
+   "dense": {
+    "recall": 0.5088368158666738,
+    "precision": 0.2537046737610052,
+    "specificity": 0.9730868335509593,
+    "tp": 226180,
+    "fp": 665329,
+    "fn": 218324,
+    "tn": 24055991
+   },
+   "gap_specificity": 0.8691106699837138,
+   "gap_precision": -0.7091690475088064
+  },
+  {
+   "image": "MAR_Amb_HIP_CBS_0006",
+   "specimen": "MAR_Amb_HIP",
+   "arm": "volume_control",
+   "holdout": "volume-matched control: 528 rows dropped at random from OTHER specimens, MAR_Amb_HIP left in: 528 of 4787 rows, 26 frame(s)",
+   "rows_held_out": 528,
+   "adjudicated": {
+    "recall": 0.5229334269207926,
+    "precision": 0.9638383360907586,
+    "specificity": 0.10397616356724546,
+    "tp": 232446,
+    "fp": 8721,
+    "fn": 212058,
+    "tn": 1012
+   },
+   "dense": {
+    "recall": 0.5229334269207926,
+    "precision": 0.23854487686685488,
+    "specificity": 0.9699859473523258,
+    "tp": 232446,
+    "fp": 741987,
+    "fn": 212058,
+    "tn": 23979333
+   },
+   "gap_specificity": 0.8660097837850803,
+   "gap_precision": -0.7252934592239038
   }
  ]
 }
