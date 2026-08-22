@@ -1,0 +1,60 @@
+{
+ "per_image": [
+  {
+   "image": "260708_316_H_b2_front_CBS_012",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 287,
+   "n_accepted": 120,
+   "n_prompts_refine": 120,
+   "n_prompts_all": 250,
+   "seconds_refine": 25.781863927841187,
+   "seconds_all": 54.23782992362976,
+   "arms": {
+    "pipeline": {
+     "f1": 0.7252870311431737,
+     "recall": 0.635072508644269,
+     "specificity": 0.34906588003933137,
+     "precision": 0.8453759806548232,
+     "tp": 61529,
+     "fp": 11254,
+     "fn": 35356,
+     "tn": 6035,
+     "predicted_px": 238137
+    },
+    "sam2_refine": {
+     "f1": 0.6960907002372101,
+     "recall": 0.576993342622697,
+     "specificity": 0.5471108797501302,
+     "precision": 0.8771417812088119,
+     "tp": 55902,
+     "fp": 7830,
+     "fn": 40983,
+     "tn": 9459,
+     "predicted_px": 213439
+    },
+    "sam2_all": {
+     "f1": 0.6498531698048022,
+     "recall": 0.5436135624709707,
+     "specificity": 0.2747411649025392,
+     "precision": 0.8077046942812888,
+     "tp": 52668,
+     "fp": 12539,
+     "fn": 44217,
+     "tn": 4750,
+     "predicted_px": 280507
+    },
+    "hybrid_or": {
+     "f1": 0.73682860723341,
+     "recall": 0.6523920111472364,
+     "specificity": 0.33639886633119326,
+     "precision": 0.8463711837171933,
+     "tp": 63207,
+     "fp": 11473,
+     "fn": 33678,
+     "tn": 5816,
+     "predicted_px": 248639
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,594 @@
+{
+ "n_frames": 10,
+ "means": {
+  "pipeline": {
+   "f1": 0.6378039655045784,
+   "recall": 0.5337648623054941,
+   "specificity": 0.45993794761079326,
+   "precision": 0.9695909838299256
+  },
+  "sam2_refine": {
+   "f1": 0.6759837705781313,
+   "recall": 0.5612427815359733,
+   "specificity": 0.5686408487486971,
+   "precision": 0.9758099311934583
+  },
+  "sam2_all": {
+   "f1": 0.7010415073520091,
+   "recall": 0.607828023651144,
+   "specificity": 0.27360598679301995,
+   "precision": 0.950519814121974
+  },
+  "hybrid_or": {
+   "f1": 0.7067345016794992,
+   "recall": 0.6042597587119071,
+   "specificity": 0.4452899647178598,
+   "precision": 0.9700113713715949
+  }
+ },
+ "best_arm": "hybrid_or",
+ "delta_f1_vs_pipeline": 0.06893053617492084,
+ "hybrid_wins_on_n_frames": 9,
+ "per_image": [
+  {
+   "image": "260708_316_H_b2_front_CBS_003",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 360,
+   "n_accepted": 230,
+   "n_prompts_refine": 230,
+   "n_prompts_all": 360,
+   "seconds_refine": 90.93579983711243,
+   "seconds_all": 73.6750340461731,
+   "arms": {
+    "pipeline": {
+     "f1": 0.6602991254433067,
+     "recall": 0.4931476763594834,
+     "specificity": 0.0,
+     "precision": 0.9988611897008843,
+     "tp": 224540,
+     "fp": 256,
+     "fn": 230780,
+     "tn": 0,
+     "predicted_px": 1320489
+    },
+    "sam2_refine": {
+     "f1": 0.7470319584467305,
+     "recall": 0.5965189317403145,
+     "specificity": 0.078125,
+     "precision": 0.9991318518409523,
+     "tp": 271607,
+     "fp": 236,
+     "fn": 183713,
+     "tn": 20,
+     "predicted_px": 1342029
+    },
+    "sam2_all": {
+     "f1": 0.7477363065098712,
+     "recall": 0.5974172010893437,
+     "specificity": 0.078125,
+     "precision": 0.9991331560466039,
+     "tp": 272016,
+     "fp": 236,
+     "fn": 183304,
+     "tn": 20,
+     "predicted_px": 1388785
+    },
+    "hybrid_or": {
+     "f1": 0.7746135835161243,
+     "recall": 0.6324936308530265,
+     "specificity": 0.0,
+     "precision": 0.999111860478832,
+     "tp": 287987,
+     "fp": 256,
+     "fn": 167333,
+     "tn": 0,
+     "predicted_px": 1391500
+    }
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_015",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 164,
+   "n_accepted": 104,
+   "n_prompts_refine": 104,
+   "n_prompts_all": 164,
+   "seconds_refine": 20.625128030776978,
+   "seconds_all": 21.874972105026245,
+   "arms": {
+    "pipeline": {
+     "f1": 0.453825580985429,
+     "recall": 0.2941259288807982,
+     "specificity": 0.6184329710144928,
+     "precision": 0.9929745415732023,
+     "tp": 238157,
+     "fp": 1685,
+     "fn": 571554,
+     "tn": 2731,
+     "predicted_px": 587370
+    },
+    "sam2_refine": {
+     "f1": 0.5864707271977593,
+     "recall": 0.4154408177732549,
+     "specificity": 0.7601902173913043,
+     "precision": 0.9968617200974378,
+     "tp": 336387,
+     "fp": 1059,
+     "fn": 473324,
+     "tn": 3357,
+     "predicted_px": 610479
+    },
+    "sam2_all": {
+     "f1": 0.6355133754518847,
+     "recall": 0.467543358062321,
+     "specificity": 0.29506340579710144,
+     "precision": 0.9918441239965626,
+     "tp": 378575,
+     "fp": 3113,
+     "fn": 431136,
+     "tn": 1303,
+     "predicted_px": 676366
+    },
+    "hybrid_or": {
+     "f1": 0.6183783489250406,
+     "recall": 0.4485057014169253,
+     "specificity": 0.6184329710144928,
+     "precision": 0.9953816004056517,
+     "tp": 363160,
+     "fp": 1685,
+     "fn": 446551,
+     "tn": 2731,
+     "predicted_px": 724615
+    }
+   }
+  },
+  {
+   "image": "MAR_Amb_HIP_CBS_0006",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 1141,
+   "n_accepted": 532,
+   "n_prompts_refine": 532,
+   "n_prompts_all": 1141,
+   "seconds_refine": 166.9504976272583,
+   "seconds_all": 367.5655851364136,
+   "arms": {
+    "pipeline": {
+     "f1": 0.6292368972619519,
+     "recall": 0.46804753163076146,
+     "specificity": 0.10397616356724546,
+     "precision": 0.9597684181390413,
+     "tp": 208049,
+     "fp": 8721,
+     "fn": 236455,
+     "tn": 1012,
+     "predicted_px": 775569
+    },
+    "sam2_refine": {
+     "f1": 0.6040536824755208,
+     "recall": 0.4373818908266292,
+     "specificity": 0.5079626014589541,
+     "precision": 0.9759596801317223,
+     "tp": 194418,
+     "fp": 4789,
+     "fn": 250086,
+     "tn": 4944,
+     "predicted_px": 865523
+    },
+    "sam2_all": {
+     "f1": 0.6852073149709137,
+     "recall": 0.5275925525979519,
+     "specificity": 0.4356313572382616,
+     "precision": 0.9771134536060997,
+     "tp": 234517,
+     "fp": 5493,
+     "fn": 209987,
+     "tn": 4240,
+     "predicted_px": 1122663
+    },
+    "hybrid_or": {
+     "f1": 0.6460595726382147,
+     "recall": 0.48671103072188326,
+     "specificity": 0.08681804171375732,
+     "precision": 0.960538642206071,
+     "tp": 216345,
+     "fp": 8888,
+     "fn": 228159,
+     "tn": 845,
+     "predicted_px": 1015050
+    }
+   }
+  },
+  {
+   "image": "MAR_Amb_Cast_ETD_0003",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 406,
+   "n_accepted": 322,
+   "n_prompts_refine": 322,
+   "n_prompts_all": 406,
+   "seconds_refine": 143.4227430820465,
+   "seconds_all": 191.4762020111084,
+   "arms": {
+    "pipeline": {
+     "f1": 0.9748558586770314,
+     "recall": 0.9806544861579513,
+     "specificity": 0.7057591623036649,
+     "precision": 0.9691254028713742,
+     "tp": 26461,
+     "fp": 843,
+     "fn": 522,
+     "tn": 2022,
+     "predicted_px": 76768
+    },
+    "sam2_refine": {
+     "f1": 0.9710696965755589,
+     "recall": 0.9684245636141274,
+     "specificity": 0.7539267015706806,
+     "precision": 0.9737293188254583,
+     "tp": 26131,
+     "fp": 705,
+     "fn": 852,
+     "tn": 2160,
+     "predicted_px": 98398
+    },
+    "sam2_all": {
+     "f1": 0.9371324056806771,
+     "recall": 0.9684245636141274,
+     "specificity": 0.07364746945898779,
+     "precision": 0.9077992009727288,
+     "tp": 26131,
+     "fp": 2654,
+     "fn": 852,
+     "tn": 211,
+     "predicted_px": 115547
+    },
+    "hybrid_or": {
+     "f1": 0.9766466845647457,
+     "recall": 0.9841752214357188,
+     "specificity": 0.7057591623036649,
+     "precision": 0.9692324537391875,
+     "tp": 26556,
+     "fp": 843,
+     "fn": 427,
+     "tn": 2022,
+     "predicted_px": 99852
+    }
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_013",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 332,
+   "n_accepted": 167,
+   "n_prompts_refine": 167,
+   "n_prompts_all": 332,
+   "seconds_refine": 58.94169211387634,
+   "seconds_all": 93.43914699554443,
+   "arms": {
+    "pipeline": {
+     "f1": 0.6788784360407099,
+     "recall": 0.5160490159004556,
+     "specificity": 0.8865657293919731,
+     "precision": 0.9918321436296778,
+     "tp": 114631,
+     "fp": 944,
+     "fn": 107501,
+     "tn": 7378,
+     "predicted_px": 673828
+    },
+    "sam2_refine": {
+     "f1": 0.7911627805811728,
+     "recall": 0.6550069328147228,
+     "specificity": 0.9786109108387406,
+     "precision": 0.9987781103270271,
+     "tp": 145498,
+     "fp": 178,
+     "fn": 76634,
+     "tn": 8144,
+     "predicted_px": 688426
+    },
+    "sam2_all": {
+     "f1": 0.7797049133056012,
+     "recall": 0.6573253741018854,
+     "specificity": 0.23227589521749578,
+     "precision": 0.9580779779792916,
+     "tp": 146013,
+     "fp": 6389,
+     "fn": 76119,
+     "tn": 1933,
+     "predicted_px": 757936
+    },
+    "hybrid_or": {
+     "f1": 0.8260826093134134,
+     "recall": 0.7066879152936092,
+     "specificity": 0.8865657293919731,
+     "precision": 0.9940223654715619,
+     "tp": 156978,
+     "fp": 944,
+     "fn": 65154,
+     "tn": 7378,
+     "predicted_px": 730282
+    }
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_016",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 448,
+   "n_accepted": 224,
+   "n_prompts_refine": 224,
+   "n_prompts_all": 448,
+   "seconds_refine": 36.862154960632324,
+   "seconds_all": 74.28605389595032,
+   "arms": {
+    "pipeline": {
+     "f1": 0.32481143188400685,
+     "recall": 0.19392539168837494,
+     "specificity": 0.0,
+     "precision": 0.9992041901036877,
+     "tp": 1032088,
+     "fp": 822,
+     "fn": 4290000,
+     "tn": 0,
+     "predicted_px": 1807129
+    },
+    "sam2_refine": {
+     "f1": 0.463336682688817,
+     "recall": 0.3015600268165427,
+     "specificity": 0.1678832116788321,
+     "precision": 0.9995739944806127,
+     "tp": 1604929,
+     "fp": 684,
+     "fn": 3717159,
+     "tn": 138,
+     "predicted_px": 2485561
+    },
+    "sam2_all": {
+     "f1": 0.4999652663535238,
+     "recall": 0.33334529605673563,
+     "specificity": 0.1678832116788321,
+     "precision": 0.9996145994679895,
+     "tp": 1774093,
+     "fp": 684,
+     "fn": 3547995,
+     "tn": 138,
+     "predicted_px": 2665482
+    },
+    "hybrid_or": {
+     "f1": 0.5081687061865241,
+     "recall": 0.3406867755662815,
+     "specificity": 0.0,
+     "precision": 0.9995468545254184,
+     "tp": 1813165,
+     "fp": 822,
+     "fn": 3508923,
+     "tn": 0,
+     "predicted_px": 2797173
+    }
+   }
+  },
+  {
+   "image": "MAR_Amb_AS_CBS_0003",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 1527,
+   "n_accepted": 806,
+   "n_prompts_refine": 806,
+   "n_prompts_all": 1527,
+   "seconds_refine": 253.85269117355347,
+   "seconds_all": 492.7061541080475,
+   "arms": {
+    "pipeline": {
+     "f1": 0.13269685875358891,
+     "recall": 0.07107736326908046,
+     "specificity": 0.9312129051894689,
+     "precision": 0.9972377547590674,
+     "tp": 652732,
+     "fp": 1808,
+     "fn": 8530670,
+     "tn": 24476,
+     "predicted_px": 1081995
+    },
+    "sam2_refine": {
+     "f1": 0.17566272940270317,
+     "recall": 0.09630788241655978,
+     "specificity": 0.929729112768224,
+     "precision": 0.9979160108362923,
+     "tp": 884434,
+     "fp": 1847,
+     "fn": 8298968,
+     "tn": 24437,
+     "predicted_px": 1551670
+    },
+    "sam2_all": {
+     "f1": 0.20673421866394487,
+     "recall": 0.1153068329144254,
+     "specificity": 0.929729112768224,
+     "precision": 0.9982587890146273,
+     "tp": 1058909,
+     "fp": 1847,
+     "fn": 8124493,
+     "tn": 24437,
+     "predicted_px": 1805904
+    },
+    "hybrid_or": {
+     "f1": 0.1805348215160285,
+     "recall": 0.0992454648070508,
+     "specificity": 0.9248211839902603,
+     "precision": 0.997836623468475,
+     "tp": 911411,
+     "fp": 1976,
+     "fn": 8271991,
+     "tn": 24308,
+     "predicted_px": 1596866
+    }
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_012",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 287,
+   "n_accepted": 120,
+   "n_prompts_refine": 120,
+   "n_prompts_all": 287,
+   "seconds_refine": 29.077826976776123,
+   "seconds_all": 91.87497591972351,
+   "arms": {
+    "pipeline": {
+     "f1": 0.7252870311431737,
+     "recall": 0.635072508644269,
+     "specificity": 0.34906588003933137,
+     "precision": 0.8453759806548232,
+     "tp": 61529,
+     "fp": 11254,
+     "fn": 35356,
+     "tn": 6035,
+     "predicted_px": 238137
+    },
+    "sam2_refine": {
+     "f1": 0.6960907002372101,
+     "recall": 0.576993342622697,
+     "specificity": 0.5471108797501302,
+     "precision": 0.8771417812088119,
+     "tp": 55902,
+     "fp": 7830,
+     "fn": 40983,
+     "tn": 9459,
+     "predicted_px": 213439
+    },
+    "sam2_all": {
+     "f1": 0.6769935572773755,
+     "recall": 0.5780771017185323,
+     "specificity": 0.27317947828098793,
+     "precision": 0.8167500328117481,
+     "tp": 56007,
+     "fp": 12566,
+     "fn": 40878,
+     "tn": 4723,
+     "predicted_px": 288962
+    },
+    "hybrid_or": {
+     "f1": 0.73682860723341,
+     "recall": 0.6523920111472364,
+     "specificity": 0.33639886633119326,
+     "precision": 0.8463711837171933,
+     "tp": 63207,
+     "fp": 11473,
+     "fn": 33678,
+     "tn": 5816,
+     "predicted_px": 248639
+    }
+   }
+  },
+  {
+   "image": "AS_24hr_BSE_Side_008",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 1700,
+   "n_accepted": 914,
+   "n_prompts_refine": 914,
+   "n_prompts_all": 1700,
+   "seconds_refine": 175.91949605941772,
+   "seconds_all": 419.2239046096802,
+   "arms": {
+    "pipeline": {
+     "f1": 0.8225946147085053,
+     "recall": 0.7250862410224509,
+     "specificity": 0.7504084632084692,
+     "precision": 0.9504032377620304,
+     "tp": 641085,
+     "fp": 33455,
+     "fn": 243065,
+     "tn": 100584,
+     "predicted_px": 744534
+    },
+    "sam2_refine": {
+     "f1": 0.7831503579000803,
+     "recall": 0.6665520556466663,
+     "specificity": 0.7646431262542991,
+     "precision": 0.9491897777183638,
+     "tp": 589332,
+     "fp": 31547,
+     "fn": 294818,
+     "tn": 102492,
+     "predicted_px": 762519
+    },
+    "sam2_all": {
+     "f1": 0.8995383450071175,
+     "recall": 0.9348606005768252,
+     "specificity": 0.052298211714501004,
+     "precision": 0.8667881030132574,
+     "tp": 826557,
+     "fp": 127029,
+     "fn": 57593,
+     "tn": 7010,
+     "predicted_px": 1190613
+    },
+    "hybrid_or": {
+     "f1": 0.8224074846178626,
+     "recall": 0.7261765537521914,
+     "specificity": 0.7374644692962496,
+     "precision": 0.9480390231513542,
+     "tp": 642049,
+     "fp": 35190,
+     "fn": 242101,
+     "tn": 98849,
+     "predicted_px": 823210
+    }
+   }
+  },
+  {
+   "image": "260622_316_H_b2_back_CBS_01",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 1107,
+   "n_accepted": 744,
+   "n_prompts_refine": 744,
+   "n_prompts_all": 1107,
+   "seconds_refine": 324.8302710056305,
+   "seconds_all": 467.2354009151459,
+   "arms": {
+    "pipeline": {
+     "f1": 0.9755538201480808,
+     "recall": 0.9604624795013162,
+     "specificity": 0.2539582013932869,
+     "precision": 0.9911269791054669,
+     "tp": 394752,
+     "fp": 3534,
+     "fn": 16250,
+     "tn": 1203,
+     "predicted_px": 2842182
+    },
+    "sam2_refine": {
+     "f1": 0.9418083902757599,
+     "recall": 0.8982413710882186,
+     "specificity": 0.19822672577580747,
+     "precision": 0.9898170664679056,
+     "tp": 369179,
+     "fp": 3798,
+     "fn": 41823,
+     "tn": 939,
+     "predicted_px": 3266446
+    },
+    "sam2_all": {
+     "f1": 0.9418893702991816,
+     "recall": 0.8983873557792906,
+     "specificity": 0.19822672577580747,
+     "precision": 0.9898187043108324,
+     "tp": 369239,
+     "fp": 3798,
+     "fn": 41763,
+     "tn": 939,
+     "predicted_px": 3345429
+    },
+    "hybrid_or": {
+     "f1": 0.9776245982836286,
+     "recall": 0.9655232821251478,
+     "specificity": 0.15663922313700654,
+     "precision": 0.9900331065522033,
+     "tp": 396832,
+     "fp": 3995,
+     "fn": 14170,
+     "tn": 742,
+     "predicted_px": 3940680
+    }
+   }
+  }
+ ]
+}

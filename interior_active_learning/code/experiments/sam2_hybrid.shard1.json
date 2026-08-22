@@ -1,0 +1,172 @@
+{
+ "per_image": [
+  {
+   "image": "260708_316_H_b2_front_CBS_013",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 332,
+   "n_accepted": 167,
+   "n_prompts_refine": 167,
+   "n_prompts_all": 332,
+   "seconds_refine": 58.94169211387634,
+   "seconds_all": 93.43914699554443,
+   "arms": {
+    "pipeline": {
+     "f1": 0.6788784360407099,
+     "recall": 0.5160490159004556,
+     "specificity": 0.8865657293919731,
+     "precision": 0.9918321436296778,
+     "tp": 114631,
+     "fp": 944,
+     "fn": 107501,
+     "tn": 7378,
+     "predicted_px": 673828
+    },
+    "sam2_refine": {
+     "f1": 0.7911627805811728,
+     "recall": 0.6550069328147228,
+     "specificity": 0.9786109108387406,
+     "precision": 0.9987781103270271,
+     "tp": 145498,
+     "fp": 178,
+     "fn": 76634,
+     "tn": 8144,
+     "predicted_px": 688426
+    },
+    "sam2_all": {
+     "f1": 0.7797049133056012,
+     "recall": 0.6573253741018854,
+     "specificity": 0.23227589521749578,
+     "precision": 0.9580779779792916,
+     "tp": 146013,
+     "fp": 6389,
+     "fn": 76119,
+     "tn": 1933,
+     "predicted_px": 757936
+    },
+    "hybrid_or": {
+     "f1": 0.8260826093134134,
+     "recall": 0.7066879152936092,
+     "specificity": 0.8865657293919731,
+     "precision": 0.9940223654715619,
+     "tp": 156978,
+     "fp": 944,
+     "fn": 65154,
+     "tn": 7378,
+     "predicted_px": 730282
+    }
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_016",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 448,
+   "n_accepted": 224,
+   "n_prompts_refine": 224,
+   "n_prompts_all": 448,
+   "seconds_refine": 36.862154960632324,
+   "seconds_all": 74.28605389595032,
+   "arms": {
+    "pipeline": {
+     "f1": 0.32481143188400685,
+     "recall": 0.19392539168837494,
+     "specificity": 0.0,
+     "precision": 0.9992041901036877,
+     "tp": 1032088,
+     "fp": 822,
+     "fn": 4290000,
+     "tn": 0,
+     "predicted_px": 1807129
+    },
+    "sam2_refine": {
+     "f1": 0.463336682688817,
+     "recall": 0.3015600268165427,
+     "specificity": 0.1678832116788321,
+     "precision": 0.9995739944806127,
+     "tp": 1604929,
+     "fp": 684,
+     "fn": 3717159,
+     "tn": 138,
+     "predicted_px": 2485561
+    },
+    "sam2_all": {
+     "f1": 0.4999652663535238,
+     "recall": 0.33334529605673563,
+     "specificity": 0.1678832116788321,
+     "precision": 0.9996145994679895,
+     "tp": 1774093,
+     "fp": 684,
+     "fn": 3547995,
+     "tn": 138,
+     "predicted_px": 2665482
+    },
+    "hybrid_or": {
+     "f1": 0.5081687061865241,
+     "recall": 0.3406867755662815,
+     "specificity": 0.0,
+     "precision": 0.9995468545254184,
+     "tp": 1813165,
+     "fp": 822,
+     "fn": 3508923,
+     "tn": 0,
+     "predicted_px": 2797173
+    }
+   }
+  },
+  {
+   "image": "MAR_Amb_AS_CBS_0003",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 1527,
+   "n_accepted": 806,
+   "n_prompts_refine": 806,
+   "n_prompts_all": 1527,
+   "seconds_refine": 253.85269117355347,
+   "seconds_all": 492.7061541080475,
+   "arms": {
+    "pipeline": {
+     "f1": 0.13269685875358891,
+     "recall": 0.07107736326908046,
+     "specificity": 0.9312129051894689,
+     "precision": 0.9972377547590674,
+     "tp": 652732,
+     "fp": 1808,
+     "fn": 8530670,
+     "tn": 24476,
+     "predicted_px": 1081995
+    },
+    "sam2_refine": {
+     "f1": 0.17566272940270317,
+     "recall": 0.09630788241655978,
+     "specificity": 0.929729112768224,
+     "precision": 0.9979160108362923,
+     "tp": 884434,
+     "fp": 1847,
+     "fn": 8298968,
+     "tn": 24437,
+     "predicted_px": 1551670
+    },
+    "sam2_all": {
+     "f1": 0.20673421866394487,
+     "recall": 0.1153068329144254,
+     "specificity": 0.929729112768224,
+     "precision": 0.9982587890146273,
+     "tp": 1058909,
+     "fp": 1847,
+     "fn": 8124493,
+     "tn": 24437,
+     "predicted_px": 1805904
+    },
+    "hybrid_or": {
+     "f1": 0.1805348215160285,
+     "recall": 0.0992454648070508,
+     "specificity": 0.9248211839902603,
+     "precision": 0.997836623468475,
+     "tp": 911411,
+     "fp": 1976,
+     "fn": 8271991,
+     "tn": 24308,
+     "predicted_px": 1596866
+    }
+   }
+  }
+ ]
+}
