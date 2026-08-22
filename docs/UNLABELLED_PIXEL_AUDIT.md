@@ -155,7 +155,22 @@ accuracy), and recall touches neither. The audit predicts this independently of 
 
 `experiments/three_state_conformance.py` pushes one canonical three-state fixture — 512 crack,
 128 adjudicated not-crack, 3456 UNREVIEWED px — through every library available in this
-environment and records what comes back. It converts the source audit's most falsifiable
+environment and records what comes back, with the installed version of each.
+
+Two scope notes, because the sentence above is not quite true of every probe and the
+difference is checkable. **elf/micro-sam** is scored on its own 64×64 two-state array rather
+than the shared fixture: `matching()` scores instance labels, so it needs discrete objects
+rather than three pixel states, and the question put to it is whether `ignore_label` exempts
+predictions that land in ignored territory. **Label Studio** gets the shared fixture
+re-encoded in the PASCAL/Cityscapes convention (unreviewed as 255), because that encoding is
+what is under test. Each probe now records its own `fixture_used`, so this is in the artefact
+rather than only here.
+
+The fixture's class balance is **not** the corpus's and must not be read as it: adjudicated
+negatives are 128/4096 = **3.125%** here against **0.034%** in the real masks, about 92×
+more generous. That is deliberate — at the corpus proportion the fixture would hold a single
+adjudicated-negative pixel and no metric would be estimable — but it means the reference
+specificity pair characterises the *conventions*, not this corpus. It converts the source audit's most falsifiable
 claims into a reproducible artefact, and **all of them survived execution**:
 
 | probe | status | result |
@@ -171,7 +186,14 @@ claims into a reproducible artefact, and **all of them survived execution**:
 | elf 0.9.2 / micro-sam's scorer | EXECUTED | **Stronger than the source audit claimed.** `ignore_label=0` is the default and looks protective. It is not: a prediction lying entirely inside the ignored region drops precision 1.0000 → **0.5000**, which is *worse* than `ignore_label=None` (**0.6667**). It removes the ignored region from the ground-truth **objects** without exempting predictions that land there, so they are charged as unmatched false positives. `dice_score` has no mask argument at all and charges it too (0.8673 → 0.5537). |
 | mask file round-trip | EXECUTED | uint8 PNG and TIFF both carry three states losslessly. **The formats are innocent; the loss is in the exporter.** And a mask encoding unreviewed as 255 (the PASCAL/Cityscapes convention) is read as **foreground** by a `> 128` import threshold — the two conventions actively corrupt each other. |
 
-**Ten probes execute.** Two remain unexecuted and the report names both with the reason:
+**Ten probes ran: nine by calling the library, one by reproducing a line taken from its
+installed source.** The exception is the Label Studio converter, where the probe imports the
+package, extracts the real thresholding line with `inspect.getsource`, and reproduces that
+step — so the quoted line is evidence that it is in the installed version, but the resulting
+numbers are this script's arithmetic rather than the library's. Counting it alongside the
+nine as "executed" overstates it, which is why the artefact labels it
+`SOURCE-VERIFIED REIMPLEMENTATION` and tallies the two kinds separately. Two further targets
+remain unexecuted, and the report names both with the reason:
 
 - **ilastik** — there is *no PyPI distribution*; it ships via conda or a binary installer, so
   its headless export could not be run in this environment. The source-level finding stands,
@@ -200,11 +222,14 @@ broken test run.
 
 ## Remaining holes
 
-1. **Read, not run — now partly closed.** Six probes execute (see above), covering the
-   sklearn sibling asymmetry, smp's refusal, the torchmetrics namespace split, and the
-   round-trip corruption between the two conventions. What remains unexecuted is MONAI,
-   Datumaro/CVAT, Label Studio's converter, ilastik and micro-sam. Those are dependency
-   installs and a headless invocation, not research.
+1. **Read, not run — now closed except for two named targets.** This item is kept because
+   its history matters: it once read "six probes execute" and listed MONAI, Datumaro/CVAT,
+   Label Studio's converter and micro-sam as unexecuted. All four have since been run and
+   the sentence was never updated, so this document contradicted itself — ten probes above,
+   six here — for as long as it took a review to notice. What genuinely remains is
+   **ilastik** (no PyPI distribution) and **micro-sam's napari annotator** (needs an
+   interactive session); the Label Studio probe is a source-verified reimplementation rather
+   than a library call, as labelled above.
 2. **Statistical fragility.** Specificity under exclusion rests on 145,441 adjudicated
    negatives, about three parts in ten thousand of the corpus. *Fixable without annotation:*
    bootstrap over images, and sub-sample the existing masks to derive the delta as a curve

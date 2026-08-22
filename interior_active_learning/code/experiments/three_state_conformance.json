@@ -46,7 +46,11 @@
    "labels_kwarg_equals_dense": true,
    "verdict": "no ignore_index on any of the three; the ONLY escape is for the caller to pre-filter the arrays, which changes IoU from 0.5517 to 0.7273. The natural `labels=[1]` idiom does NOT help -- it returns the dense number (0.5517), while confusion_matrix(labels=[1]) does drop the other class. Sibling functions in one namespace disagree.",
    "supports_unreviewed": false,
-   "status": "EXECUTED"
+   "status": "EXECUTED",
+   "how_obtained": "library_call",
+   "dependency": "sklearn",
+   "dependency_version": "1.9.0",
+   "fixture_used": "the shared three-state fixture"
   },
   "skimage.metrics": {
    "adapted_rand_error_signature": "(image_true=None, image_test=None, *, table=None, ignore_labels=(0,), alpha=0.5)",
@@ -59,7 +63,11 @@
    ],
    "verdict": "adapted_rand_error ships ignore_labels=(0,) as the DEFAULT, so label 0 is excluded without the caller asking, and the result changes when it is included. This is a library from the connectomics/EM community getting it right by default -- the capability exists, it is just absent from the metrics people report for crack segmentation.",
    "supports_unreviewed": true,
-   "status": "EXECUTED"
+   "status": "EXECUTED",
+   "how_obtained": "library_call",
+   "dependency": "skimage",
+   "dependency_version": "0.26.0",
+   "fixture_used": "the shared three-state fixture"
   },
   "torch.nn.CrossEntropyLoss": {
    "ignore_index_default": -100,
@@ -68,7 +76,11 @@
    "differs": true,
    "verdict": "ignore_index exists and works: excluding the unreviewed pixels changes the loss from 0.3228 to 0.9182. But the default is -100, a sentinel no mask file contains -- so the capability is real and only reachable if the caller invents an encoding for UNREVIEWED first. Training is the stage the field gets right.",
    "supports_unreviewed": true,
-   "status": "EXECUTED"
+   "status": "EXECUTED",
+   "how_obtained": "library_call",
+   "dependency": "torch",
+   "dependency_version": "2.13.0",
+   "fixture_used": "the shared three-state fixture"
   },
   "torchmetrics": {
    "version": "1.9.0",
@@ -83,7 +95,11 @@
    "differs": true,
    "verdict": "classification metrics accept ignore_index and it changes the answer; the segmentation namespace exposes 0 of 3 inspected classes with it. The asymmetry is inside one library, which is why a practitioner can reasonably believe their stack handles this.",
    "supports_unreviewed": true,
-   "status": "EXECUTED"
+   "status": "EXECUTED",
+   "how_obtained": "library_call",
+   "dependency": "torchmetrics",
+   "dependency_version": "1.9.0",
+   "fixture_used": "the shared three-state fixture"
   },
   "segmentation_models_pytorch": {
    "version": "0.5.0",
@@ -92,7 +108,11 @@
    "multiclass_ignore_index": "ValueError: ``ignore_index`` should be outside the class values range, but got class values in range 0..255 and ``ignore_index=255``",
    "verdict": "binary mode: ValueError: ``ignore_index`` parameter is not supported for 'binary' mode. Binary mode is exactly the object-versus-background case of a micrograph, so if this raises, the library is refusing the request rather than defaulting badly -- a stronger finding, because a refusal is a decision.",
    "supports_unreviewed": false,
-   "status": "EXECUTED"
+   "status": "EXECUTED",
+   "how_obtained": "library_call",
+   "dependency": "segmentation_models_pytorch",
+   "dependency_version": "0.5.0",
+   "fixture_used": "the shared three-state fixture"
   },
   "MONAI": {
    "version": "1.6.0",
@@ -111,7 +131,11 @@
    "cases_counted_ignore_empty_false": 1.0,
    "verdict": "no ignore_index on DiceMetric, MeanIoU, DiceLoss or DiceCELoss. The input contract is binarised one-hot, so a third state has nowhere to live and the caller must pre-filter -- which moves Dice from 0.7111 to 0.8421. ignore_empty is a FALSE FRIEND, and here is the distinction: on a case whose ground truth is entirely empty it writes nan to the buffer and counts 0 case(s), versus 0.0 and 1 when off. So it does drop whole cases with no positive label -- a real feature, and a different question from excluding unreviewed pixels INSIDE a case, which nothing here can do.",
    "supports_unreviewed": false,
-   "status": "EXECUTED"
+   "status": "EXECUTED",
+   "how_obtained": "library_call",
+   "dependency": "monai",
+   "dependency_version": "1.6.0",
+   "fixture_used": "the shared three-state fixture"
   },
   "datumaro (CVAT export path)": {
    "version": "1.13.8",
@@ -136,7 +160,11 @@
    "void_palette_name": "ignored",
    "verdict": "unannotated pixels are written as [(0, 0, 0)] -- VOC class 0, background -- while VOC's void colour (224,224,192) does not appear. And the capability IS in the library: make_voc_categories() carries 'ignored' at palette index 21 with exactly that colour. So the format supports void, the library knows about it, and this export path silently turns 'nobody looked' into 'background'.",
    "supports_unreviewed": false,
-   "status": "EXECUTED"
+   "status": "EXECUTED",
+   "how_obtained": "library_call",
+   "dependency": "datumaro",
+   "dependency_version": "1.13.8",
+   "fixture_used": "the shared three-state fixture"
   },
   "Label Studio brush converter": {
    "threshold_source": [
@@ -153,7 +181,11 @@
    "true_crack_px": 512,
    "verdict": "the converter thresholds with `mask = np.array((np.array(image) > 128) * 255, dtype=np.uint8)`. A mask encoding unreviewed as 255 -- the PASCAL/Cityscapes convention -- therefore imports every one of its 3456 unreviewed pixels as FOREGROUND, while the 512 genuine crack pixels encoded as 1 are DROPPED. The result is 3456 foreground px, almost exactly inverted. The two conventions do not merely disagree, they corrupt each other on round-trip.",
    "supports_unreviewed": false,
-   "status": "EXECUTED"
+   "status": "SOURCE-VERIFIED REIMPLEMENTATION",
+   "how_obtained": "source_reimpl",
+   "dependency": "label_studio_converter",
+   "dependency_version": "0.0.59",
+   "fixture_used": "the shared fixture, re-encoded in the PASCAL/Cityscapes convention (unreviewed as 255) because that is the encoding whose import behaviour is under test"
   },
   "elf / micro-sam matching": {
    "matching_signature": "(segmentation: numpy.ndarray, groundtruth: numpy.ndarray, threshold: float = 0.5, criterion: str = 'iou', ignore_label: Optional[int] = 0) -> Dict[str, float]",
@@ -167,7 +199,11 @@
    "dice_with_ignored_region_prediction": 0.5536723163059785,
    "verdict": "ignore_label=0 is the DEFAULT and looks like it protects unreviewed territory. It does not. A prediction lying entirely inside the ignored region drops precision from 1.0000 to 0.5000 -- and that is WORSE than passing ignore_label=None (0.6667). The parameter removes the ignored region from the ground-truth OBJECTS without exempting predictions that fall there, so they are charged as unmatched false positives. dice_score has no mask argument at all and charges it too (0.8673 -> 0.5537).",
    "supports_unreviewed": false,
-   "status": "EXECUTED"
+   "status": "EXECUTED",
+   "how_obtained": "library_call",
+   "dependency": "elf",
+   "dependency_version": "0.9.2",
+   "fixture_used": "own 64x64 two-state array, NOT the shared fixture: elf's matching() scores instance labels, so it needs discrete objects rather than the shared fixture's three pixel states, and the question asked of it is whether ignore_label exempts predictions landing in ignored territory"
   },
   "mask file round-trip": {
    "png_uint8_preserves_three_states": true,
@@ -177,14 +213,45 @@
     255
    ],
    "adjudicated_negative_recoverable_after_binary_export": false,
+   "binary_export_reasoning": "the binary export carries 2 distinct value(s) [0, 255], and three states cannot be recovered from fewer than three, so adjudicated-negative is LOST",
    "void_255_becomes_foreground_under_gt128_threshold": true,
    "verdict": "The FORMATS are innocent: uint8 PNG and TIFF both carry three states fine. The loss happens in the exporter, not the container. And a mask that encodes unreviewed as 255 -- the PASCAL/Cityscapes convention -- is read as FOREGROUND by a `> 128` import threshold, so the two conventions actively corrupt each other.",
    "supports_unreviewed": true,
-   "status": "EXECUTED"
+   "status": "EXECUTED",
+   "how_obtained": "library_call",
+   "dependency": "PIL",
+   "dependency_version": "12.3.0",
+   "fixture_used": "the shared three-state fixture"
   }
  },
  "not_tested": {
   "ilastik": "NOT pip-installable -- no PyPI distribution exists (conda/binary only), so its headless export could not be executed here. The source-level finding stands unexecuted.",
   "micro_sam annotator GUI": "the napari canvas and zarr fill value need an interactive session; its SCORER is covered by the elf probe above"
+ },
+ "probe_tally": {
+  "ran": 10,
+  "library_call": 9,
+  "source_reimpl": 1,
+  "source_reimpl_probes": [
+   "Label Studio brush converter"
+  ],
+  "not_tested": [
+   "ilastik",
+   "micro_sam annotator GUI"
+  ],
+  "versions": {
+   "sklearn.metrics": "1.9.0",
+   "skimage.metrics": "0.26.0",
+   "torch.nn.CrossEntropyLoss": "2.13.0",
+   "torchmetrics": "1.9.0",
+   "segmentation_models_pytorch": "0.5.0",
+   "MONAI": "1.6.0",
+   "datumaro (CVAT export path)": "1.13.8",
+   "Label Studio brush converter": "0.0.59",
+   "elf / micro-sam matching": "0.9.2",
+   "mask file round-trip": "12.3.0"
+  },
+  "probes_missing_a_version": [],
+  "note": "`library_call` means the library's own function produced the number. `source_reimpl` means the library was imported, its actual thresholding line extracted from the installed source, and that step reproduced here -- so the number is this script's arithmetic and the quoted line is the evidence. Counting the two together as 'executed' overstates the second."
  }
 }

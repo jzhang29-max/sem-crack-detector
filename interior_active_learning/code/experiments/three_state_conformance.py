@@ -51,7 +51,12 @@ def fixture(h=64, w=64):
     """Ground truth, prediction, and the derived masks every probe shares.
 
     Deliberately small and deliberately lopsided: the adjudicated-negative region is a
-    fraction of the frame, matching the real corpus where not-crack pixels are 0.034% of the
+    fraction of the frame. It does NOT match the corpus proportion and must not be described
+    as doing so: adjudicated negatives are 128/4096 = 3.125% here against 0.034% in the real
+    masks, about 92x more generous. That is deliberate -- a fixture at the corpus proportion
+    would hold one adjudicated-negative pixel and no metric would be estimable from it -- but
+    it means the reference specificity pair below characterises the CONVENTIONS, not the
+    corpus, and any figure taken from it is a demonstration rather than a measurement of
     total. A balanced toy fixture would hide the effect being measured.
     """
     gt = np.full((h, w), UNREVIEWED, dtype=np.uint8)
@@ -276,7 +281,17 @@ def probe_mask_roundtrip(f, ref):
         Image.fromarray(binar).save(p_bin)
         rb = np.asarray(Image.open(p_bin))
         res["binary_export_states"] = sorted(int(v) for v in np.unique(rb))
-        res["adjudicated_negative_recoverable_after_binary_export"] = False
+        # DERIVED from what the export actually produced, not asserted. It sat as a bare
+        # `False` immediately after the line that measures binary_export_states, so it read
+        # as a measurement while being a literal -- and "we checked" versus "we assumed" is
+        # the distinction this whole suite exists to make.
+        res["adjudicated_negative_recoverable_after_binary_export"] = bool(
+            len(res["binary_export_states"]) > 2)
+        res["binary_export_reasoning"] = (
+            f"the binary export carries {len(res['binary_export_states'])} distinct "
+            f"value(s) {res['binary_export_states']}, and three states cannot be recovered "
+            f"from fewer than three, so adjudicated-negative is "
+            f"{'recoverable' if len(res['binary_export_states']) > 2 else 'LOST'}")
         # and the Label Studio import rule, applied to a void-encoded mask
         void_mask = np.where(f["unreviewed"], 255,
                              (f["gt"] == CRACK).astype(np.uint8) * 1)
@@ -508,6 +523,40 @@ def probe_elf_matching(f, ref):
     }
 
 
+def _dep_version(module_name):
+    """The installed version of the module a probe depends on, or None.
+
+    Only 4 of 10 probes recorded one, while the audit document published "elf 0.9.2" -- a
+    version that appeared nowhere in the JSON -- and PAPER_OUTLINE claimed the suite records
+    what each library does "with versions". A conformance result whose library version is
+    unknown is not reproducible, which is most of what the result is for, so this is captured
+    for every probe rather than for whichever ones happened to expose __version__.
+    """
+    try:
+        from importlib import metadata as _md
+    except Exception:
+        _md = None
+    # Import name and distribution name differ often enough that guessing one from the other
+    # is how a version silently comes back None.
+    DIST = {"sklearn": "scikit-learn", "skimage": "scikit-image", "PIL": "pillow",
+            "monai": "monai", "elf": "elf", "torch": "torch",
+            "torchmetrics": "torchmetrics", "datumaro": "datumaro",
+            "label_studio_converter": "label-studio-converter",
+            "segmentation_models_pytorch": "segmentation-models-pytorch"}
+    if _md is not None:
+        for cand in (DIST.get(module_name, module_name), module_name):
+            try:
+                return str(_md.version(cand))
+            except Exception:
+                continue
+    try:
+        mod = __import__(module_name)
+        v = getattr(mod, "__version__", None)
+        return str(v) if v else None
+    except Exception:
+        return None
+
+
 PROBES = [
     ("sklearn.metrics", "sklearn", probe_sklearn),
     ("skimage.metrics", "skimage", probe_skimage),
@@ -530,6 +579,44 @@ NOT_TESTED = {
     "micro_sam annotator GUI": ("the napari canvas and zarr fill value need an "
                                 "interactive session; its SCORER is covered by the "
                                 "elf probe above"),
+}
+
+
+#: HOW each probe obtained its numbers, and ON WHAT. "EXECUTED" was applied uniformly, which
+#: overstated two of the ten and understated nothing -- and the paper's generality argument
+#: rests on this tally, so a uniform label is the wrong kind of tidy.
+#:
+#:   library_call  the library's own function was invoked on data. The number is the
+#:                 library's behaviour.
+#:   source_reimpl the library was imported and its actual source line extracted with
+#:                 inspect.getsource, then that step was reproduced in numpy. Stronger than
+#:                 reading documentation -- the quoted line is really in the installed
+#:                 version -- but the number is this script's arithmetic, not the library's.
+PROBE_KIND = {
+    "sklearn.metrics": "library_call",
+    "skimage.metrics": "library_call",
+    "torch.nn.CrossEntropyLoss": "library_call",
+    "torchmetrics": "library_call",
+    "segmentation_models_pytorch": "library_call",
+    "MONAI": "library_call",
+    "datumaro (CVAT export path)": "library_call",
+    "Label Studio brush converter": "source_reimpl",
+    "elf / micro-sam matching": "library_call",
+    "mask file round-trip": "library_call",
+}
+
+#: WHICH fixture each probe ran on. The docs claimed one canonical three-state fixture goes
+#: through every probe; two do not, and both have a reason that belongs in the record rather
+#: than in a reader's assumption.
+PROBE_FIXTURE = {
+    "elf / micro-sam matching": (
+        "own 64x64 two-state array, NOT the shared fixture: elf's matching() scores "
+        "instance labels, so it needs discrete objects rather than the shared fixture's "
+        "three pixel states, and the question asked of it is whether ignore_label exempts "
+        "predictions landing in ignored territory"),
+    "Label Studio brush converter": (
+        "the shared fixture, re-encoded in the PASCAL/Cityscapes convention (unreviewed as "
+        "255) because that is the encoding whose import behaviour is under test"),
 }
 
 
@@ -568,7 +655,13 @@ def main():
             continue
         try:
             res = fn(f, ref)
-            res["status"] = "EXECUTED"
+            _kind = PROBE_KIND.get(label, "library_call")
+            res["status"] = ("EXECUTED" if _kind == "library_call"
+                             else "SOURCE-VERIFIED REIMPLEMENTATION")
+            res["how_obtained"] = _kind
+            res["dependency"] = dep
+            res["dependency_version"] = _dep_version(dep)
+            res["fixture_used"] = PROBE_FIXTURE.get(label, "the shared three-state fixture")
             report["probes"][label] = res
             if not a.json:
                 flag = "expresses UNREVIEWED" if res.get("supports_unreviewed") \
@@ -583,11 +676,32 @@ def main():
             if not a.json:
                 print(f"  ERROR    {label:32s} {type(e).__name__}: {e}")
 
-    ex = [k for k, v in report["probes"].items() if v.get("status") == "EXECUTED"]
+    ex = [k for k, v in report["probes"].items()
+          if str(v.get("status", "")).startswith(("EXECUTED", "SOURCE-VERIFIED"))]
+    called = [k for k, v in report["probes"].items()
+              if v.get("how_obtained") == "library_call"]
+    reimpl = [k for k, v in report["probes"].items()
+              if v.get("how_obtained") == "source_reimpl"]
+    report["probe_tally"] = {
+        "ran": len(ex), "library_call": len(called), "source_reimpl": len(reimpl),
+        "source_reimpl_probes": reimpl,
+        "not_tested": sorted(NOT_TESTED),
+        "versions": {k: v.get("dependency_version")
+                     for k, v in report["probes"].items()},
+        "probes_missing_a_version": sorted(
+            k for k, v in report["probes"].items() if not v.get("dependency_version")),
+        "note": ("`library_call` means the library's own function produced the number. "
+                 "`source_reimpl` means the library was imported, its actual thresholding "
+                 "line extracted from the installed source, and that step reproduced here "
+                 "-- so the number is this script's arithmetic and the quoted line is the "
+                 "evidence. Counting the two together as 'executed' overstates the second.")}
     can = [k for k in ex if report["probes"][k].get("supports_unreviewed")]
     if not a.json:
-        print(f"\n  {len(ex)} probe(s) executed, {len(can)} can express UNREVIEWED, "
-              f"{len(ex) - len(can)} cannot")
+        print(f"\n  {len(ex)} probe(s) ran: {len(called)} by calling the library and "
+              f"{len(reimpl)} by reproducing a line taken from its installed source "
+              f"({', '.join(reimpl) if reimpl else 'none'}). Counting those together as "
+              f"'executed' would overstate the second. {len(can)} can express "
+              f"UNREVIEWED, {len(ex) - len(can)} cannot.")
         print(f"  {len(NOT_TESTED)} target(s) NOT tested here and named in the report, so the "
               f"gap is on the record rather than implied:")
         for k, why in NOT_TESTED.items():
