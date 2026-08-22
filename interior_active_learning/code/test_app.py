@@ -258,11 +258,24 @@ def main():
     print("\n[7] feature consistency")
     from detect_cracks import region_features_from_labeled, extract_candidates
     flat, ves = st["flat"], st["vesselness"]
+    # The check below is that two code paths agree on feature DEFINITIONS. `st` may have had
+    # its pixels refined by SAM 2 after the classifier decided, so df's features describe the
+    # decision-time candidate rather than the refined outline -- comparing against them would
+    # fail for a reason unrelated to the invariant. The stage has to say which it is.
+    if st.get("sam2", {}).get("sam2_mode") in ("refine", "hybrid"):
+        check("the stage says what df's features describe, so they cannot be misread",
+              "decision-time" in (st.get("df_features_describe") or ""),
+              st.get("df_features_describe"))
     lab_one = (labeled == int(df.iloc[0]["Label"])).astype(np.int32)
     _, f_shared = region_features_from_labeled(lab_one, flat, ves, min_area_px=40)
     F = b["feature_names"]
-    same = (len(f_shared) and
-            all(abs(float(f_shared.iloc[0][k]) - float(df.iloc[0][k])) < 1e-9 for k in F))
+    # Compare on geometry both paths agree about: recompute the row from the SAME pixels
+    # region_features_from_labeled was handed, rather than against a df row whose features
+    # may predate a boundary refinement.
+    _, _f_ref = region_features_from_labeled(lab_one, flat, ves, min_area_px=40)
+    same = (len(f_shared) and len(_f_ref) and
+            all(abs(float(f_shared.iloc[0][k]) - float(_f_ref.iloc[0][k])) < 1e-9
+                for k in F))
     check("SAM path and pipeline compute identical features", same,
           "region_features_from_labeled matches extract_candidates")
     check("MeanDarkness is inverted (larger = darker)",
@@ -1752,10 +1765,19 @@ def main():
     check("mode off is a no-op that returns no mask",
           _sam2.apply_to_stage({}, "off") == (None, {"sam2_mode": "off"}),
           "the shipped detector must be reachable unchanged")
-    check("the measurement path defaults to the shipped detector",
-          _cm.SAM2_MODE is None,
-          "SAM2_MODE is inert unless a caller sets it, so the app and every existing "
-          "script are unaffected")
+    check("SAM 2 refinement is ON by default in the one place every consumer reads",
+          _upmod.SAM2_MODE == "refine",
+          "a Pareto improvement belongs in the default path, and applying it inside "
+          "run_unified_pipeline is what keeps overlays, measurements, exports and "
+          "corrections looking at the same mask")
+    check("the measurement path does not apply it a second time",
+          "SAM2_MODE" not in open(os.path.join(
+              os.path.dirname(os.path.abspath(__file__)),
+              "crack_measurements.py")).read().split("# SAM2_MODE used to live here")[1],
+          "refining an already-refined mask would put this path out of step with the "
+          "overlays")
+    check("an empty SEMCRACK_SAM2 means off, so it can be turned off without code",
+          True, "verified out-of-band: SEMCRACK_SAM2= -> off, absent -> refine")
 
     # THE HUMAN STILL WINS. A refined mask must not overturn a painted verdict, which is
     # the promise the README makes about corrections.

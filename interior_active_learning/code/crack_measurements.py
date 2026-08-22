@@ -56,10 +56,9 @@ def all_images():
 
 
 
-#: Set to "refine" or "hybrid" to run SAM 2 over the detector's accepted candidates before
-#: measuring. None means the shipped detector alone. Read from SEMCRACK_SAM2 by the batch CLI;
-#: inert unless a caller sets it, so the app and every existing script are unaffected.
-SAM2_MODE = os.environ.get("SEMCRACK_SAM2") or None
+# SAM2_MODE used to live here and is deliberately gone: refinement now happens inside
+# run_unified_pipeline, so every consumer sees one mask. A second knob on this module would
+# be a way to refine twice, or to refine here and not in the overlays.
 
 
 def measure_stage(image_name, stage, crack_mask_override=None):
@@ -147,22 +146,13 @@ def measure_stage(image_name, stage, crack_mask_override=None):
 
 
 def measure_image(image_name):
+    # Refinement happens INSIDE run_unified_pipeline now, so the mask measured here is the
+    # same one the overlays draw and the corrections apply to. Applying it a second time
+    # here would refine an already-refined mask and put this path out of step with every
+    # other consumer -- which is the skew the single insertion point exists to prevent.
     _stage = run_unified_pipeline(image_name)
-    _sam2_info = {"sam2_mode": "off"}
-    _override = None
-    if SAM2_MODE and SAM2_MODE not in ("off",):
-        import sam2_refine as _sr
-        if _sr.available():
-            # The correction mask is passed in so the human's verdicts are restored after
-            # refinement. Authority order stays human > SAM 2 > detector.
-            _cm2 = load_correction_mask(image_name, _stage["labeled"].shape)
-            _override, _sam2_info = _sr.apply_to_stage(_stage, SAM2_MODE,
-                                                       correction_mask=_cm2)
-        else:
-            _sam2_info = {"sam2_mode": "requested but unavailable",
-                          "requested": SAM2_MODE}
-    rows, n_bridge_px = measure_stage(image_name, _stage,
-                                      crack_mask_override=_override)
+    _sam2_info = _stage.get("sam2") or {"sam2_mode": "off"}
+    rows, n_bridge_px = measure_stage(image_name, _stage)
 
     cols = ["SourceImage", "CrackID", "Area_px", "AreaPct_of_image", "SkeletonLength_px",
             "MeanWidth_px", "MaxWidth_px", "Tortuosity", "BranchPointCount",

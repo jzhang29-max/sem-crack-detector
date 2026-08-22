@@ -86,12 +86,13 @@ def _parse_args(argv):
                          "'none' is the right answer for files not named like this "
                          "corpus (default: family,condition)")
     ap.add_argument("--model", help="Pass 1 classifier bundle (.joblib)")
-    ap.add_argument("--sam2", choices=["off", "refine", "hybrid"], default="off",
-                    help="run SAM 2 over the detector's candidates before measuring. "
-                         "'refine' replaces their boundaries and beats the shipped detector "
-                         "on f1, recall, specificity AND precision; 'hybrid' unions the two "
-                         "for a higher f1 at lower specificity. Default off because it costs "
-                         "roughly 0.2s per candidate region")
+    ap.add_argument("--sam2", choices=["off", "refine", "hybrid"], default="refine",
+                    help="SAM 2 refinement of the detector's candidate boundaries. DEFAULT "
+                         "'refine': it beats the shipped detector on f1, recall, specificity "
+                         "AND precision, so it is on unless you turn it off. 'hybrid' unions "
+                         "the two for a higher f1 at lower specificity. 'off' is the bare "
+                         "detector. Costs roughly 0.2s per candidate region and degrades to "
+                         "the bare detector, on the record, if the checkpoint is unavailable")
     ap.add_argument("--threshold", type=float,
                     help="decision threshold for BOTH passes; default is each bundle's own")
     ap.add_argument("--um-per-px", type=float, dest="um_per_px",
