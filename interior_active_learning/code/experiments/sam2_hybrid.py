@@ -60,6 +60,13 @@ from scoring_convention_bias import eligible
 Image.MAX_IMAGE_PIXELS = None
 OUT = os.path.join(_HERE, "sam2_hybrid.json")
 
+
+def _out_for(model_id):
+    """One file per checkpoint. The report dedupes by image, so mixing two checkpoints in
+    one file would average them together and call it a single result."""
+    tag = model_id.split("/")[-1].replace(".", "").replace("-", "_")
+    return OUT.replace(".json", f".{tag}.json") if "tiny" not in tag else OUT
+
 #: Window padding around a candidate's box, in pixels. SAM 2 needs context around the object;
 #: too little and it cannot tell filament from field, too much and the window stops being
 #: about this candidate.
@@ -156,7 +163,8 @@ def _boxes_from(labeled, labels):
 
 
 def run(frames, model_id, max_candidates, shard=0, nshard=1):
-    out_path = OUT if nshard == 1 else OUT.replace(".json", f".shard{shard}.json")
+    base = _out_for(model_id)
+    out_path = base if nshard == 1 else base.replace(".json", f".shard{shard}.json")
     rows = []
     if os.path.exists(out_path):
         try:
@@ -230,9 +238,10 @@ def run(frames, model_id, max_candidates, shard=0, nshard=1):
     return rows
 
 
-def report():
+def report(model_id=None):
     import glob as _g
-    paths = sorted(_g.glob(OUT.replace(".json", ".shard*.json"))) or [OUT]
+    base = _out_for(model_id) if model_id else OUT
+    paths = sorted(_g.glob(base.replace(".json", ".shard*.json"))) or [base]
     rows = []
     for p in paths:
         try:
@@ -278,8 +287,8 @@ def report():
     json.dump({"n_frames": len(uniq), "means": means, "best_arm": best,
                "delta_f1_vs_pipeline": d, "hybrid_wins_on_n_frames": n_win,
                "per_image": uniq},
-              open(OUT.replace(".json", "_report.json"), "w"), indent=1)
-    print(f"\n  -> {OUT.replace('.json', '_report.json')}")
+              open(base.replace(".json", "_report.json"), "w"), indent=1)
+    print(f"\n  -> {base.replace('.json', '_report.json')}")
     return means
 
 
@@ -294,6 +303,6 @@ if __name__ == "__main__":
     ap.add_argument("--report", action="store_true")
     a = ap.parse_args()
     if a.report:
-        report()
+        report(a.model)
     else:
         run(a.frames or eligible(), a.model, a.max_candidates, a.shard, a.nshard)

@@ -24,7 +24,7 @@ than documenting the fix.
 
 | # | failure mode | measured magnitude | script |
 |---|---|---|---|
-| 1 | Unlabelled pixels scored as background | macro: specificity **+0.488**, precision **−0.591**; micro: **+0.266** / **−0.629**; recall **exactly unchanged** under both (n=10) | `experiments/scoring_convention_bias.py` |
+| 1 | Unlabelled pixels scored as background | specificity gap **+0.678** out-of-sample (**+0.488** in-sample, superseded); precision **−0.591**; micro **+0.266** / **−0.629**; recall **exactly unchanged** under both (n=10) | `scoring_convention_bias.py`, `oos_convention_gap.py` |
 | 2 | Calibration accepted without a cross-check | length error up to **+136%**, area up to **+458%** | `experiments/failure_mode_magnitudes.py` |
 | 3 | Model promotion gated on an in-sample baseline | **+0.029** AUC bar that every honest candidate must clear | same |
 | 1b | **Sparsity sensitivity of result 1** | gap **+0.488 [+0.279, +0.689]** at 8.16% adjudicated. Invariant under i.i.d. pixel thinning (**+0.470** at 0.163%) but **NOT** under whole-region thinning, where it swings to **+0.156 [−0.014, +0.391]** — the invariance was a property of the sampling model | `experiments/sparsity_sensitivity.py` |
@@ -117,6 +117,44 @@ is not a crack" or "do not consider this" — off-specimen background, a chargin
 something outside the area of interest — and nothing on disk distinguishes them. Closing it
 needs the annotator, or an interface that records *why* a region was erased. That is a
 one-line addition to the paint tool and it is the cheapest of the outstanding annotation asks.
+
+### Result 1 was measured in-sample, and out-of-sample it is larger
+
+The experiment neutralises human input at the **pixel** level: `load_correction_mask` and
+`load_hard_overrides` are patched so the prediction cannot read the verdicts it is scored
+against. Necessary, and not sufficient. The Pass-1 classifier doing the predicting was
+**fitted on region labels derived from those same masks**, and all ten scored frames
+contributed training rows — 10 of 10, from 33 rows on one frame to 1,285 on another. The
+headline was measured on training data.
+
+`experiments/oos_convention_gap.py` refits Pass 1 per frame with that frame's **whole
+specimen** held out — sibling frames from one session are near-duplicate leakage — using the
+trainer's own estimator factory and per-image weighting, so the refit is the shipped procedure
+rather than a local invention.
+
+| arm | macro adjudicated specificity | macro specificity gap |
+|---|---|---|
+| in-sample (as published) | 0.4599 | +0.4879 |
+| volume-matched control | 0.3933 | +0.5527 |
+| **out-of-sample** | **0.2664** | **+0.6781** |
+
+**The direction was predicted in writing before the run.** A model that has seen a frame's
+labels makes fewer false positives there; the adjudicated negative pool is small and
+fp-sensitive so its specificity rises; the dense specificity is dominated by the vast
+unreviewed area and barely moves. Gap = dense − adjudicated, so circularity should *shrink*
+the gap and +0.488 should be an underestimate. It held: **+0.488 → +0.678.**
+
+**A confound in that design, and its size.** Holding out a whole specimen removes both the
+leakage and 5.2–26.8% of the training rows, so a gap that grows could be the absence of
+leakage or merely a worse model trained on less. The volume-matched control drops the *same
+number* of rows at random from *other* specimens, leaving the scored frame's specimen in the
+fit. Of the +0.1902 total move, **+0.1255 (66%) is the leakage and +0.0648 is the reduced
+training volume** — real, but not the explanation.
+
+**Per frame it is not universal**, and that belongs in the record: the gap grows on 6 frames,
+shrinks on 4, and two of those four cannot move at all because their adjudicated specificity
+is already 0.0000 and cannot fall. On one frame the collapse is dramatic — adjudicated
+specificity 0.8866 → 0.1385, gap +0.0192 → +0.7578.
 
 ### Result 1b: one objection answered, the other now answered against us
 

@@ -94,10 +94,9 @@ def _score(pred, crack, neg):
             "tp": tp, "fp": fp, "fn": fn, "tn": tn}
 
 
-def _refit_without(specimen, df, deployed):
-    """Refit Pass 1 with a whole specimen held out, by the trainer's own procedure."""
+def _refit_masked(held, df, deployed, why):
+    """Refit Pass 1 on ~held, by the trainer's own procedure."""
     groups = df["SourceImage"].values
-    held = np.array([specimen_key(g) == specimen for g in groups])
     if held.all() or not held.any():
         return None, f"holdout selects {int(held.sum())} of {len(held)} rows"
     X = df[FEATURES].values
@@ -111,8 +110,32 @@ def _refit_without(specimen, df, deployed):
     sc = StandardScaler().fit(X[~held])
     clf.fit(sc.transform(X[~held]), y[~held], sample_weight=W[~held])
     return ({"clf": clf, "scaler": sc, "feature_names": list(FEATURES)},
-            f"held out specimen {specimen}: {int(held.sum())} of {len(held)} rows, "
+            f"{why}: {int(held.sum())} of {len(held)} rows, "
             f"{len(set(groups[held]))} frame(s)")
+
+
+def _specimen_mask(specimen, df):
+    return np.array([specimen_key(g) == specimen for g in df["SourceImage"].values])
+
+
+def _volume_matched_mask(specimen, df, n_rows, seed=0):
+    """Remove n_rows at random from OTHER specimens, leaving this one entirely in.
+
+    THE CONFOUND THIS CONTROLS. Holding out a whole specimen removes both the leakage and a
+    large slice of the training data -- 5.2% to 26.8% of rows depending on the specimen. So a
+    gap that grows out-of-sample could be the absence of leakage or simply a worse model
+    trained on less. This arm matches the VOLUME removed while leaving the scored frame's own
+    specimen in the fit, so the difference between the two arms isolates the leakage.
+    """
+    own = _specimen_mask(specimen, df)
+    other = np.flatnonzero(~own)
+    if other.size <= n_rows:
+        return None
+    rng = np.random.default_rng(seed)
+    drop = rng.choice(other, size=int(n_rows), replace=False)
+    m = np.zeros(len(df), dtype=bool)
+    m[drop] = True
+    return m
 
 
 def run(shard=0, nshard=1):
@@ -132,23 +155,40 @@ def run(shard=0, nshard=1):
             rows = json.load(open(out_path)).get("per_image", [])
         except (OSError, ValueError):
             rows = []
-    have = {k for k, v in
-            {r["image"]: None for r in rows}.items()
-            if sum(1 for r in rows if r["image"] == k) >= 2}
+    # Three arms now, so two recorded arms is no longer complete. Bumping this rather than
+    # leaving it at >=2 is what makes the resume re-measure frames that predate the control
+    # instead of silently reporting a two-arm comparison as a three-arm one.
+    have = {k for k in {r["image"] for r in rows}
+            if len({r["arm"] for r in rows if r["image"] == k}) >= 3}
     if have:
         print(f"  resuming: {len(have)} frame(s) already complete\n", flush=True)
     for n in mine:
         if n in have:
             continue
         spec = specimen_key(n)
-        bundle, how = _refit_without(spec, df, deployed)
-        if bundle is None:
-            print(f"  {n[:38]:40s} SKIPPED: {how}", flush=True)
+        spec_mask = _specimen_mask(spec, df)
+        arms = [("in_sample", None, "deployed bundle, this frame's labels in the fit")]
+        b_oos, how_oos = _refit_masked(spec_mask, df, deployed,
+                                       f"held out specimen {spec}")
+        if b_oos is None:
+            print(f"  {n[:38]:40s} SKIPPED: {how_oos}", flush=True)
             continue
         tmp = os.path.join(_HERE, f".oos_model_{shard}.joblib")
-        joblib.dump(bundle, tmp)
+        joblib.dump(b_oos, tmp)
+        arms.append(("out_of_sample", tmp, how_oos))
+
+        vm = _volume_matched_mask(spec, df, int(spec_mask.sum()))
+        tmp2 = os.path.join(_HERE, f".vol_model_{shard}.joblib")
+        if vm is not None:
+            b_vm, how_vm = _refit_masked(
+                vm, df, deployed,
+                f"volume-matched control: {int(spec_mask.sum())} rows dropped at random "
+                f"from OTHER specimens, {spec} left in")
+            if b_vm is not None:
+                joblib.dump(b_vm, tmp2)
+                arms.append(("volume_control", tmp2, how_vm))
         try:
-            for tag, path in (("in_sample", None), ("out_of_sample", tmp)):
+            for tag, path, how in arms:
                 ctx = _with_model(path) if path else contextlib.nullcontext()
                 with ctx, _without_human_input():
                     st = up.run_unified_pipeline(n)
@@ -161,6 +201,7 @@ def run(shard=0, nshard=1):
                 adj = _score(pred, crack, neg)
                 dense = _score(pred, crack, ~crack)
                 rec = {"image": n, "specimen": spec, "arm": tag, "holdout": how,
+                       "rows_held_out": int(spec_mask.sum()),
                        "adjudicated": adj, "dense": dense,
                        "gap_specificity": dense["specificity"] - adj["specificity"],
                        "gap_precision": dense["precision"] - adj["precision"]}
@@ -170,8 +211,9 @@ def run(shard=0, nshard=1):
         except Exception as e:
             print(f"  {n[:38]:40s} FAILED {type(e).__name__}: {e}", flush=True)
         finally:
-            if os.path.exists(tmp):
-                os.remove(tmp)
+            for _t in (tmp, tmp2):
+                if os.path.exists(_t):
+                    os.remove(_t)
         out = out_path
         t = out + ".tmp"
         with open(t, "w") as fh:
@@ -196,36 +238,58 @@ def report():
     byimg = {}
     for r in rows:
         byimg.setdefault(r["image"], {})[r["arm"]] = r
-    both = {k: v for k, v in byimg.items() if "in_sample" in v and "out_of_sample" in v}
-    print(f"{len(both)} frame(s) measured under both arms "
-          f"({len(byimg) - len(both)} incomplete, excluded)\n")
+    ARMS = ["in_sample", "out_of_sample", "volume_control"]
+    both = {k: v for k, v in byimg.items() if all(a in v for a in ARMS)}
+    partial = {k: sorted(v) for k, v in byimg.items() if k not in both}
+    print(f"{len(both)} frame(s) measured under all three arms"
+          f"{f'; {len(partial)} incomplete and EXCLUDED: ' + json.dumps(partial) if partial else ''}\n")
     if not both:
         return None
-    print(f"  {'image':34s} {'adj in':>8s} {'adj oos':>8s} {'gap in':>9s} {'gap oos':>9s}")
+    print(f"  {'image':30s} {'rows out':>9s} {'gap in':>9s} {'gap oos':>9s} "
+          f"{'gap volctl':>11s} {'leakage':>9s}")
     for k, v in sorted(both.items()):
-        print(f"  {k[:34]:34s} {v['in_sample']['adjudicated']['specificity']:8.4f} "
-              f"{v['out_of_sample']['adjudicated']['specificity']:8.4f} "
+        leak = v["out_of_sample"]["gap_specificity"] - v["volume_control"]["gap_specificity"]
+        print(f"  {k[:30]:30s} {v['out_of_sample'].get('rows_held_out', 0):9,d} "
               f"{v['in_sample']['gap_specificity']:+9.4f} "
-              f"{v['out_of_sample']['gap_specificity']:+9.4f}")
+              f"{v['out_of_sample']['gap_specificity']:+9.4f} "
+              f"{v['volume_control']['gap_specificity']:+11.4f} {leak:+9.4f}")
     mean = lambda arm, f: float(np.mean([f(v[arm]) for v in both.values()]))
-    a_in = mean("in_sample", lambda r: r["adjudicated"]["specificity"])
-    a_oos = mean("out_of_sample", lambda r: r["adjudicated"]["specificity"])
-    g_in = mean("in_sample", lambda r: r["gap_specificity"])
-    g_oos = mean("out_of_sample", lambda r: r["gap_specificity"])
-    print(f"\n  macro adjudicated specificity  in-sample {a_in:.4f}  "
-          f"out-of-sample {a_oos:.4f}  ({a_oos - a_in:+.4f})")
-    print(f"  macro specificity GAP          in-sample {g_in:+.4f}  "
-          f"out-of-sample {g_oos:+.4f}  ({g_oos - g_in:+.4f})")
-    pred_held = g_oos > g_in
+    a = {arm: mean(arm, lambda r: r["adjudicated"]["specificity"]) for arm in ARMS}
+    g = {arm: mean(arm, lambda r: r["gap_specificity"]) for arm in ARMS}
+    print(f"\n  {'arm':16s} {'macro adj spec':>15s} {'macro gap':>11s}")
+    for arm in ARMS:
+        print(f"  {arm:16s} {a[arm]:15.4f} {g[arm]:+11.4f}")
+
+    # THE DECOMPOSITION. in_sample -> volume_control isolates the effect of training on less
+    # data, since the scored frame's own specimen stays in the fit. volume_control ->
+    # out_of_sample isolates the leakage, since the volume removed is the same and only its
+    # provenance differs.
+    d_volume = g["volume_control"] - g["in_sample"]
+    d_leak = g["out_of_sample"] - g["volume_control"]
+    print(f"\n  Decomposition of the {g['out_of_sample'] - g['in_sample']:+.4f} total move:")
+    print(f"    {d_volume:+.4f} from training on less data (volume-matched control, this "
+          f"frame's specimen still in the fit)")
+    print(f"    {d_leak:+.4f} from removing the leakage itself (same volume, different "
+          f"provenance)")
+    dominant = "leakage" if abs(d_leak) > abs(d_volume) else "reduced training volume"
+    print(f"    -> the move is dominated by {dominant}.")
+    pred_held = g["out_of_sample"] > g["in_sample"]
     print(f"\n  The prediction was that circularity SHRINKS the gap, so removing it should "
-          f"make the gap larger. It {'HELD' if pred_held else 'DID NOT HOLD'}: "
-          f"{g_in:+.4f} -> {g_oos:+.4f}.")
-    print(f"  Either way the headline is now measured with the scored frame's whole specimen "
-          f"held out of the Pass-1 fit, so it is no longer an in-sample number.")
-    res = {"n_frames": len(both),
-           "macro_adjudicated_specificity": {"in_sample": a_in, "out_of_sample": a_oos},
-           "macro_gap_specificity": {"in_sample": g_in, "out_of_sample": g_oos},
+          f"make the gap larger. At the macro level it "
+          f"{'HELD' if pred_held else 'DID NOT HOLD'}: {g['in_sample']:+.4f} -> "
+          f"{g['out_of_sample']:+.4f}.")
+    n_up = sum(1 for v in both.values()
+               if v["out_of_sample"]["gap_specificity"] > v["in_sample"]["gap_specificity"])
+    print(f"  Per frame it is not universal: the gap grows on {n_up} of {len(both)} and "
+          f"shrinks on {len(both) - n_up}. Two frames cannot move at all -- their adjudicated "
+          f"specificity is already 0.0000 and cannot fall -- and they are reported rather "
+          f"than dropped.")
+    res = {"n_frames": len(both), "arms": ARMS, "excluded_partial": partial,
+           "macro_adjudicated_specificity": a, "macro_gap_specificity": g,
+           "decomposition": {"from_training_volume": d_volume,
+                             "from_leakage": d_leak, "dominated_by": dominant},
            "prediction_that_circularity_shrinks_the_gap_held": bool(pred_held),
+           "n_frames_gap_grew": n_up,
            "per_image": rows}
     json.dump(res, open(OUT.replace(".json", "_report.json"), "w"), indent=1)
     print(f"\n  -> {OUT.replace('.json', '_report.json')}")
