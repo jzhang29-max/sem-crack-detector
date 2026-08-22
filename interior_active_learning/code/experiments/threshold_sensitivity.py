@@ -88,7 +88,15 @@ _CACHE = {}
 _CURRENT = [None]
 
 
-#: Which detector this experiment measures. the sweep memoises the threshold-independent stages and SAM 2 would both break that assumption and cost 0.2s per candidate per level.
+#: Which detector this experiment measures, overridable with --detector.
+#:
+#: Default "off" so the published spans stay comparable with the run they were measured on.
+#: An earlier version of this comment claimed SAM 2 would "break" the memoisation: that was
+#: wrong and worth correcting rather than deleting. The memoised stages (load, field of view,
+#: flatten, dark segment, clean, vesselness, candidate extraction) all run BEFORE
+#: classification, and SAM 2 runs after it, so refinement is orthogonal to the memoisation.
+#: What is true is the cost: refinement is threshold-DEPENDENT, since a different accepted set
+#: means different prompts, so it re-runs at every level and cannot be cached.
 DETECTOR = "off"
 
 
@@ -162,14 +170,15 @@ def _at_threshold(t):
         up.load_correction_mask, up.load_hard_overrides = real_corr, real_over
 
 
-def out_path(shard, nshard):
-    return OUT if nshard == 1 else OUT.replace(".json", f".shard{shard}.json")
+def out_path(shard, nshard, detector="off"):
+    base = _dc.out_for(OUT, detector)
+    return base if nshard == 1 else base.replace(".json", f".shard{shard}.json")
 
 
 def _dump(path, thresholds, per_spec, per_frame):
     tmp = path + ".tmp"
     with open(tmp, "w") as fh:
-        json.dump({"detector": _dc.stamp(DETECTOR),
+        json.dump({"detector": _dc.stamp(detector),
                    "thresholds": list(thresholds), "production": PRODUCTION,
                    "per_spec": per_spec, "n_frames_done": len(per_frame),
                    "per_frame": per_frame}, fh, indent=1)
@@ -252,11 +261,12 @@ def _assert_override_reaches_every_branch():
     print("  override verified to reach interior_fill and the generic Pass 2 branch")
 
 
-def run(per_spec=4, shard=0, nshard=1):
+def run(per_spec=4, shard=0, nshard=1, detector=None):
     # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement since commit
     # 4d97602, so an experiment that does not say which detector it wants silently measures a
     # different one than its output is labelled with. There is no default here on purpose.
-    up.SAM2_MODE = DETECTOR
+    detector = detector or DETECTOR
+    up.SAM2_MODE = detector
     _assert_override_reaches_every_branch()
     _install_memo()
     plan = frames(per_spec)
@@ -290,18 +300,19 @@ def run(per_spec=4, shard=0, nshard=1):
         # competes for the machine, so a shard that gets killed at frame 3 of 4 used to
         # lose all three. Write to a temp file and replace, so a kill mid-write cannot
         # leave a half-parsed JSON that --report silently skips.
-        _dump(out_path(shard, nshard), THRESHOLDS, per_spec, per_frame)
+        _dump(out_path(shard, nshard, detector), THRESHOLDS, per_spec, per_frame)
 
-    out = out_path(shard, nshard)
+    out = out_path(shard, nshard, detector)
     _dump(out, THRESHOLDS, per_spec, per_frame)
     print(f"\n  -> {out}")
     return per_frame
 
 
-def report(paths=None):
+def report(paths=None, detector="off"):
     """Merge shard files and answer the two questions: how big, and does the order flip?"""
     import glob as _glob
-    paths = paths or sorted(_glob.glob(OUT.replace(".json", ".shard*.json"))) or [OUT]
+    base = _dc.out_for(OUT, detector)
+    paths = paths or sorted(_glob.glob(base.replace(".json", ".shard*.json"))) or [base]
     per_frame, per_spec_seen = [], None
     for p in paths:
         try:
@@ -583,8 +594,8 @@ def report(paths=None):
           f"NOT a material finding either way -- it is the object whose stability is under "
           f"test, not a result about the alloy.")
 
-    json.dump(out, open(OUT.replace(".json", "_report.json"), "w"), indent=1)
-    print(f"\n  -> {OUT.replace('.json', '_report.json')}")
+    json.dump(out, open(_dc.out_for(OUT, detector).replace(".json", "_report.json"), "w"), indent=1)
+    print(f"\n  -> {_dc.out_for(OUT, detector).replace('.json', '_report.json')}")
     return out
 
 
@@ -593,10 +604,11 @@ if __name__ == "__main__":
     ap.add_argument("--per-spec", type=int, default=4)
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--nshard", type=int, default=1)
+    ap.add_argument("--detector", choices=_dc.VALID, default=DETECTOR)
     ap.add_argument("--report", action="store_true",
                     help="merge shard files and print the sensitivity tables")
     a = ap.parse_args()
     if a.report:
-        report()
+        report(detector=a.detector)
     else:
-        run(a.per_spec, a.shard, a.nshard)
+        run(a.per_spec, a.shard, a.nshard, detector=a.detector)
