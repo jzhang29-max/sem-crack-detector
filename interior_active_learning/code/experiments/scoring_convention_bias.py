@@ -140,6 +140,14 @@ def run(names=None):
             print(f"{n:32s} {adj['specificity']:9.3f} {bg['specificity']:8.3f} "
                   f"{adj['precision']:9.3f} {bg['precision']:8.3f} {100*frac:6.2f}%",
                   flush=True)
+        except AssertionError:
+            # THE CONTROL MUST HALT. It was inside this try, so a fired assertion was caught
+            # by the `except Exception` below, printed as one image's failure, and the run
+            # carried on publishing means from the rest -- a control that cannot stop the
+            # experiment certifies nothing. Recall is identical under both conventions by
+            # construction; if it ever moves, every number this script prints is suspect and
+            # the right outcome is a crash, not a footnote.
+            raise
         except Exception as e:
             print(f"{n:32s} FAILED {type(e).__name__}: {e}", flush=True)
 
@@ -203,12 +211,46 @@ def run(names=None):
           f"moves the two in OPPOSITE directions, so a paper reporting specificity this "
           f"way flatters itself while one reporting precision punishes itself, and neither "
           f"states which convention was used.")
+    # HOW CONCENTRATED IS THE MACRO GAP? A macro mean weights every image equally while
+    # their adjudicated-negative pools differ by 500x, so a frame with 256 negative pixels
+    # counts as much as one with 134,039. Two frames here have an adjudicated specificity of
+    # exactly 0.000 -- no true negatives at all -- and they are the two largest contributors.
+    # The micro figures below are the counterweight and are already reported; this states the
+    # concentration outright so nobody has to derive it.
+    _g = sorted(((r["unlabelled_as_background"]["specificity"]
+                  - r["adjudicated"]["specificity"]), r["image"],
+                 r["adjudicated"]["tn"] + r["adjudicated"]["fp"],
+                 r["adjudicated"]["specificity"]) for r in rows)
+    _tot = sum(x[0] for x in _g)
+    _degen = [x for x in _g if x[3] == 0.0]
+    concentration = None
+    if _tot > 0 and _degen:
+        _rest = [x for x in _g if x[3] != 0.0]
+        concentration = {
+            "n_frames_with_zero_adjudicated_specificity": len(_degen),
+            "their_images": [x[1] for x in _degen],
+            "their_negative_pools_px": [x[2] for x in _degen],
+            "their_share_of_the_summed_gap": _tot and sum(x[0] for x in _degen) / _tot,
+            "macro_gap_all_frames": _tot / len(_g),
+            "macro_gap_excluding_them": (sum(x[0] for x in _rest) / len(_rest)
+                                         if _rest else None)}
+        print(f"\n  CONCENTRATION. {len(_degen)} of {len(_g)} frames have an adjudicated "
+              f"specificity of exactly 0.000, estimated from "
+              f"{' and '.join(f'{x[2]:,}' for x in _degen)} negative pixels, and they supply "
+              f"{100 * concentration['their_share_of_the_summed_gap']:.0f}% of the summed "
+              f"gap. Dropping them moves the macro gap "
+              f"{concentration['macro_gap_all_frames']:+.4f} -> "
+              f"{concentration['macro_gap_excluding_them']:+.4f}. Both figures are real; the "
+              f"macro mean simply weights a 256-pixel estimate like a 134,039-pixel one, "
+              f"which is why the micro figures are reported beside it.")
+
     frac = float(np.mean([r["adjudicated_fraction"] for r in rows]))
     print(f"  Mean adjudicated fraction: {100 * frac:.2f}% -- the other "
           f"{100 * (1 - frac):.2f}% is what the second convention silently converts into "
           f"negatives.")
 
     json.dump({"n_images": len(rows), "per_image": rows,
+               "macro_gap_concentration": concentration,
                "macro_means": summary, "micro": micro_summary,
                "averaging_note": ("macro_means are means of per-image metrics; micro pools "
                                   "the four cells. They are not interconvertible and both "
