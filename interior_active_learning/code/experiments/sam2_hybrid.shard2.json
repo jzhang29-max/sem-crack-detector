@@ -1,0 +1,172 @@
+{
+ "per_image": [
+  {
+   "image": "260708_316_H_b2_front_CBS_012",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 287,
+   "n_accepted": 120,
+   "n_prompts_refine": 120,
+   "n_prompts_all": 287,
+   "seconds_refine": 29.077826976776123,
+   "seconds_all": 91.87497591972351,
+   "arms": {
+    "pipeline": {
+     "f1": 0.7252870311431737,
+     "recall": 0.635072508644269,
+     "specificity": 0.34906588003933137,
+     "precision": 0.8453759806548232,
+     "tp": 61529,
+     "fp": 11254,
+     "fn": 35356,
+     "tn": 6035,
+     "predicted_px": 238137
+    },
+    "sam2_refine": {
+     "f1": 0.6960907002372101,
+     "recall": 0.576993342622697,
+     "specificity": 0.5471108797501302,
+     "precision": 0.8771417812088119,
+     "tp": 55902,
+     "fp": 7830,
+     "fn": 40983,
+     "tn": 9459,
+     "predicted_px": 213439
+    },
+    "sam2_all": {
+     "f1": 0.6769935572773755,
+     "recall": 0.5780771017185323,
+     "specificity": 0.27317947828098793,
+     "precision": 0.8167500328117481,
+     "tp": 56007,
+     "fp": 12566,
+     "fn": 40878,
+     "tn": 4723,
+     "predicted_px": 288962
+    },
+    "hybrid_or": {
+     "f1": 0.73682860723341,
+     "recall": 0.6523920111472364,
+     "specificity": 0.33639886633119326,
+     "precision": 0.8463711837171933,
+     "tp": 63207,
+     "fp": 11473,
+     "fn": 33678,
+     "tn": 5816,
+     "predicted_px": 248639
+    }
+   }
+  },
+  {
+   "image": "AS_24hr_BSE_Side_008",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 1700,
+   "n_accepted": 914,
+   "n_prompts_refine": 914,
+   "n_prompts_all": 1700,
+   "seconds_refine": 175.91949605941772,
+   "seconds_all": 419.2239046096802,
+   "arms": {
+    "pipeline": {
+     "f1": 0.8225946147085053,
+     "recall": 0.7250862410224509,
+     "specificity": 0.7504084632084692,
+     "precision": 0.9504032377620304,
+     "tp": 641085,
+     "fp": 33455,
+     "fn": 243065,
+     "tn": 100584,
+     "predicted_px": 744534
+    },
+    "sam2_refine": {
+     "f1": 0.7831503579000803,
+     "recall": 0.6665520556466663,
+     "specificity": 0.7646431262542991,
+     "precision": 0.9491897777183638,
+     "tp": 589332,
+     "fp": 31547,
+     "fn": 294818,
+     "tn": 102492,
+     "predicted_px": 762519
+    },
+    "sam2_all": {
+     "f1": 0.8995383450071175,
+     "recall": 0.9348606005768252,
+     "specificity": 0.052298211714501004,
+     "precision": 0.8667881030132574,
+     "tp": 826557,
+     "fp": 127029,
+     "fn": 57593,
+     "tn": 7010,
+     "predicted_px": 1190613
+    },
+    "hybrid_or": {
+     "f1": 0.8224074846178626,
+     "recall": 0.7261765537521914,
+     "specificity": 0.7374644692962496,
+     "precision": 0.9480390231513542,
+     "tp": 642049,
+     "fp": 35190,
+     "fn": 242101,
+     "tn": 98849,
+     "predicted_px": 823210
+    }
+   }
+  },
+  {
+   "image": "260622_316_H_b2_back_CBS_01",
+   "model": "facebook/sam2.1-hiera-tiny",
+   "n_candidates": 1107,
+   "n_accepted": 744,
+   "n_prompts_refine": 744,
+   "n_prompts_all": 1107,
+   "seconds_refine": 324.8302710056305,
+   "seconds_all": 467.2354009151459,
+   "arms": {
+    "pipeline": {
+     "f1": 0.9755538201480808,
+     "recall": 0.9604624795013162,
+     "specificity": 0.2539582013932869,
+     "precision": 0.9911269791054669,
+     "tp": 394752,
+     "fp": 3534,
+     "fn": 16250,
+     "tn": 1203,
+     "predicted_px": 2842182
+    },
+    "sam2_refine": {
+     "f1": 0.9418083902757599,
+     "recall": 0.8982413710882186,
+     "specificity": 0.19822672577580747,
+     "precision": 0.9898170664679056,
+     "tp": 369179,
+     "fp": 3798,
+     "fn": 41823,
+     "tn": 939,
+     "predicted_px": 3266446
+    },
+    "sam2_all": {
+     "f1": 0.9418893702991816,
+     "recall": 0.8983873557792906,
+     "specificity": 0.19822672577580747,
+     "precision": 0.9898187043108324,
+     "tp": 369239,
+     "fp": 3798,
+     "fn": 41763,
+     "tn": 939,
+     "predicted_px": 3345429
+    },
+    "hybrid_or": {
+     "f1": 0.9776245982836286,
+     "recall": 0.9655232821251478,
+     "specificity": 0.15663922313700654,
+     "precision": 0.9900331065522033,
+     "tp": 396832,
+     "fp": 3995,
+     "fn": 14170,
+     "tn": 742,
+     "predicted_px": 3940680
+    }
+   }
+  }
+ ]
+}
