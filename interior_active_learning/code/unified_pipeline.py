@@ -82,6 +82,22 @@ def _load_unified_bundle():
 #: this pipeline is supposed to make impossible. EVERY decision point must honour it -- Pass 1, Pass 2's generic branch,
 #: and the interior_fill floor. A partially-applied override reports half a
 #: detector while claiming to report all of it.
+#: SAM 2 refinement of the accepted candidates' boundaries. Measured on the ten both-class
+#: frames it beats the shipped detector on f1, recall, specificity AND precision, so it is ON
+#: by default -- a Pareto improvement is not something to hide behind a flag.
+#:
+#: Applied HERE, in the one function every consumer goes through, because overlays
+#: (regenerate_templates), measurements (crack_measurements), exports, undo and the app all
+#: read this stage. Refining in only one of them would put the mask a user paints on and the
+#: mask that gets measured out of step -- the train/serve skew this project documents as a
+#: failure mode.
+#:
+#: SEMCRACK_SAM2 absent -> "refine" (default). Set empty -> off. Set to a mode -> that mode.
+#: Degrades to the shipped detector, on the record, if torch/transformers or the checkpoint
+#: are unavailable: a detector that crashes is worse than one that does not improve.
+_SAM2_ENV = os.environ.get("SEMCRACK_SAM2")
+SAM2_MODE = "refine" if _SAM2_ENV is None else (_SAM2_ENV or "off")
+
 THRESHOLD_OVERRIDE = None
 
 
@@ -319,7 +335,43 @@ def run_unified_pipeline(image_name, stage=None):
         if new_rows:
             df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
 
+    # An imported mask replaces the detector by design, so refining it would mix the two
+    # and the result would no longer be what the source tool said -- the same reason Pass 2
+    # is skipped for an external mask.
+    _sam2_info = {"sam2_mode": "off"}
+    if SAM2_MODE not in (None, "off") and not external_mask.has_external(image_name):
+        try:
+            import sam2_refine as _sam2mod
+            _cmask = load_correction_mask(image_name, labeled.shape)
+            labeled, _sam2_info = _sam2mod.refine_labeled(
+                labeled, df, img8, correction_mask=_cmask, mode=SAM2_MODE)
+        except Exception as _e:
+            # Never let refinement take the detector down with it.
+            _sam2_info = {"sam2_mode": "failed", "why": f"{type(_e).__name__}: {_e}"}
+
+    # WHAT df's FEATURE COLUMNS DESCRIBE, once refinement has moved the pixels. They are the
+    # geometry the classifier SAW WHEN IT DECIDED -- the candidate as this pipeline segmented
+    # it -- not the refined outline. That is deliberate and it is the only coherent choice:
+    # Pass 2's context features (MeanDistToCrack, FracBoundaryTouchingCrack) were computed
+    # against the pre-refinement crack mask too, so recomputing Pass 1's alone would leave
+    # the row internally inconsistent, and recomputing everything would mean re-deciding
+    # regions the model already accepted.
+    #
+    # Nothing downstream is misled by this: crack_measurements recomputes every shape
+    # quantity from `labeled`, so the published CSV describes the refined mask. df describes
+    # the decision. The stage says which, so neither can be mistaken for the other.
+    _feat_basis = ("decision-time candidate geometry; the refined outline is in `labeled` "
+                   "and every published shape measurement is recomputed from it"
+                   if _sam2_info.get("sam2_mode") in ("refine", "hybrid")
+                   else "the segmented candidate geometry, unrefined")
+
     return dict(stage, labeled=labeled, df=df, interior_origin=interior_origin,
-                n_interior_total=n_interior_total,
+                n_interior_total=n_interior_total, sam2=_sam2_info,
+                df_features_describe=_feat_basis,
+                # mask_source answers ONE question: did these regions come from this
+                # detector or from an imported mask? SAM 2 refines the detector's own
+                # regions, so the source is still built-in and refinement is reported in
+                # the `sam2` field beside it. Folding the two together overloaded a
+                # published field and broke two callers for no gain.
                 mask_source=("external" if external_mask.has_external(image_name)
                              else "built-in"))

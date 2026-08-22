@@ -156,3 +156,107 @@ def apply_to_stage(stage, mode, correction_mask=None, model_id=DEFAULT_MODEL,
                  "sam2_px": int(sam.sum()), "detector_px": int(base.sum()),
                  "px_restored_by_human_crack": forced_on,
                  "px_removed_by_human_not_crack": forced_off}
+
+
+#: Cached failure state. A missing checkpoint or no network must degrade to the shipped
+#: detector, once, quietly, and on the record -- not raise on every image.
+_FAILED = {}
+
+
+def status():
+    """What SAM 2 will actually do here, without trying to make it happen."""
+    if not available():
+        return {"usable": False, "why": "torch/transformers not importable"}
+    if _FAILED:
+        return {"usable": False, "why": next(iter(_FAILED.values()))}
+    return {"usable": True, "model": DEFAULT_MODEL,
+            "loaded": DEFAULT_MODEL in _CACHE}
+
+
+def refine_labeled(labeled, df, img8, correction_mask=None, mode="refine",
+                   model_id=DEFAULT_MODEL, progress=None):
+    """Replace each ACCEPTED region's pixels with SAM 2's boundary, keeping its label ID.
+
+    This is the form the pipeline needs. Returning a bare mask would lose the region
+    structure that makes a detection clickable, correctable and countable; returning a
+    relabelled image would renumber every region and invalidate the override ledger, which
+    is keyed by label ID. So the labels are preserved and only their PIXELS move.
+
+    Guarantees, in order of precedence:
+      * a region SAM 2 declines to segment keeps its original pixels -- refinement never
+        deletes a detection outright
+      * a pixel is claimed by at most one label, first-come by iteration order
+      * the human wins: pixels marked not-crack or erased are cleared, and pixels marked
+        crack are restored to the label they had before refinement
+
+    Returns (new_labeled, info). Raises nothing: on failure it returns the input unchanged
+    with the reason in info, because a detector that crashes is worse than one that does
+    not improve.
+    """
+    info = {"sam2_mode": mode, "sam2_model": model_id}
+    if mode in (None, "off"):
+        return labeled, {"sam2_mode": "off"}
+    if not available():
+        return labeled, dict(info, sam2_mode="unavailable",
+                             why="torch/transformers not importable")
+    if model_id in _FAILED:
+        return labeled, dict(info, sam2_mode="unavailable", why=_FAILED[model_id])
+    try:
+        _load(model_id)
+    except Exception as e:
+        _FAILED[model_id] = f"{type(e).__name__}: {str(e)[:120]}"
+        return labeled, dict(info, sam2_mode="unavailable", why=_FAILED[model_id])
+
+    acc = [int(x) for x in df.loc[df["IsCrack"], "Label"].tolist()]
+    boxes = dict(zip(acc, boxes_for(labeled, acc)))
+    out = labeled.copy()
+    kept_original = 0
+    moved = 0
+    for i, lb in enumerate(acc):
+        box = boxes.get(lb)
+        if box is None:
+            continue
+        old = (labeled == lb)
+        try:
+            sam = refine_mask(img8, [box], model_id=model_id)
+        except Exception:
+            continue
+        new = (old | sam) if mode == "hybrid" else sam
+        if not new.any():
+            kept_original += 1
+            continue                      # never delete a detection outright
+        out[old] = 0
+        free = (out == 0)
+        out[new & free] = lb
+        if not (out == lb).any():
+            # Everything SAM 2 returned for this region was already claimed by an earlier
+            # label, so the region would vanish. The "never delete a detection outright"
+            # guard above only covered SAM 2 returning nothing; this is the other way to
+            # lose one, and a detection disappearing silently is the worst outcome here.
+            out[old & (out == 0)] = lb
+            kept_original += 1
+            continue
+        moved += 1
+        if progress and (i + 1) % 100 == 0:
+            progress(i + 1, len(acc))
+
+    forced_off = forced_on = 0
+    if correction_mask is not None and correction_mask.shape == out.shape:
+        human_no = np.isin(correction_mask, (2, 3))
+        acc_now = np.isin(out, acc)
+        forced_off = int((human_no & acc_now).sum())
+        out[human_no & acc_now] = 0
+        human_yes = (correction_mask == 1)
+        # Restore a painted crack pixel to whichever accepted label held it before
+        # refinement, so a hand mark cannot be erased by a model.
+        lost = human_yes & ~np.isin(out, acc) & np.isin(labeled, acc)
+        forced_on = int(lost.sum())
+        out[lost] = labeled[lost]
+
+    info.update({"sam2_regions_refined": moved,
+                 "sam2_regions_kept_original": kept_original,
+                 "px_before": int(np.isin(labeled, acc).sum()),
+                 "px_after": int(np.isin(out, acc).sum()),
+                 "px_removed_by_human_not_crack": forced_off,
+                 "px_restored_by_human_crack": forced_on})
+    return out, info

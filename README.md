@@ -414,13 +414,14 @@ It finds nothing on **this** corpus, and that is worth knowing: all 62 images ca
 microscope recorded the field width and a re-save threw it away, which is why every scale
 here has to be marked by hand off the burned-in bar.
 
-### SAM 2, applied
+### SAM 2, on by default
 
-The built-in detector is the weakest part of this project. SAM 2 refinement measurably fixes
-some of that, so it is wired in:
+The built-in detector was the weakest part of this project. SAM 2 refinement measurably fixes
+some of that, so it is **the default** — nothing to switch on:
 
 ```bash
-python3 code/semcrack.py --in ./micrographs --out ./results --sam2 refine
+python3 code/semcrack.py --in ./micrographs --out ./results     # SAM 2 refine, by default
+python3 code/semcrack.py --in ./micrographs --out ./results --sam2 off     # bare detector
 ```
 
 Measured on the ten frames that carry both a crack and a not-crack verdict, scored on
@@ -438,12 +439,38 @@ takes a higher f1 but it is a union, and unions only add positives, so it gives 
 specificity. `refine` is the mode that is better in every direction and so the one to reach
 for; `hybrid` is there for a study that cannot afford a missed crack.
 
-**Why it is not the default.** It costs roughly 0.2 s per candidate region — minutes on a
-frame with 1,700 candidates — and silently changing the detector would make every previously
-exported number incomparable. So it is an explicit flag, the mode is part of the
-configuration fingerprint (a run with it cannot share an output directory with a run without
-it), and every CSV's `_provenance.json` records `detector.sam2_mode`, the checkpoint, and the
-prompt count.
+**It is applied in one place, on purpose.** Refinement happens inside
+`run_unified_pipeline`, which is the single function the overlays, the measurements, the
+exports, undo and the app all go through. Refining in only some of them would put the mask a
+user paints on out of step with the mask that gets measured — the train/serve skew this
+project documents as failure mode 4. So there is one mask. `mask_source` still answers only
+whether the regions came from this detector or an imported mask; refinement is reported
+separately in the stage's `sam2` field and in each CSV's sidecar, because overloading one
+field to mean two things is how a caller ends up reading the wrong one.
+
+**What it costs, and how it fails.** Measured on the smallest frame in the corpus (316
+candidates, 139 accepted): detection goes from **13 s to 34 s**, so refinement roughly doubles
+a detection pass. On a 1,700-candidate frame expect a few minutes on top. The app caches
+detection per image, so that is a one-time cost per frame, not per interaction. The checkpoint
+(~150 MB) downloads from HuggingFace on first use and is cached thereafter. If torch, transformers or the
+checkpoint are unavailable it falls back to the bare detector, records why in
+`detector.sam2_mode`, and does not raise — a detector that crashes is worse than one that does
+not improve. Turn it off with `--sam2 off`, or `SEMCRACK_SAM2=` in the environment for the app.
+
+**Nothing is silently incomparable.** The mode is part of the configuration fingerprint, so a
+refined run cannot share an output directory with a bare one, and every CSV's
+`_provenance.json` carries a `detector` block naming the mode, the checkpoint, how many
+regions were refined, how many kept their original pixels, and the pixel count before and
+after.
+
+On that same frame refinement moved 335,228 crack pixels to 313,396 (−6.5%, it is slightly
+more conservative), and the human's own marks put **13,962 px back** and took 154 away — the
+authority order is not a claim in a docstring, it is visible in the sidecar on every image.
+
+**Two guarantees, because a detection disappearing is worse than one not improving.** A region
+SAM 2 declines to segment keeps its original pixels; and a region whose refined pixels are all
+claimed by an earlier label keeps them too, rather than vanishing. Label IDs are preserved, so
+the override ledger — which is keyed by label ID — stays valid.
 
 **Authority order is unchanged: human correction > imported mask > SAM 2 > built-in
 detector.** Refinement runs after pixel corrections and the human's verdicts are restored
