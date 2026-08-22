@@ -49,6 +49,7 @@ import pandas as pd
 from PIL import Image
 from sklearn.preprocessing import StandardScaler
 
+import detector_config as _dc
 import unified_pipeline as up
 from aggregate import specimen_key
 from common import PROJECT_ROOT, load_correction_mask
@@ -57,6 +58,10 @@ from train_v3_weighted import FEATURES, MODELS, image_weights
 
 Image.MAX_IMAGE_PIXELS = None
 OUT = os.path.join(_HERE, "oos_convention_gap.json")
+#: Which detector this experiment measures. this experiment already controls the Pass-1 weights; leaving SAM 2 on would add a second uncontrolled difference between its arms.
+DETECTOR = "off"
+
+
 CSV = os.path.join(PROJECT_ROOT, "training_data", "labeled_regions.csv")
 
 
@@ -139,6 +144,10 @@ def _volume_matched_mask(specimen, df, n_rows, seed=0):
 
 
 def run(shard=0, nshard=1):
+    # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement since commit
+    # 4d97602, so an experiment that does not say which detector it wants silently measures a
+    # different one than its output is labelled with. There is no default here on purpose.
+    up.SAM2_MODE = DETECTOR
     names = eligible()
     mine = names[shard::nshard]
     df = pd.read_csv(CSV)
@@ -217,7 +226,7 @@ def run(shard=0, nshard=1):
         out = out_path
         t = out + ".tmp"
         with open(t, "w") as fh:
-            json.dump({"per_image": rows}, fh, indent=1)
+            json.dump({"detector": _dc.stamp(DETECTOR), "per_image": rows}, fh, indent=1)
         os.replace(t, out)
     return rows
 

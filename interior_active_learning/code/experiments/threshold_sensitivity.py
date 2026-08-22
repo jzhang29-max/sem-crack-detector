@@ -64,6 +64,7 @@ from PIL import Image
 
 import aggregate as ag
 import crack_measurements as cm
+import detector_config as _dc
 import unified_pipeline as up
 
 Image.MAX_IMAGE_PIXELS = None
@@ -85,6 +86,10 @@ MEMOISE = ("load_as_uint8", "find_field_of_view", "flatten_background",
 
 _CACHE = {}
 _CURRENT = [None]
+
+
+#: Which detector this experiment measures. the sweep memoises the threshold-independent stages and SAM 2 would both break that assumption and cost 0.2s per candidate per level.
+DETECTOR = "off"
 
 
 def _install_memo():
@@ -164,7 +169,8 @@ def out_path(shard, nshard):
 def _dump(path, thresholds, per_spec, per_frame):
     tmp = path + ".tmp"
     with open(tmp, "w") as fh:
-        json.dump({"thresholds": list(thresholds), "production": PRODUCTION,
+        json.dump({"detector": _dc.stamp(DETECTOR),
+                   "thresholds": list(thresholds), "production": PRODUCTION,
                    "per_spec": per_spec, "n_frames_done": len(per_frame),
                    "per_frame": per_frame}, fh, indent=1)
     os.replace(tmp, path)
@@ -247,6 +253,10 @@ def _assert_override_reaches_every_branch():
 
 
 def run(per_spec=4, shard=0, nshard=1):
+    # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement since commit
+    # 4d97602, so an experiment that does not say which detector it wants silently measures a
+    # different one than its output is labelled with. There is no default here on purpose.
+    up.SAM2_MODE = DETECTOR
     _assert_override_reaches_every_branch()
     _install_memo()
     plan = frames(per_spec)

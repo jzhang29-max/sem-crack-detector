@@ -52,12 +52,17 @@ import numpy as np
 from PIL import Image
 from scipy.ndimage import label as _label
 
+import detector_config as _dc
 import unified_pipeline as up
 from common import load_correction_mask
 from scoring_convention_bias import eligible
 
 Image.MAX_IMAGE_PIXELS = None
 OUT = os.path.join(_HERE, "sparsity_sensitivity.json")
+#: Which detector this experiment measures. result 1b was measured on the bare detector.
+DETECTOR = "off"
+
+
 
 #: Fractions of the ADJUDICATED region retained. 1.0 is the corpus as it stands.
 LEVELS = (1.0, 0.5, 0.25, 0.10, 0.05, 0.02)
@@ -160,6 +165,10 @@ def _bootstrap_ci(values, n_boot, rng, alpha=0.05):
 
 
 def run(names=None, n_boot=1000):
+    # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement since commit
+    # 4d97602, so an experiment that does not say which detector it wants silently measures a
+    # different one than its output is labelled with. There is no default here on purpose.
+    up.SAM2_MODE = DETECTOR
     names = names or eligible()
     rng = np.random.default_rng(SEED)
     per_image = []
@@ -332,7 +341,8 @@ def run(names=None, n_boot=1000):
               f"{LEVELS[0]/LEVELS[-1]:.0f}x change in review effort, so this is a broad "
               f"effect rather than a knife edge at one sparsity.")
 
-    json.dump({"levels": list(LEVELS), "n_boot": n_boot, "seed": SEED,
+    json.dump({"detector": _dc.stamp(DETECTOR),
+               "levels": list(LEVELS), "n_boot": n_boot, "seed": SEED,
                "curve": curve, "curve_whole_region": out_region,
                "thinning_note": (
                    "curve[] thins the adjudicated region as an i.i.d. PIXEL sample, which is "

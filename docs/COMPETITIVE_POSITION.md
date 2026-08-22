@@ -47,8 +47,11 @@ Annotation platforms own the human workflow and ignore both.
 
 - **Mask quality.** ilastik's Random Forest over a multi-scale filter bank, micro-sam's ViT,
   and the commercial CNNs are all stronger detectors than a darkness threshold plus a
-  LogisticRegression over 8 features. Recall 0.597 means roughly 40% of crack pixels are
-  missed.
+  LogisticRegression over 8 features, and since commit `4d97602` SAM 2 boundary refinement on
+  top. Recall 0.597 means roughly 40% of crack pixels are missed — measured on the BARE
+  detector (`--sam2 off`); the default now reaches recall 0.561 and specificity 0.569 against
+  0.534/0.460, so the survey's "last place" verdict was fair when written and is no longer a
+  current description.
 - **3D, serial sections, tomography, mosaic stitching.** Absent here, and decisive whenever
   a crack is longer than one field of view — which happens silently in this corpus.
 - **Scripting and a plugin API.** Everyone else has them. Batch and a CLI are now here
@@ -110,7 +113,7 @@ Recorded so they do not creep back in:
 - **Any specificity, precision, area-fraction or crack-density figure** — 27 of 38 labelled
   images carry no not-crack label, so specificity 0.476 rests on approximately one frame.
   That is not a measurement.
-- **AUC as detection quality** — lead with the deployed operating point (f1 0.715, recall
+- **AUC as detection quality** — lead with the operating point, not an AUC — noting that f1 0.715 / recall
   0.597, specificity 0.476 at threshold 0.5), not an AUC.
 - **Tortuosity, boundary roughness and branch counts as material descriptors** — self-defined,
   no standard, no round-robin, no scale-dependence analysis. MorphoLibJ already ships
