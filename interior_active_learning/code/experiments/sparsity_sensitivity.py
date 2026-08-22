@@ -50,6 +50,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..", "..", "..", "code")
 
 import numpy as np
 from PIL import Image
+from scipy.ndimage import label as _label
 
 import unified_pipeline as up
 from common import load_correction_mask
@@ -91,8 +92,16 @@ def _metrics(tp, fp, fn, tn):
             "tp": tp, "fp": fp, "fn": fn, "tn": tn}
 
 
-def _thin(mask, frac, rng):
-    """Keep a random `frac` of the True pixels. Simulates a reviewer stopping earlier."""
+def _thin_pixel(mask, frac, rng):
+    """Keep an i.i.d. random `frac` of the True pixels.
+
+    THIS DOES NOT SIMULATE A REVIEWER, and the original version of this file said it did.
+    An i.i.d. pixel sample is an unbiased, very low variance estimator of the statistic
+    computed on the full mask, so a sweep built on it can hardly produce anything BUT
+    invariance -- the finding would be a property of the sampling model rather than of the
+    data. It is kept as the reference arm precisely because that is a useful thing to
+    contrast against, but it must not be read as "what if the human had stopped earlier".
+    """
     if frac >= 1.0:
         return mask
     idx = np.flatnonzero(mask.ravel())
@@ -102,6 +111,39 @@ def _thin(mask, frac, rng):
     out = np.zeros(mask.size, dtype=bool)
     out[keep] = True
     return out.reshape(mask.shape)
+
+
+def _thin_component(mask, frac, rng):
+    """Keep whole marked REGIONS until the target fraction is reached.
+
+    This is what a reviewer stopping early actually leaves behind. Nobody paints a
+    scattered i.i.d. sample of pixels: they mark a region, then another, and at some point
+    they stop. So the unreviewed remainder is spatially contiguous and whole-region shaped,
+    and the surviving sample is far less representative of the frame than a pixel sample of
+    the same size -- which is the difference that decides whether this experiment says
+    anything.
+
+    Regions are dropped in a random order, so this is still optimistic about WHICH regions a
+    reviewer would have got to; a real annotator picks the interesting ones first. The
+    remaining bias is therefore in a known direction and is stated rather than modelled.
+    """
+    if frac >= 1.0:
+        return mask
+    lab, n = _label(mask)
+    if n <= 1:
+        # One region (or none) cannot be thinned by region; fall back and say so at the
+        # call site rather than silently returning a pixel sample dressed as a region one.
+        return None
+    order = rng.permutation(np.arange(1, n + 1))
+    sizes = np.bincount(lab.ravel(), minlength=n + 1)
+    target = max(1, int(round(mask.sum() * frac)))
+    keep, acc = [], 0
+    for lb in order:
+        if acc >= target:
+            break
+        keep.append(int(lb))
+        acc += int(sizes[lb])
+    return np.isin(lab, keep) if keep else None
 
 
 def _bootstrap_ci(values, n_boot, rng, alpha=0.05):
@@ -141,18 +183,31 @@ def run(names=None, n_boot=1000):
             dense = _metrics(*_cells(pred, crack, ~crack))
             rec["dense"] = dense
             for f in LEVELS:
-                c_t = _thin(crack, f, rng)
-                n_t = _thin(neg, f, rng)
-                if not (c_t.any() and n_t.any()):
-                    continue
-                excl = _metrics(*_cells(pred, c_t, n_t))
-                rec["levels"][str(f)] = {
-                    "exclusion": excl,
-                    "adjudicated_px": int((c_t | n_t).sum()),
-                    "adjudicated_fraction": float((c_t | n_t).sum()) / crack.size,
-                    "gap_specificity": dense["specificity"] - excl["specificity"],
-                    "gap_precision": dense["precision"] - excl["precision"],
-                }
+                entry = {}
+                for mode, thinner in (("pixel_iid", _thin_pixel),
+                                      ("whole_region", _thin_component)):
+                    c_t = thinner(crack, f, rng)
+                    n_t = thinner(neg, f, rng)
+                    if c_t is None or n_t is None:
+                        entry[mode] = {"skipped": "too few marked regions to thin by region"}
+                        continue
+                    if not (c_t.any() and n_t.any()):
+                        continue
+                    excl = _metrics(*_cells(pred, c_t, n_t))
+                    entry[mode] = {
+                        "exclusion": excl,
+                        "adjudicated_px": int((c_t | n_t).sum()),
+                        "adjudicated_fraction": float((c_t | n_t).sum()) / crack.size,
+                        # The pool specificity ACTUALLY rests on. The adjudicated count above
+                        # is crack-dominated, and quoting it as the support for a specificity
+                        # estimate overstates it by orders of magnitude.
+                        "negative_pool_px": int(excl["tn"] + excl["fp"]),
+                        "gap_specificity": dense["specificity"] - excl["specificity"],
+                        "gap_precision": dense["precision"] - excl["precision"],
+                    }
+                if entry.get("pixel_iid", {}).get("exclusion"):
+                    # Back-compatible keys, so the existing report path keeps working.
+                    rec["levels"][str(f)] = dict(entry["pixel_iid"], modes=entry)
             per_image.append(rec)
             print(f"  {n:32s} full adj {100*rec['adjudicated_fraction_full']:5.2f}%  "
                   f"dense spec {dense['specificity']:.3f}", flush=True)
@@ -182,6 +237,47 @@ def run(names=None, n_boot=1000):
                          if d else "n/a")
         print(f"  {f:6.2f} {100*adj:9.3f}% {fmt(se):>22s} {fmt(gs):>22s} {fmt(gp):>22s}")
 
+    # BOTH ARMS, side by side. The i.i.d. arm is near-tautologically invariant; the
+    # whole-region arm is the one that answers the question the section asks.
+    print("\n  WHOLE-REGION THINNING (what a reviewer who stopped early actually leaves)")
+    print(f"  {'kept':>6s} {'mean adj%':>10s} {'neg pool px':>22s} {'spec excl':>22s} "
+          f"{'spec gap':>22s}")
+    region_curve = {}
+    for f in LEVELS:
+        k = str(f)
+        rows_r = [r["levels"][k]["modes"]["whole_region"] for r in per_image
+                  if k in r["levels"] and r["levels"][k].get("modes", {})
+                  .get("whole_region", {}).get("exclusion")]
+        if not rows_r:
+            continue
+        adj = float(np.mean([r["adjudicated_fraction"] for r in rows_r]))
+        pools = [r["negative_pool_px"] for r in rows_r]
+        se = _bootstrap_ci([r["exclusion"]["specificity"] for r in rows_r], n_boot, rng)
+        gs = _bootstrap_ci([r["gap_specificity"] for r in rows_r], n_boot, rng)
+        region_curve[k] = {"mean_adjudicated_fraction": adj, "specificity_exclusion": se,
+                           "gap_specificity": gs, "n_images": len(rows_r),
+                           "negative_pool_px_min": min(pools),
+                           "negative_pool_px_max": max(pools)}
+        fmt = lambda d: (f"{d['mean']:+.3f} [{d['lo']:+.3f},{d['hi']:+.3f}]"
+                         if d else "n/a")
+        print(f"  {f:6.2f} {100*adj:9.3f}% {f'{min(pools):,}-{max(pools):,}':>22s} "
+              f"{fmt(se):>22s} {fmt(gs):>22s}")
+    out_region = region_curve
+
+    # WHAT THE NEGATIVE POOL ACTUALLY IS. The published explanation for the flat interval --
+    # "even 0.163% of a 25-megapixel frame is tens of thousands of pixels" -- quoted the
+    # ADJUDICATED count, which is crack-dominated. Specificity rests only on the negative
+    # part of it, and at the sparsest level that is single or double digits on some frames.
+    thin_pools = [r["levels"][str(LEVELS[-1])]["negative_pool_px"] for r in per_image
+                  if str(LEVELS[-1]) in r["levels"]
+                  and r["levels"][str(LEVELS[-1])].get("negative_pool_px") is not None]
+    if thin_pools:
+        print(f"\n  At the sparsest level the negative pool specificity is estimated from "
+              f"is {min(thin_pools):,}-{max(thin_pools):,} px per frame. The adjudicated "
+              f"count is far larger because it is crack-dominated; quoting it as the support "
+              f"for a SPECIFICITY estimate overstates that support by orders of magnitude, "
+              f"which an earlier version of this section did.")
+
     full = curve.get("1.0", {})
     print()
     if full.get("gap_specificity"):
@@ -189,8 +285,23 @@ def run(names=None, n_boot=1000):
         crosses = g["lo"] <= 0 <= g["hi"]
         print(f"  At the corpus as it stands, the specificity gap is {g['mean']:+.3f} "
               f"[{g['lo']:+.3f}, {g['hi']:+.3f}] over {g['n']} images.")
-        print(f"  The interval {'INCLUDES' if crosses else 'excludes'} zero, so the effect "
-              f"{'is NOT distinguishable from noise at this n' if crosses else 'is not a noise artefact at this n'}.")
+        # "The interval excludes zero" is NOT evidence here and was reported as though it
+        # were. Every per-image gap is strictly positive, and a percentile bootstrap of a
+        # strictly-positive sample cannot produce a non-positive resample mean, so lo > 0 is
+        # arithmetic. What the interval does say is how WIDE the effect is, not that it
+        # exists.
+        per_img_gaps = [r["levels"]["1.0"]["gap_specificity"] for r in per_image
+                        if "1.0" in r["levels"]]
+        all_pos = all(x > 0 for x in per_img_gaps)
+        print(f"  The interval {'INCLUDES' if crosses else 'excludes'} zero -- but with "
+              f"{sum(1 for x in per_img_gaps if x > 0)}/{len(per_img_gaps)} per-image gaps "
+              f"strictly positive"
+              f"{', a percentile bootstrap CANNOT return a non-positive bound, so this is '
+                 'arithmetic rather than evidence' if all_pos else ''}. "
+              f"What the interval characterises is the SIZE of the effect "
+              f"({g['lo']:+.3f} to {g['hi']:+.3f}), not its existence. The evidence that the "
+              f"effect is real is that every one of the {len(per_img_gaps)} images shows it "
+              f"in the same direction.")
     sd = [curve[str(f)]["specificity_exclusion"] for f in LEVELS
           if str(f) in curve and curve[str(f)]["specificity_exclusion"]]
     if len(sd) >= 2:
@@ -222,7 +333,15 @@ def run(names=None, n_boot=1000):
               f"effect rather than a knife edge at one sparsity.")
 
     json.dump({"levels": list(LEVELS), "n_boot": n_boot, "seed": SEED,
-               "curve": curve, "per_image": per_image}, open(OUT, "w"), indent=1)
+               "curve": curve, "curve_whole_region": out_region,
+               "thinning_note": (
+                   "curve[] thins the adjudicated region as an i.i.d. PIXEL sample, which is "
+                   "an unbiased low-variance estimator of the full-mask statistic and is "
+                   "therefore near-tautologically invariant -- it is the reference arm, not "
+                   "a model of a reviewer. curve_whole_region[] drops whole marked REGIONS, "
+                   "which is what a reviewer who stopped early actually leaves behind, and "
+                   "is the arm that answers the question."),
+               "per_image": per_image}, open(OUT, "w"), indent=1)
     print(f"\n  -> {OUT}")
     return curve
 

@@ -28,7 +28,7 @@ than documenting the fix.
 | 2 | Calibration accepted without a cross-check | length error up to **+136%**, area up to **+458%** | `experiments/failure_mode_magnitudes.py` |
 | 3 | Model promotion gated on an in-sample baseline | **+0.029** AUC bar that every honest candidate must clear | same |
 | 1b | **Sparsity sensitivity of result 1** | gap **+0.488 [+0.285, +0.689]** at 8.16% adjudicated, and **+0.490** at 0.163% — invariant across a 50× thinning; interval excludes zero at every level | `experiments/sparsity_sensitivity.py` |
-| 4 | Train/serve preprocessing skew | **13.8%** of labelled regions unreachable; 6 of 38 images contributed nothing | same |
+| 4 | Train/serve preprocessing skew | **13.8%** of labelled regions unreachable and 6 more images reached, both measured against a frozen 2026 snapshot; **0** marked images contribute no rows today, by enumeration | same |
 | 5 | Decision threshold inherited as a library default | crack count **1.34–1.38×** across 0.3–0.7; area fraction **1.02–1.23×**; the count is **1.4–3.5× more sensitive** than the area within a specimen; condition ordering **stable** | `experiments/threshold_sensitivity.py` |
 
 ### Result 1 generalises beyond this codebase
@@ -225,6 +225,27 @@ therefore published as a lower bound in case sensitivity rose with density. It d
 appear to. With the densest frame (2,678 cracks) now included, the crack-count spans are
 **1.34–1.38×** against **1.28–1.41×** measured on the sparser sample — comparable, and if
 anything narrower. That is a measured answer to the caveat rather than its removal.
+
+### Result 4's two figures are not the same kind of number
+
+`13.8% of labelled regions unreachable` and `6 of 38 images contributed nothing` are both
+comparisons against a **frozen snapshot** — 4,128 rows across 32 images, measured once while
+`build_training_data.py` still called `exclude_border_background()`. The live side of each
+comparison is read from `labeled_regions.csv` at run time, so any later change to that file
+for any other reason (more marking, a re-ingest, a different vote rule) is silently credited
+to the train/serve skew and the percentage drifts without the code changing. They describe a
+historical change, they are correct as such, and neither names an image.
+
+What can be established **now**, by enumeration rather than subtraction: of the images whose
+correction mask carries at least one marked pixel, **0** produce no training rows. That is the
+claim about the current state, and it is the one worth quoting.
+
+Two denominator notes that came out of building the enumeration. There are **39 mask files but
+38 masks** — the app writes a full-size all-`UNREVIEWED` file when an image is opened, so
+`MAR_Amb_HIP_CBS_0007` has a mask file with zero marks in it. The first version of this
+enumeration counted that file as labelled and duly reported one image "contributing no rows",
+manufacturing the failure it was looking for; the corpus figure of 38 used elsewhere in this
+outline is the correct one.
 
 ### Why result 2 is worse than it looks
 

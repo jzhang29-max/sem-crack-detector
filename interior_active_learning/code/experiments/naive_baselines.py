@@ -37,6 +37,7 @@ defended.
     python3 naive_baselines.py            # all benchmark cases
     python3 naive_baselines.py IMG1 IMG2  # named images
 """
+import json
 import os
 import sys
 import time
@@ -50,6 +51,8 @@ import numpy as np
 from skimage import filters, morphology
 
 from proposal_harness import CASES, _score, _without_human_input, load_correction_mask
+
+OUT = os.path.join(_HERE, "naive_baselines.json")
 
 sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..")))
 sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..", "..", "..", "code")))
@@ -108,15 +111,21 @@ BASELINES = {"otsu": otsu, "otsu_clean": otsu_clean,
 def run(names=None):
     names = names or CASES
     rows = {k: [] for k in list(BASELINES) + ["pipeline"]}
+    # WHICH frames were scored, and why any were not. The default set holds five and the
+    # published table came from two, with nothing recording the difference -- so the
+    # documented command did not reproduce the documented numbers and no artefact showed it.
+    scored, skipped = [], {}
     for name in names:
         try:
             flat, ves, pipe = _stage(name)
         except Exception as e:
             print(f"  {name}: skipped ({type(e).__name__}: {e})", flush=True)
+            skipped[name] = f"{type(e).__name__}: {e}"
             continue
         m = load_correction_mask(name, flat.shape)
         if m is None:
             print(f"  {name}: no usable correction mask", flush=True)
+            skipped[name] = "no usable correction mask"
             continue
 
         class _C:
@@ -129,7 +138,18 @@ def run(names=None):
         case = _C()
         if not case.adjudicated.any():
             print(f"  {name}: nothing adjudicated", flush=True)
+            skipped[name] = "nothing adjudicated"
             continue
+        if not case.human_not.any():
+            # Specificity does not exist without a marked negative, and averaging a frame
+            # that cannot contribute one would silently drop it from that column only.
+            print(f"  {name}: no marked not-crack, so specificity is undefined", flush=True)
+            skipped[name] = "no marked not-crack pixels (specificity undefined)"
+            continue
+        scored.append({"image": name,
+                       "adjudicated_px": int(case.adjudicated.sum()),
+                       "crack_px": int(case.human_crack.sum()),
+                       "not_crack_px": int(case.human_not.sum())})
 
         print(f"  {name}  ({int(case.adjudicated.sum()):,} adjudicated px)", flush=True)
         for label, fn in list(BASELINES.items()) + [("pipeline", None)]:
@@ -168,6 +188,31 @@ def run(names=None):
                 print("  The margin is small. Worth stating explicitly in any write-up "
                       "rather than letting a reader assume the machinery is doing more "
                       "than it is.")
+    # PERSIST IT. This script printed a table and returned a dict, and the README published
+    # that table -- so the only record of the comparison was prose in a document, with no
+    # artefact to check it against and no record of WHICH frames it came from. The README
+    # said "two adjudicated frames" while the default frame set holds five, so the
+    # documented command did not reproduce the documented numbers and nothing on disk
+    # revealed the gap.
+    payload = {
+        "requested": list(names),
+        "scored": scored,
+        "skipped": [{"image": n, "why": w} for n, w in skipped.items()],
+        "macro_means": means,
+        "per_method_per_image": rows,
+        "averaging_note": (
+            "macro_means average per-image metrics with equal weight. The adjudicated "
+            "negative pools differ by orders of magnitude between these frames, so a "
+            "specificity averaged this way gives a few-hundred-pixel estimate the same "
+            "weight as a hundred-thousand-pixel one. Per-image numbers are in per_image; "
+            "read them before quoting a specificity."),
+    }
+    with open(OUT, "w") as fh:
+        json.dump(payload, fh, indent=1)
+    print(f"\n  scored {len(scored)} of {len(names)} requested frame(s)"
+          + (f"; skipped {len(skipped)}: "
+             + ", ".join(f"{n} ({skipped[n]})" for n in skipped) if skipped else ""))
+    print(f"  -> {OUT}")
     return means
 
 

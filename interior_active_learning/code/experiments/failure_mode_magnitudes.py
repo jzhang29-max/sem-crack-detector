@@ -137,14 +137,76 @@ def train_serve_skew():
     if os.path.exists(csv):
         d = pd.read_csv(csv)
         now_rows, now_imgs = int(len(d)), int(d["SourceImage"].nunique())
+    # A FROZEN SNAPSHOT, and it has to be labelled as one. These two numbers were measured
+    # once, before the exclusion step was removed; everything below compares them against a
+    # LIVE read of the same CSV. So any later change to labeled_regions.csv -- more marking,
+    # a re-ingest, a different vote rule -- is silently credited to the train/serve skew, and
+    # the percentage drifts without the code changing. That is the opposite of a measurement.
     before_rows, before_imgs = 4128, 32
+    SNAPSHOT = ("measured once from training_data/labeled_regions.csv while "
+                "build_training_data.py still called exclude_border_background(); it is a "
+                "historical constant, not a re-measurement, so every figure derived from it "
+                "is a comparison against that snapshot and will drift if the CSV changes for "
+                "any other reason")
     out = {"rows_before": before_rows, "images_before": before_imgs,
+           "rows_before_provenance": SNAPSHOT,
            "rows_after": now_rows, "images_after": now_imgs}
+
+    # LIVE, and by ENUMERATION rather than subtraction. `images_recovered` was
+    # now_imgs - before_imgs: a net difference between two distinct-image counts taken at
+    # different times, which never identifies an image and never checks that one had labels
+    # but produced no rows. An image with a correction mask and zero rows is identifiable
+    # right now, so the current state can be established instead of inferred.
+    try:
+        import glob as _glob
+        from common import PAINT_DIR as _PD
+        # A mask FILE is not a mask. The app writes one when an image is opened, so an
+        # untouched image has a full-size all-zero (all-UNREVIEWED) file on disk. Counting
+        # those as labelled made the first version of this enumeration report one image
+        # "contributing no rows" when that image has no marks to contribute -- a denominator
+        # error of exactly the kind this experiment is about, committed inside it.
+        import numpy as _np
+        from PIL import Image as _PI
+        _PI.MAX_IMAGE_PIXELS = None
+        _masked, _empty = set(), []
+        for q in _glob.glob(os.path.join(_PD, "*_correction_mask.png")):
+            nm = os.path.basename(q).replace("_correction_mask.png", "")
+            try:
+                _a = _np.asarray(_PI.open(q))
+                if _a.ndim > 2:
+                    _a = _a[..., 0]
+                if bool((_a != 0).any()):
+                    _masked.add(nm)
+                else:
+                    _empty.append(nm)
+            except Exception:
+                continue
+        _with_rows = set(d["SourceImage"].unique()) if now_rows else set()
+        _silent = sorted(_masked - _with_rows)
+        out["images_with_an_empty_mask_file"] = sorted(_empty)
+        out["images_with_a_mask"] = len(_masked)
+        out["images_contributing_no_rows_now"] = _silent
+        out["n_images_contributing_no_rows_now"] = len(_silent)
+        out["enumeration_note"] = (
+            "images_contributing_no_rows_now counts images whose mask carries at least one "
+            "MARKED pixel yet produce no training rows, measured by enumeration against the "
+            "current files -- the claim this script can actually support. Empty mask files "
+            "(written when an image is opened and never painted) are excluded and listed "
+            "separately, because counting them as labelled would manufacture the very "
+            "failure being looked for. images_recovered below is a subtraction against the "
+            "frozen snapshot, identifies no image, and describes a historical change; it "
+            "must not be quoted as a current count.")
+    except Exception as _e:
+        out["enumeration_error"] = f"{type(_e).__name__}: {_e}"
+
     if now_rows:
         out.update({
             "rows_recovered": now_rows - before_rows,
             "images_recovered": now_imgs - before_imgs,
+            "images_recovered_is_a_subtraction": True,
             "pct_labels_unreachable": 100 * (now_rows - before_rows) / now_rows,
+            "pct_labels_unreachable_basis": ("(rows_after - rows_before_SNAPSHOT) / "
+                                             "rows_after -- see rows_before_provenance"),
         })
     out["note"] = ("Every path reported success throughout: the per-image worker caught its "
                    "own exception and returned None, the merge carried prior rows for any "
@@ -185,6 +247,14 @@ def main():
               f"({c['rows_recovered']:+,})")
         print(f"   images {c['images_before']} -> {c['images_after']} "
               f"({c['images_recovered']:+d})")
+        if c.get("n_images_contributing_no_rows_now") is not None:
+            _n = c["n_images_contributing_no_rows_now"]
+            print(f"   live, by enumeration: {c.get('images_with_a_mask')} image(s) have a "
+                  f"correction mask and {_n} of them contribute no training rows"
+                  + (f" ({', '.join(c['images_contributing_no_rows_now'])})" if _n else ""))
+            print(f"   the +{c.get('images_recovered')} above is a subtraction against a "
+                  f"frozen snapshot and names no image; it describes a historical change, "
+                  f"not a current count")
         print(f"   {c['pct_labels_unreachable']:.1f}% of the labelled regions now in the "
               f"corpus could not reach the model, with every path reporting success\n")
 
