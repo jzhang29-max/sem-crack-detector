@@ -1,0 +1,121 @@
+{
+ "per_image": [
+  {
+   "image": "260708_316_H_b2_front_CBS_003",
+   "px_crack": 455320,
+   "px_not_crack": 256,
+   "px_erased": 6365,
+   "erased_as_negative": {
+    "recall": 0.4931476763594834,
+    "precision": 0.9727589373906111,
+    "specificity": 0.05029451744449479,
+    "f1": 0.6544943656470614,
+    "tp": 224540,
+    "fp": 6288,
+    "fn": 230780,
+    "tn": 333,
+    "negative_pool_px": 6621
+   },
+   "erased_excluded": {
+    "recall": 0.4931476763594834,
+    "precision": 0.9988611897008843,
+    "specificity": 0.0,
+    "f1": 0.6602991254433067,
+    "tp": 224540,
+    "fp": 256,
+    "fn": 230780,
+    "tn": 0,
+    "negative_pool_px": 256
+   },
+   "unlabelled_as_background": {
+    "recall": 0.4931476763594834,
+    "precision": 0.17004306737882707,
+    "specificity": 0.8115524740735035,
+    "f1": 0.2528875571640869,
+    "tp": 224540,
+    "fp": 1095949,
+    "fn": 230780,
+    "tn": 4719723,
+    "negative_pool_px": 5815672
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_016",
+   "px_crack": 5322088,
+   "px_not_crack": 822,
+   "px_erased": 1241,
+   "erased_as_negative": {
+    "recall": 0.19392539168837494,
+    "precision": 0.9992041901036877,
+    "specificity": 0.6015511391177897,
+    "f1": 0.32481143188400685,
+    "tp": 1032088,
+    "fp": 822,
+    "fn": 4290000,
+    "tn": 1241,
+    "negative_pool_px": 2063
+   },
+   "erased_excluded": {
+    "recall": 0.19392539168837494,
+    "precision": 0.9992041901036877,
+    "specificity": 0.0,
+    "f1": 0.32481143188400685,
+    "tp": 1032088,
+    "fp": 822,
+    "fn": 4290000,
+    "tn": 0,
+    "negative_pool_px": 822
+   },
+   "unlabelled_as_background": {
+    "recall": 0.19392539168837494,
+    "precision": 0.5711202686692538,
+    "specificity": 0.9608700959949658,
+    "f1": 0.28953754668991,
+    "tp": 1032088,
+    "fp": 775041,
+    "fn": 4290000,
+    "tn": 19031831,
+    "negative_pool_px": 19806872
+   }
+  },
+  {
+   "image": "260622_316_H_b2_back_CBS_01",
+   "px_crack": 411002,
+   "px_not_crack": 4737,
+   "px_erased": 38025,
+   "erased_as_negative": {
+    "recall": 0.9604624795013162,
+    "precision": 0.9091352952285321,
+    "specificity": 0.07735840231981667,
+    "f1": 0.9340943294431665,
+    "tp": 394752,
+    "fp": 39454,
+    "fn": 16250,
+    "tn": 3308,
+    "negative_pool_px": 42762
+   },
+   "erased_excluded": {
+    "recall": 0.9604624795013162,
+    "precision": 0.9911269791054669,
+    "specificity": 0.2539582013932869,
+    "f1": 0.9755538201480808,
+    "tp": 394752,
+    "fp": 3534,
+    "fn": 16250,
+    "tn": 1203,
+    "negative_pool_px": 4737
+   },
+   "unlabelled_as_background": {
+    "recall": 0.9604624795013162,
+    "precision": 0.13889047217947337,
+    "specificity": 0.9011332014425311,
+    "f1": 0.24268654954653657,
+    "tp": 394752,
+    "fp": 2447430,
+    "fn": 16250,
+    "tn": 22307392,
+    "negative_pool_px": 24754822
+   }
+  }
+ ]
+}

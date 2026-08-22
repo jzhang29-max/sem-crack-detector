@@ -18,14 +18,26 @@ WHY THIS IS NOT A ONE-LINE FIX
              NEGATIVE, and excluding it discards 2.08x the evidence
   reading B  the human erased a region to take it out of consideration -- off-specimen
              background, a charging artefact, something outside the area of interest -> it is
-             closer to UNREVIEWED than to not-crack, and counting it as a true negative adds
-             easy negatives and inflates specificity, which is the dense convention's error
-             in miniature
+             closer to UNREVIEWED than to not-crack, and scoring on it charges the detector
+             for regions nobody claimed were specimen
 
-Both readings are consistent with every mark on disk. Picking one silently is the failure
-this project is about, so this script reports the interval both readings bracket and names
-what would close it: asking the annotator, or an interface that records why a region was
-erased. The comparison is the point, not a corrected number.
+THE PREDICTION IN THIS DOCSTRING WAS WRONG, AND THE REASON IS THE INTERESTING PART.
+It read: counting erasures as negatives "adds easy negatives and inflates specificity, which
+is the dense convention's error in miniature". Measured on all ten frames, it does the
+opposite -- macro specificity 0.4599 -> 0.3490, a fall of 0.111.
+
+The mechanism is obvious in hindsight and was not obvious in advance. An erased region is
+one the DETECTOR PROPOSED; that is why a human was looking at it with the erase tool. So
+those pixels are disproportionately predicted-positive, and adding them to the negative pool
+adds false positives, not easy true negatives. The direction is frame-dependent for the same
+reason: three frames have no erasures and do not move, two rise (0.0000 -> 0.6016 on one),
+and five fall, one of them 0.9312 -> 0.0782.
+
+CONSEQUENCE FOR THE PAPER. The adjudicated-vs-dense specificity gap is +0.4879 as shipped
+and +0.5988 under the other reading, so the headline is 23% LARGER if an erasure counts as a
+human "no". The result does not depend on the choice for its direction, only its size, which
+is worth stating plainly: the finding survives either reading and the interval is the honest
+form of it.
 
     python3 erased_state_sensitivity.py
     python3 erased_state_sensitivity.py --shard 0 --nshard 4
