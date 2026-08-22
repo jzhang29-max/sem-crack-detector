@@ -458,9 +458,23 @@ box. The detector proposes; SAM 2 refines. Of the three mask variants SAM 2 retu
 with the highest **model-predicted** IoU is taken — never the one closest to the human mask,
 which would be scoring against an oracle that does not exist at inference.
 
-Caveats: this is `sam2.1-hiera-tiny`, the smallest checkpoint, and a larger one is an untested
-lever. And because SAM 2 is prompted with the *detector's* candidates, a crack no candidate
-covers cannot be recovered by any mode here.
+**A larger checkpoint is worse, which is why the smallest is the default.** `hiera-large` has
+about seven times the parameters of `hiera-tiny` and was measured on the same ten frames:
+
+| arm | f1 tiny → large | beats the pipeline on |
+|---|---|---|
+| `refine` | 0.676 → **0.612** | 4/4 metrics → **2/4** |
+| `hybrid` | 0.707 → 0.705 | 3/4 → 3/4 |
+
+`refine` on the large model becomes markedly more conservative — specificity rises to 0.671
+but recall falls to 0.491 — so it stops dominating the shipped detector and wins only on
+specificity and precision. On one frame it collapses outright, f1 **0.942 → 0.395**. The
+hybrid is indistinguishable between the two. So the default is the small checkpoint because it
+is *better*, not merely because it is cheaper, and scaling the segmenter is not the lever here.
+
+Remaining caveat: because SAM 2 is prompted with the *detector's* candidates, a crack no
+candidate covers cannot be recovered by any mode. That is the ceiling on this whole approach,
+and lifting it needs a segmenter that proposes independently.
 
 ### The threshold nobody states
 

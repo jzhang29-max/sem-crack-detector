@@ -1074,7 +1074,7 @@ def main():
     # never silently resamples or touches a correction mask.
     print("\n[19] imported masks replace the detector, never the human")
     import external_mask as _em
-    import unified_pipeline as _up
+    import unified_pipeline as _upmod
     from unified_pipeline import run_unified_pipeline as _rup
 
     # Neutralise human input inline rather than importing proposal_harness, which lives in
@@ -1084,13 +1084,13 @@ def main():
 
     @_ctx.contextmanager
     def _noh():
-        _om, _oo = _up.load_correction_mask, _up.load_hard_overrides
-        _up.load_correction_mask = lambda *a, **k: None
-        _up.load_hard_overrides = lambda *a, **k: None
+        _om, _oo = _upmod.load_correction_mask, _upmod.load_hard_overrides
+        _upmod.load_correction_mask = lambda *a, **k: None
+        _upmod.load_hard_overrides = lambda *a, **k: None
         try:
             yield
         finally:
-            _up.load_correction_mask, _up.load_hard_overrides = _om, _oo
+            _upmod.load_correction_mask, _upmod.load_hard_overrides = _om, _oo
 
     _n = "260708_316_H_b2_front_CBS_001"
     _em.clear(_n)
@@ -1355,10 +1355,10 @@ def main():
     # ---------- 22. instrument metadata as a calibration source ----------
     print("\n[22] instrument metadata")
     import calibration as _cal2
-    import tempfile as _tf
+    import tempfile as _tmpf
     from PIL import TiffImagePlugin as _TP
 
-    _md = _tf.mkdtemp()
+    _md = _tmpf.mkdtemp()
 
     def _vendor_tif(tag, block, w=2048):
         # width in the name: same block at two widths must not share a file
@@ -1746,11 +1746,11 @@ def main():
               f"forced mixed run was unreadable per row")
 
     # ---- SAM 2 as an applied detector mode ----
-    import sam2_refine as _sr
+    import sam2_refine as _sam2
     check("SAM 2 reports whether it can run without raising",
-          isinstance(_sr.available(), bool))
+          isinstance(_sam2.available(), bool))
     check("mode off is a no-op that returns no mask",
-          _sr.apply_to_stage({}, "off") == (None, {"sam2_mode": "off"}),
+          _sam2.apply_to_stage({}, "off") == (None, {"sam2_mode": "off"}),
           "the shipped detector must be reachable unchanged")
     check("the measurement path defaults to the shipped detector",
           _cm.SAM2_MODE is None,
@@ -1759,20 +1759,20 @@ def main():
 
     # THE HUMAN STILL WINS. A refined mask must not overturn a painted verdict, which is
     # the promise the README makes about corrections.
-    _lab2 = _np2.zeros((40, 40), dtype=_np2.int32)
+    _lab2 = np.zeros((40, 40), dtype=np.int32)
     _lab2[10:14, 5:35] = 1
     _df2 = pd.DataFrame({"Label": [1], "IsCrack": [True]})
     _stage2 = {"labeled": _lab2, "df": _df2,
-               "img8": _np2.full((40, 40), 200, _np2.uint8)}
-    _cmask = _np2.zeros((40, 40), dtype=_np2.uint8)
+               "img8": np.full((40, 40), 200, np.uint8)}
+    _cmask = np.zeros((40, 40), dtype=np.uint8)
     _cmask[10:14, 5:20] = 2          # human says NOT crack over half the region
     _cmask[30:34, 5:20] = 1          # and crack somewhere the detector found nothing
-    _saved_refine = _sr.refine_mask
+    _saved_refine = _sam2.refine_mask
     try:
         # Stub SAM 2 itself: this asserts the AUTHORITY RULE, not the model, and must not
         # depend on a checkpoint download to run in the suite.
-        _sr.refine_mask = lambda img8, boxes, **k: (_lab2 == 1)
-        _out2, _info2 = _sr.apply_to_stage(_stage2, "refine", correction_mask=_cmask)
+        _sam2.refine_mask = lambda img8, boxes, **k: (_lab2 == 1)
+        _out2, _info2 = _sam2.apply_to_stage(_stage2, "refine", correction_mask=_cmask)
         check("a human not-crack verdict removes refined pixels",
               _out2 is not None and not _out2[10:14, 5:20].any()
               and _info2["px_removed_by_human_not_crack"] > 0,
@@ -1782,11 +1782,11 @@ def main():
               and _info2["px_restored_by_human_crack"] > 0)
         check("the refinement is recorded, not silent",
               _info2.get("sam2_mode") == "refine" and "sam2_model" in _info2)
-        _hyb, _ = _sr.apply_to_stage(_stage2, "hybrid", correction_mask=None)
+        _hyb, _ = _sam2.apply_to_stage(_stage2, "hybrid", correction_mask=None)
         check("hybrid is a union and so never predicts fewer pixels than the detector",
               int(_hyb.sum()) >= int((_lab2 == 1).sum()))
     finally:
-        _sr.refine_mask = _saved_refine
+        _sam2.refine_mask = _saved_refine
 
     # An override replaces which pixels are crack without bypassing the measurement rules.
     _rows_o, _ = _cm.measure_stage("SYNTH_SAM2", _stage2,
@@ -1807,7 +1807,7 @@ def main():
     # ---------- 24. how precise is the scale itself ----------
     print("\n[24] calibration uncertainty")
     _cal3 = _cal2
-    _ud = _tf.mkdtemp()
+    _ud = _tmpf.mkdtemp()
     _saved3 = _cal3.CALIB_PATH
     try:
         _cal3.CALIB_PATH = os.path.join(_ud, "c.json")
@@ -1882,7 +1882,6 @@ def main():
 
     # ---------- 25. the threshold override must reach EVERY decision point ----------
     print("\n[25] threshold override coverage")
-    import numpy as _np2
     import unified_pipeline as _up2
 
     class _FakeClf:
@@ -1951,10 +1950,10 @@ def main():
         _below = [{**_ff[0]}]
         class _LowP:
             def predict_proba(self, X):
-                return _np2.array([[0.4, 0.6]] * len(X))     # 0.60, under the 0.65 floor
+                return np.array([[0.4, 0.6]] * len(X))     # 0.60, under the 0.65 floor
         class _HighP:
             def predict_proba(self, X):
-                return _np2.array([[0.1, 0.9]] * len(X))     # 0.90, over it
+                return np.array([[0.1, 0.9]] * len(X))     # 0.90, over it
         _fb_lo = {**_fb, "clf": _LowP()}
         _fb_hi = {**_fb, "clf": _HighP()}
         check("a candidate under the interior_fill floor is rejected",
