@@ -249,7 +249,8 @@ undermine the paper.
 - **The external audit is now run, with two named exceptions.** `experiments/
   three_state_conformance.py` pushes one three-state fixture (512 crack / 128 adjudicated-
   negative / 3,456 unreviewed px) through ten probes and records what each library actually
-  does, with versions: sklearn, skimage, `torch.nn.CrossEntropyLoss`, torchmetrics 1.9.0,
+  does, with the installed version of every one of them: scikit-learn 1.9.0, scikit-image
+  0.26.0, torch 2.13.0, torchmetrics 1.9.0,
   segmentation_models_pytorch 0.5.0, MONAI 1.6.0, datumaro 1.13.8 (the CVAT export path),
   the Label Studio brush converter, elf/micro-sam matching, and mask-file round-trip. The
   reference pair the fixture is built to separate is specificity **0.875 adjudicated against
