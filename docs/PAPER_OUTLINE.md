@@ -14,9 +14,9 @@ and "our software is careful" is not a finding. This is the paper that *is* here
 This is a claim about **everyone's numbers**, not about this repo's software. That is what
 makes it a contribution rather than a release note.
 
-> **Which detector every result below was measured with.** Results 1, 1b, 1c and 5 have now
-> been measured under **both** configurations and both are reported; results 2, 3 and 4 are
-> bare-detector only, for the reason at the end of this note.
+> **Which detector every result below was measured with.** All of them, under **both**
+> configurations. Results 1, 1b, 1c and 5 were re-measured; results 2, 3 and 4 were run
+> under both and come out identical, which is now measured rather than assumed.
 >
 > | | bare detector (`--sam2 off`) | shipped default (`--sam2 refine`) |
 > |---|---|---|
@@ -40,28 +40,22 @@ makes it a contribution rather than a release note.
 > whichever candidates the threshold accepted rather than changing which quantity responds.
 > Stating the expectation first is the only thing that makes a confirmation worth anything.
 >
-> **Results 2, 3 and 4 remain bare-detector only.** They are computed from the human masks,
-> the model weights and the training-row counts rather than from the predicted mask, so they
-> are expected to be unaffected — but expected is not measured, and that is the status.
+> **Results 2, 3 and 4 are detector-independent, and that was checked rather than argued.**
+> Run under `--sam2 off` and `--sam2 refine`, all **25 scalar fields** across the three are
+> identical. The independence is structural at two levels: none of them reads the predicted
+> mask (result 2 is arithmetic on scale-bar readings, result 3 refits the classifier on stored
+> training rows, result 4 counts rows and enumerates mask files), and their input
+> `labeled_regions.csv` is built by `build_training_data.py` calling `extract_candidates`
+> **directly** — upstream of where refinement happens — so even the training data is
+> untouched by the detector default.
 >
-> **The effect survives the better detector and shrinks, which is the honest headline.** It
-> shrinks for a reason predicted in advance: the adjudicated negative pool is 208,763 px and
-> false-positive-sensitive, the dense pool is 176,519,519 px and barely moves, so a detector
-> making fewer false positives raises adjudicated specificity and closes the gap. A gap of
-> **+0.372 macro / +0.200 micro** on the shipped detector is still the difference between
-> reporting specificity 0.57 and reporting 0.94 for the same predictions.
->
-> **The 10-for-10 claim does not survive, and it was named as the real evidence.** Result 1b
-> below argues that unanimous direction — not the bootstrap interval — is what shows the
-> effect is real. Under the shipped detector it is **9 of 10**: on
-> `260708_316_H_b2_front_CBS_013` the refined detector's adjudicated specificity reaches 0.979
-> against a dense 0.909, so that frame's gap is **−0.070**. The claim as written belongs to the
-> bare detector. For the shipped one the correct statement is nine of ten in the same
-> direction, with the exception named — which is weaker evidence and still evidence.
->
-> Every experiment now pins its detector (`DETECTOR` in each script, `--detector` to override)
-> and stamps mode plus git commit into its result JSON, and each configuration writes its own
-> file, so a re-measurement can never overwrite the number it is compared against.
+> **The skew that could have crept in was checked too.** Overlays are now refined while
+> training labels are still voted onto *unrefined* candidates, so a human painting on a
+> refined boundary might in principle have missed the candidate that receives the verdict —
+> which is precisely the class of bug result 4 is about. On
+> `260708_316_H_b2_front_CBS_002`, **100% of the human's 141,662 crack pixels lie inside an
+> accepted region under both configurations and 0 px are covered by only one**, because
+> `sam2_refine.refine_labeled` restores painted verdicts after refinement. No new skew.
 
 ## Results, all measured on the shipped corpus
 

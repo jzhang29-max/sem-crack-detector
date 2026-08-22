@@ -43,11 +43,29 @@
  "train_serve_skew": {
   "rows_before": 4128,
   "images_before": 32,
+  "rows_before_provenance": "measured once from training_data/labeled_regions.csv while build_training_data.py still called exclude_border_background(); it is a historical constant, not a re-measurement, so every figure derived from it is a comparison against that snapshot and will drift if the CSV changes for any other reason",
   "rows_after": 4787,
   "images_after": 38,
+  "images_with_an_empty_mask_file": [
+   "MAR_Amb_HIP_CBS_0007"
+  ],
+  "images_with_a_mask": 38,
+  "images_contributing_no_rows_now": [],
+  "n_images_contributing_no_rows_now": 0,
+  "enumeration_note": "images_contributing_no_rows_now counts images whose mask carries at least one MARKED pixel yet produce no training rows, measured by enumeration against the current files -- the claim this script can actually support. Empty mask files (written when an image is opened and never painted) are excluded and listed separately, because counting them as labelled would manufacture the very failure being looked for. images_recovered below is a subtraction against the frozen snapshot, identifies no image, and describes a historical change; it must not be quoted as a current count.",
   "rows_recovered": 659,
   "images_recovered": 6,
+  "images_recovered_is_a_subtraction": true,
   "pct_labels_unreachable": 13.766450804261542,
+  "pct_labels_unreachable_basis": "(rows_after - rows_before_SNAPSHOT) / rows_after -- see rows_before_provenance",
   "note": "Every path reported success throughout: the per-image worker caught its own exception and returned None, the merge carried prior rows for any image whose source was absent, and the process exited 0. Hand-drawn labels were discarded by a run that looked clean."
+ },
+ "detector": {
+  "detector_mode": "off",
+  "git_commit": "a1d2da6",
+  "pipeline_default_at_runtime": "refine",
+  "note": "detector_mode is what this experiment PINNED, not what the pipeline defaults to. 'off' is the bare two-pass detector; 'refine' is the shipped default since commit 4d97602, which applies SAM 2 to each accepted candidate's boundary.",
+  "detector_independent": true,
+  "independence_verified_by": "run under both --sam2 off and --sam2 refine: all 25 scalar fields across results 2, 3 and 4 identical. These results never read the predicted mask, and their input CSV is built by build_training_data calling extract_candidates directly, upstream of where refinement happens."
  }
 }

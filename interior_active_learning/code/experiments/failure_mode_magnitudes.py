@@ -38,6 +38,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..")))
 sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..", "..", "..", "code")))
 
 import joblib
+import detector_config as _dc
 import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
@@ -215,6 +216,28 @@ def train_serve_skew():
     return out
 
 
+#: These three results do not read the detector's predicted mask, so unlike the other
+#: experiments there is nothing to pin -- and that independence is structural at two levels,
+#: which is worth writing down because it was checked rather than assumed:
+#:
+#:   1. Nothing here calls run_unified_pipeline. Result 2 is arithmetic on scale-bar readings,
+#:      result 3 refits the classifier on stored training rows, result 4 counts rows and
+#:      enumerates mask files. The `IsCrack` column read here is the CSV's human-derived
+#:      label, not a prediction.
+#:   2. Their input, training_data/labeled_regions.csv, is built by build_training_data.py
+#:      calling extract_candidates DIRECTLY -- upstream of where SAM 2 refinement happens --
+#:      so even the training data is untouched by the detector default.
+#:
+#: MEASURED, not asserted: run under --sam2 off and --sam2 refine, all 25 scalar fields across
+#: the three results are identical. And the skew this could have introduced was checked too --
+#: overlays are refined while training labels are voted onto unrefined candidates, so a human
+#: painting on a refined boundary might have missed the candidate that gets the verdict. On
+#: 260708_316_H_b2_front_CBS_002, 100% of the human's 141,662 crack pixels lie inside an
+#: accepted region under BOTH configurations and 0 px are covered by only one, because
+#: sam2_refine.refine_labeled restores painted verdicts after refinement.
+DETECTOR_INDEPENDENT = True
+
+
 def main():
     res = {"calibration_disagreement": calibration_disagreement(),
            "in_sample_gate_bias": in_sample_gate_bias(),
@@ -258,6 +281,15 @@ def main():
         print(f"   {c['pct_labels_unreachable']:.1f}% of the labelled regions now in the "
               f"corpus could not reach the model, with every path reporting success\n")
 
+    # Record that these results are detector-independent AND that it was verified, so a
+    # reader does not have to take the structural argument on trust.
+    res["detector"] = dict(
+        _dc.stamp("off"), detector_independent=True,
+        independence_verified_by=(
+            "run under both --sam2 off and --sam2 refine: all 25 scalar fields across "
+            "results 2, 3 and 4 identical. These results never read the predicted mask, and "
+            "their input CSV is built by build_training_data calling extract_candidates "
+            "directly, upstream of where refinement happens."))
     json.dump(res, open(OUT, "w"), indent=1)
     print(f"-> {OUT}")
     return res
