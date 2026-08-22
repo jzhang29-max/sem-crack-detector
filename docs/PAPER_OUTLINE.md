@@ -14,9 +14,9 @@ and "our software is careful" is not a finding. This is the paper that *is* here
 This is a claim about **everyone's numbers**, not about this repo's software. That is what
 makes it a contribution rather than a release note.
 
-> **Which detector every result below was measured with.** Results 1 and 1c have now been
-> measured under **both** configurations and both are reported; results 1b, 2, 3, 4 and 5 are
-> still bare-detector only and say so in their sections.
+> **Which detector every result below was measured with.** Results 1, 1b, 1c and 5 have now
+> been measured under **both** configurations and both are reported; results 2, 3 and 4 are
+> bare-detector only, for the reason at the end of this note.
 >
 > | | bare detector (`--sam2 off`) | shipped default (`--sam2 refine`) |
 > |---|---|---|
@@ -25,6 +25,24 @@ makes it a contribution rather than a release note.
 > | result 1, precision gap | −0.5905 | −0.5942 |
 > | result 1, per-frame direction | 10/10 positive | **9/10 positive, 1 negative** |
 > | result 1c, erased-as-negative gap | +0.5988 | **+0.4964** |
+> | result 1b, i.i.d. thinning, 8.16% → 0.163% | +0.488 → +0.470 | **+0.372 → +0.364** |
+> | result 1b, whole-region, worst level | +0.156 [−0.014, +0.391] | **+0.136 [−0.024, +0.384]** |
+> | result 1b, levels whose interval includes zero | 1 of 6 | **2 of 6** |
+> | result 5, crack-count span across 0.3–0.7 | 1.34–1.38× | **1.38×** |
+> | result 5, count-vs-area sensitivity | 1.4–3.5× | **1.3–2.0×** |
+> | result 5, condition ordering | stable | **stable** |
+>
+> **1b and 5 were re-measured against predictions written down first, and both held.** 1b was
+> predicted to get *noisier*, not cleaner, because refinement shrinks the gap so the sparsest
+> levels sit closer to zero: two of six whole-region levels now include zero against one
+> before. 5 was predicted to keep its ordering stable and keep crack count the fragile
+> quantity, because SAM 2 sits downstream of the threshold and redraws boundaries for
+> whichever candidates the threshold accepted rather than changing which quantity responds.
+> Stating the expectation first is the only thing that makes a confirmation worth anything.
+>
+> **Results 2, 3 and 4 remain bare-detector only.** They are computed from the human masks,
+> the model weights and the training-row counts rather than from the predicted mask, so they
+> are expected to be unaffected — but expected is not measured, and that is the status.
 >
 > **The effect survives the better detector and shrinks, which is the honest headline.** It
 > shrinks for a reason predicted in advance: the adjudicated negative pool is 208,763 px and
