@@ -309,9 +309,23 @@ def run(names=None, n_boot=1000, detector=None):
               f"{', a percentile bootstrap CANNOT return a non-positive bound, so this is '
                  'arithmetic rather than evidence' if all_pos else ''}. "
               f"What the interval characterises is the SIZE of the effect "
-              f"({g['lo']:+.3f} to {g['hi']:+.3f}), not its existence. The evidence that the "
-              f"effect is real is that every one of the {len(per_img_gaps)} images shows it "
-              f"in the same direction.")
+              f"({g['lo']:+.3f} to {g['hi']:+.3f}), not its existence.")
+        # The direction claim has to COUNT, not assert. This sentence used to end "every one
+        # of the N images shows it in the same direction" regardless of how many actually did
+        # -- and under the shipped detector one frame's gap is negative, so the script printed
+        # "9/10 strictly positive" and then claimed unanimity two clauses later. Hardcoded
+        # phrasing that does not follow from the data is the defect this experiment documents.
+        n_pos = sum(1 for x in per_img_gaps if x > 0)
+        if n_pos == len(per_img_gaps):
+            print(f"  The evidence that the effect is real is that every one of the "
+                  f"{len(per_img_gaps)} images shows it in the same direction.")
+        else:
+            worst = min(per_img_gaps)
+            print(f"  {n_pos} of {len(per_img_gaps)} images show it in the same direction, "
+                  f"and {len(per_img_gaps) - n_pos} do not (most negative {worst:+.4f}). "
+                  f"Direction agreement is therefore weaker evidence here than the unanimous "
+                  f"version this section once reported, and the exception has to be named "
+                  f"rather than averaged away.")
     sd = [curve[str(f)]["specificity_exclusion"] for f in LEVELS
           if str(f) in curve and curve[str(f)]["specificity_exclusion"]]
     if len(sd) >= 2:

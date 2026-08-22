@@ -1,0 +1,297 @@
+{
+ "per_metric": {
+  "n_cracks": {
+   "per_specimen": {
+    "MAR_Amb_AS": [
+     1549.6666666666667,
+     1473.0,
+     1394.0,
+     1317.0,
+     1194.3333333333333
+    ],
+    "MAR_Amb_Cast": [
+     1210.0,
+     1184.0,
+     1131.0,
+     1087.3333333333333,
+     1030.0
+    ],
+    "MAR_Amb_HIP": [
+     830.6666666666666,
+     781.0,
+     730.3333333333334,
+     677.0,
+     602.0
+    ]
+   },
+   "orderings": {
+    "0.3": [
+     "MAR_Amb_AS",
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP"
+    ],
+    "0.4": [
+     "MAR_Amb_AS",
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP"
+    ],
+    "0.5": [
+     "MAR_Amb_AS",
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP"
+    ],
+    "0.6": [
+     "MAR_Amb_AS",
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP"
+    ],
+    "0.7": [
+     "MAR_Amb_AS",
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP"
+    ]
+   },
+   "ranking_stable": true,
+   "worst_span_ratio": 1.37984496124031
+  },
+  "total_length_px": {
+   "per_specimen": {
+    "MAR_Amb_AS": [
+     82139.66666666667,
+     77216.66666666667,
+     72705.66666666667,
+     68313.66666666667,
+     62110.0
+    ],
+    "MAR_Amb_Cast": [
+     172128.0,
+     170085.66666666666,
+     162162.66666666666,
+     157444.66666666666,
+     152230.66666666666
+    ],
+    "MAR_Amb_HIP": [
+     56557.666666666664,
+     54161.666666666664,
+     53035.333333333336,
+     49203.333333333336,
+     44468.333333333336
+    ]
+   },
+   "orderings": {
+    "0.3": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP"
+    ],
+    "0.4": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP"
+    ],
+    "0.5": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP"
+    ],
+    "0.6": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP"
+    ],
+    "0.7": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_AS",
+     "MAR_Amb_HIP"
+    ]
+   },
+   "ranking_stable": true,
+   "worst_span_ratio": 1.3224869854559116
+  },
+  "mean_length_px": {
+   "per_specimen": {
+    "MAR_Amb_AS": [
+     49.98764111295304,
+     49.929127189427675,
+     50.12397675074348,
+     50.091309097154834,
+     50.61374084185613
+    ],
+    "MAR_Amb_Cast": [
+     127.02359118687178,
+     128.05592357673882,
+     128.51698476936596,
+     129.88728056385253,
+     132.52413088026523
+    ],
+    "MAR_Amb_HIP": [
+     84.7109464143786,
+     87.55492394643278,
+     91.40440675187163,
+     83.29247374900719,
+     88.0803383152291
+    ]
+   },
+   "orderings": {
+    "0.3": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.4": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.5": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.6": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.7": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ]
+   },
+   "ranking_stable": true,
+   "worst_span_ratio": 1.0973909482783388
+  },
+  "area_fraction": {
+   "per_specimen": {
+    "MAR_Amb_AS": [
+     0.0286662804593722,
+     0.027483796980736098,
+     0.02633421513410698,
+     0.025172946245501177,
+     0.023440160606137777
+    ],
+    "MAR_Amb_Cast": [
+     0.25961953098737883,
+     0.2590068715594566,
+     0.2569837339143463,
+     0.2553219275610366,
+     0.25365114077896683
+    ],
+    "MAR_Amb_HIP": [
+     0.07915853129492866,
+     0.07741710874769424,
+     0.07686743471357559,
+     0.0687388711505466,
+     0.06668982240888807
+    ]
+   },
+   "orderings": {
+    "0.3": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.4": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.5": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.6": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ],
+    "0.7": [
+     "MAR_Amb_Cast",
+     "MAR_Amb_HIP",
+     "MAR_Amb_AS"
+    ]
+   },
+   "ranking_stable": true,
+   "worst_span_ratio": 1.222955803974567
+  }
+ },
+ "n_frames": 9,
+ "excluded_frames": 0,
+ "frame_density_at_lowest_threshold": {
+  "min": 177,
+  "max": 2779,
+  "median": 1119
+ },
+ "planned_frames_with_no_data": [],
+ "exclusion_is_not_random_note": "Frames are excluded when they did not finish at every threshold. The slowest frames are the densest, so exclusion correlates with density and the sample is biased toward sparser frames.",
+ "area_outlier_note": "A specimen whose crack-area fraction exceeds 3x the across-specimen median (7.69%) is treated as contaminated by the off-specimen background that unified_pipeline.py documents on the MAR Cast frames, and is excluded from the count-vs-area contrast: a large threshold-insensitive non-crack region dilutes the area movement and inflates the ratio.",
+ "count_vs_area_sensitivity": {
+  "MAR_Amb_AS": {
+   "count_span": 1.2975160480044656,
+   "area_span": 1.222955803974567,
+   "count_pct": 29.751604800446565,
+   "area_pct": 22.295580397456693,
+   "area_fraction_at_mid": 0.02633421513410698,
+   "times_more_sensitive": 1.3344171477070135,
+   "area_fraction_is_outlier": false
+  },
+  "MAR_Amb_Cast": {
+   "count_span": 1.174757281553398,
+   "area_span": 1.0235299166803784,
+   "count_pct": 17.475728155339798,
+   "area_pct": 2.3529916680378404,
+   "area_fraction_at_mid": 0.2569837339143463,
+   "times_more_sensitive": 7.4270250901112655,
+   "area_fraction_is_outlier": true
+  },
+  "MAR_Amb_HIP": {
+   "count_span": 1.37984496124031,
+   "area_span": 1.186965693349617,
+   "count_pct": 37.98449612403101,
+   "area_pct": 18.69656933496171,
+   "area_fraction_at_mid": 0.07686743471357559,
+   "times_more_sensitive": 2.0316291958975476,
+   "area_fraction_is_outlier": false
+  }
+ },
+ "count_vs_area_headline": {
+  "low": 1.3344171477070135,
+  "high": 2.0316291958975476,
+  "n_specimens": 2,
+  "excluded_specimens": [
+   "MAR_Amb_Cast"
+  ],
+  "statement": "On the 2 specimen(s) whose area is actually crack, the crack count is 1.3-2.0x more sensitive to the threshold than the area fraction is."
+ },
+ "largest_single_step": {
+  "n_cracks": {
+   "specimen": "MAR_Amb_HIP",
+   "from_threshold": "0.6",
+   "to_threshold": "0.7",
+   "rel_change": 0.11078286558345643
+  },
+  "total_length_px": {
+   "specimen": "MAR_Amb_HIP",
+   "from_threshold": "0.6",
+   "to_threshold": "0.7",
+   "rel_change": 0.09623331752591287
+  },
+  "mean_length_px": {
+   "specimen": "MAR_Amb_HIP",
+   "from_threshold": "0.5",
+   "to_threshold": "0.6",
+   "rel_change": 0.08874772334429427
+  },
+  "area_fraction": {
+   "specimen": "MAR_Amb_HIP",
+   "from_threshold": "0.5",
+   "to_threshold": "0.6",
+   "rel_change": 0.10574781886917063
+  }
+ },
+ "largest_single_step_excluded_specimens": [
+  "MAR_Amb_Cast"
+ ]
+}

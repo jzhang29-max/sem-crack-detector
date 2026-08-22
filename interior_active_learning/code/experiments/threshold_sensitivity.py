@@ -175,7 +175,7 @@ def out_path(shard, nshard, detector="off"):
     return base if nshard == 1 else base.replace(".json", f".shard{shard}.json")
 
 
-def _dump(path, thresholds, per_spec, per_frame):
+def _dump(path, thresholds, per_spec, per_frame, detector="off"):
     tmp = path + ".tmp"
     with open(tmp, "w") as fh:
         json.dump({"detector": _dc.stamp(detector),
@@ -300,10 +300,11 @@ def run(per_spec=4, shard=0, nshard=1, detector=None):
         # competes for the machine, so a shard that gets killed at frame 3 of 4 used to
         # lose all three. Write to a temp file and replace, so a kill mid-write cannot
         # leave a half-parsed JSON that --report silently skips.
-        _dump(out_path(shard, nshard, detector), THRESHOLDS, per_spec, per_frame)
+        _dump(out_path(shard, nshard, detector), THRESHOLDS, per_spec, per_frame,
+              detector=detector)
 
     out = out_path(shard, nshard, detector)
-    _dump(out, THRESHOLDS, per_spec, per_frame)
+    _dump(out, THRESHOLDS, per_spec, per_frame, detector=detector)
     print(f"\n  -> {out}")
     return per_frame
 

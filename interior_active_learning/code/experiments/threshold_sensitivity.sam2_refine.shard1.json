@@ -1,0 +1,174 @@
+{
+ "detector": {
+  "detector_mode": "refine",
+  "git_commit": "d2eadd9",
+  "pipeline_default_at_runtime": "refine",
+  "note": "detector_mode is what this experiment PINNED, not what the pipeline defaults to. 'off' is the bare two-pass detector; 'refine' is the shipped default since commit 4d97602, which applies SAM 2 to each accepted candidate's boundary.",
+  "sam2_model": "facebook/sam2.1-hiera-tiny"
+ },
+ "thresholds": [
+  0.3,
+  0.4,
+  0.5,
+  0.6,
+  0.7
+ ],
+ "production": 0.5,
+ "per_spec": 3,
+ "n_frames_done": 3,
+ "per_frame": [
+  {
+   "specimen": "MAR_Amb_AS",
+   "image": "MAR_Amb_AS_CBS_0006",
+   "levels": {
+    "0.3": {
+     "n_cracks": 751,
+     "total_length_px": 36492.0,
+     "mean_length_px": 48.59121171770972,
+     "max_length_px": 478.0,
+     "area_fraction": 0.00970753033955892,
+     "n_censored": 12,
+     "max_length_is_censored": false
+    },
+    "0.4": {
+     "n_cracks": 719,
+     "total_length_px": 35369.0,
+     "mean_length_px": 49.19193324061196,
+     "max_length_px": 478.0,
+     "area_fraction": 0.009435097376505533,
+     "n_censored": 10,
+     "max_length_is_censored": false
+    },
+    "0.5": {
+     "n_cracks": 692,
+     "total_length_px": 34420.0,
+     "mean_length_px": 49.73988439306358,
+     "max_length_px": 478.0,
+     "area_fraction": 0.009216030438741049,
+     "n_censored": 10,
+     "max_length_is_censored": false
+    },
+    "0.6": {
+     "n_cracks": 663,
+     "total_length_px": 33371.0,
+     "mean_length_px": 50.333333333333336,
+     "max_length_px": 478.0,
+     "area_fraction": 0.008868972460428873,
+     "n_censored": 9,
+     "max_length_is_censored": false
+    },
+    "0.7": {
+     "n_cracks": 637,
+     "total_length_px": 32047.0,
+     "mean_length_px": 50.30926216640503,
+     "max_length_px": 478.0,
+     "area_fraction": 0.00856637954711914,
+     "n_censored": 9,
+     "max_length_is_censored": false
+    }
+   }
+  },
+  {
+   "specimen": "MAR_Amb_Cast",
+   "image": "MAR_Amb_Cast_CBS_0005",
+   "levels": {
+    "0.3": {
+     "n_cracks": 1870,
+     "total_length_px": 334252.0,
+     "mean_length_px": 178.74438502673797,
+     "max_length_px": 167372.0,
+     "area_fraction": 0.39972881476084393,
+     "n_censored": 10,
+     "max_length_is_censored": true
+    },
+    "0.4": {
+     "n_cracks": 1847,
+     "total_length_px": 332379.0,
+     "mean_length_px": 179.95614510016242,
+     "max_length_px": 166811.0,
+     "area_fraction": 0.39944541454315186,
+     "n_censored": 10,
+     "max_length_is_censored": true
+    },
+    "0.5": {
+     "n_cracks": 1743,
+     "total_length_px": 314215.0,
+     "mean_length_px": 180.27251864601263,
+     "max_length_px": 154773.0,
+     "area_fraction": 0.3952506383260091,
+     "n_censored": 10,
+     "max_length_is_censored": true
+    },
+    "0.6": {
+     "n_cracks": 1677,
+     "total_length_px": 303693.0,
+     "mean_length_px": 181.09302325581396,
+     "max_length_px": 152164.0,
+     "area_fraction": 0.3914986848831177,
+     "n_censored": 10,
+     "max_length_is_censored": true
+    },
+    "0.7": {
+     "n_cracks": 1610,
+     "total_length_px": 294559.0,
+     "mean_length_px": 182.95590062111802,
+     "max_length_px": 150153.0,
+     "area_fraction": 0.3891163269678752,
+     "n_censored": 7,
+     "max_length_is_censored": true
+    }
+   }
+  },
+  {
+   "specimen": "MAR_Amb_HIP",
+   "image": "MAR_Amb_HIP_CBS_0010",
+   "levels": {
+    "0.3": {
+     "n_cracks": 451,
+     "total_length_px": 33466.0,
+     "mean_length_px": 74.2039911308204,
+     "max_length_px": 3005.0,
+     "area_fraction": 0.07944599787394206,
+     "n_censored": 15,
+     "max_length_is_censored": false
+    },
+    "0.4": {
+     "n_cracks": 434,
+     "total_length_px": 32623.0,
+     "mean_length_px": 75.16820276497695,
+     "max_length_px": 3005.0,
+     "area_fraction": 0.07725191116333008,
+     "n_censored": 14,
+     "max_length_is_censored": false
+    },
+    "0.5": {
+     "n_cracks": 400,
+     "total_length_px": 32120.0,
+     "mean_length_px": 80.3,
+     "max_length_px": 3005.0,
+     "area_fraction": 0.07700395584106445,
+     "n_censored": 14,
+     "max_length_is_censored": false
+    },
+    "0.6": {
+     "n_cracks": 370,
+     "total_length_px": 30392.0,
+     "mean_length_px": 82.14054054054054,
+     "max_length_px": 3006.0,
+     "area_fraction": 0.07499281565348308,
+     "n_censored": 14,
+     "max_length_is_censored": false
+    },
+    "0.7": {
+     "n_cracks": 349,
+     "total_length_px": 29389.0,
+     "mean_length_px": 84.20916905444126,
+     "max_length_px": 2984.0,
+     "area_fraction": 0.07407712936401367,
+     "n_censored": 13,
+     "max_length_is_censored": false
+    }
+   }
+  }
+ ]
+}
