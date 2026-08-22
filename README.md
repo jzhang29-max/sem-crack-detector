@@ -39,6 +39,14 @@ forced only 10.9% of the red. The review there ran mostly one way — of that fr
 *not*-crack — so the reviewer overwhelmingly added rather than overruled, but not
 exclusively.
 
+> **Which detector produced a number in this README.** SAM 2 refinement became the default
+> in commit `4d97602`. Every detector metric below it that is labelled `--sam2 off` was
+> measured on the bare two-pass pipeline, which is what the paper's results and the
+> naive-baseline comparison were measured on and what those numbers still describe. The
+> default configuration's own figures are the `--sam2 refine` row in the SAM 2 section. No
+> figure here has been silently re-attributed: where a number describes the old default, the
+> row says so.
+
 ## Install
 
 ```bash
@@ -179,7 +187,7 @@ with the classifier trained on *other* images:
 | detector | f1 | recall | specificity |
 |---|---|---|---|
 | Pass 1 (darkness threshold + classifier) | 0.697 | 0.575 | 0.476 |
-| **Pass 1 + Pass 2** — what the shipped overlays use | **0.715** | 0.597 | 0.476 |
+| **Pass 1 + Pass 2**, `--sam2 off` | **0.715** | 0.597 | 0.476 |
 | Pass 1 + Pass 2 + SAM | 0.776 | 0.678 | 0.395 |
 
 > The SAM row is **not reachable in this build** — `USE_SAM = false`. It is kept for
@@ -282,7 +290,7 @@ the numbers land in `naive_baselines.json`.
 | Otsu + small-object cleanup | **0.712** | 0.660 | 0.113 | 0.902 |
 | Frangi ridges (98th pct) | 0.241 | 0.151 | 0.866 | 0.936 |
 | Frangi ∩ darker-than-median | 0.274 | 0.186 | 0.806 | 0.920 |
-| **deployed two-pass pipeline** | 0.658 | 0.531 | **0.455** | **0.937** |
+| two-pass pipeline, `--sam2 off` | 0.658 | 0.531 | **0.455** | **0.937** |
 
 **The pipeline LOSES on f1: −0.054 against Otsu + cleanup.** An earlier version of this table
 reported +0.101 in the pipeline's favour, from a two-frame subset that the documented command
@@ -429,8 +437,8 @@ adjudicated pixels only:
 
 | detector | f1 | recall | specificity | precision |
 |---|---|---|---|---|
-| shipped pipeline | 0.638 | 0.534 | 0.460 | 0.970 |
-| **`--sam2 refine`** | **0.676** | **0.561** | **0.569** | **0.976** |
+| two-pass pipeline, `--sam2 off` | 0.638 | 0.534 | 0.460 | 0.970 |
+| **`--sam2 refine`** — the default since 4d97602 | **0.676** | **0.561** | **0.569** | **0.976** |
 | `--sam2 hybrid` | 0.707 | 0.604 | 0.445 | 0.970 |
 
 `refine` beats the shipped detector on **all four** metrics, on **9 of 10 frames**, with

@@ -59,12 +59,17 @@ sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..", "..", "..", "code")
 import numpy as np
 from PIL import Image
 
+import detector_config as _dc
 import unified_pipeline as up
 from common import load_correction_mask
 from scoring_convention_bias import eligible
 
 Image.MAX_IMAGE_PIXELS = None
 OUT = os.path.join(_HERE, "erased_state_sensitivity.json")
+#: Which detector this experiment measures. result 1c was measured on the bare detector.
+DETECTOR = "off"
+
+
 
 
 @contextlib.contextmanager
@@ -93,6 +98,10 @@ def _score(pred, crack, neg):
 
 
 def run(shard=0, nshard=1):
+    # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement since commit
+    # 4d97602, so an experiment that does not say which detector it wants silently measures a
+    # different one than its output is labelled with. There is no default here on purpose.
+    up.SAM2_MODE = DETECTOR
     names = eligible()
     mine = names[shard::nshard]
     print(f"{len(mine)} of {len(names)} both-class frame(s)"
@@ -131,7 +140,7 @@ def run(shard=0, nshard=1):
         out = OUT if nshard == 1 else OUT.replace(".json", f".shard{shard}.json")
         tmp = out + ".tmp"
         with open(tmp, "w") as fh:
-            json.dump({"per_image": rows}, fh, indent=1)
+            json.dump({"detector": _dc.stamp(DETECTOR), "per_image": rows}, fh, indent=1)
         os.replace(tmp, out)
     return rows
 

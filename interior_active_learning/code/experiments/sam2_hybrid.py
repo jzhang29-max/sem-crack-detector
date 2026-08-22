@@ -53,12 +53,17 @@ sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..", "..", "..", "code")
 import numpy as np
 from PIL import Image
 
+import detector_config as _dc
 import unified_pipeline as up
 from common import load_correction_mask
 from scoring_convention_bias import eligible
 
 Image.MAX_IMAGE_PIXELS = None
 OUT = os.path.join(_HERE, "sam2_hybrid.json")
+
+
+#: Which detector this experiment measures. this experiment applies its OWN refinement, so the pipeline must arrive bare -- otherwise the 'pipeline' arm is refined and the 'sam2_refine' arm is refined twice, and the comparison measures nothing.
+DETECTOR = "off"
 
 
 def _out_for(model_id):
@@ -163,6 +168,10 @@ def _boxes_from(labeled, labels):
 
 
 def run(frames, model_id, max_candidates, shard=0, nshard=1):
+    # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement since commit
+    # 4d97602, so an experiment that does not say which detector it wants silently measures a
+    # different one than its output is labelled with. There is no default here on purpose.
+    up.SAM2_MODE = DETECTOR
     base = _out_for(model_id)
     out_path = base if nshard == 1 else base.replace(".json", f".shard{shard}.json")
     rows = []
@@ -225,7 +234,7 @@ def run(frames, model_id, max_candidates, shard=0, nshard=1):
         rows.append(rec)
         tmp = out_path + ".tmp"
         with open(tmp, "w") as fh:
-            json.dump({"per_image": rows}, fh, indent=1)
+            json.dump({"detector": _dc.stamp(DETECTOR), "per_image": rows}, fh, indent=1)
         os.replace(tmp, out_path)
     if rows:
         print(f"\n  MEANS over {len(rows)} frame(s)")

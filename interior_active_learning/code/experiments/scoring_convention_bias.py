@@ -60,11 +60,16 @@ sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..", "..", "..", "code")
 import numpy as np
 from PIL import Image
 
+import detector_config as _dc
 import unified_pipeline as up
 from common import ORIGINAL_DIR, PAINT_DIR, load_correction_mask
 
 Image.MAX_IMAGE_PIXELS = None
 OUT = os.path.join(_HERE, "scoring_convention_bias.json")
+#: Which detector this experiment measures. every published figure from this experiment was measured on the bare detector.
+DETECTOR = "off"
+
+
 
 
 @contextlib.contextmanager
@@ -110,6 +115,10 @@ def eligible():
 
 
 def run(names=None):
+    # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement since commit
+    # 4d97602, so an experiment that does not say which detector it wants silently measures a
+    # different one than its output is labelled with. There is no default here on purpose.
+    up.SAM2_MODE = DETECTOR
     names = names or eligible()
     print(f"{len(names)} image(s) carry both a crack and a not-crack verdict\n")
     print(f"{'image':32s} {'spec adj':>9s} {'spec bg':>8s} {'prec adj':>9s} "
@@ -249,7 +258,8 @@ def run(names=None):
           f"{100 * (1 - frac):.2f}% is what the second convention silently converts into "
           f"negatives.")
 
-    json.dump({"n_images": len(rows), "per_image": rows,
+    json.dump({"detector": _dc.stamp(DETECTOR),
+               "n_images": len(rows), "per_image": rows,
                "macro_gap_concentration": concentration,
                "macro_means": summary, "micro": micro_summary,
                "averaging_note": ("macro_means are means of per-image metrics; micro pools "

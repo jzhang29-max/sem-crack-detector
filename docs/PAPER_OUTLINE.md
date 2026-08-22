@@ -14,6 +14,29 @@ and "our software is careful" is not a finding. This is the paper that *is* here
 This is a claim about **everyone's numbers**, not about this repo's software. That is what
 makes it a contribution rather than a release note.
 
+> **Which detector every result below was measured with.** All of them: the **bare two-pass
+> detector** (`--sam2 off`), which was the shipped default until commit `4d97602`. As of that
+> commit the shipped default applies SAM 2 boundary refinement, which changes the predicted
+> mask and therefore changes every figure derived from it — measured on the same ten frames,
+> f1 0.638 → 0.676, specificity 0.460 → 0.569.
+>
+> Nothing here has been re-measured under the new default yet, and two consequences must be
+> stated rather than discovered by a referee:
+>
+> 1. **Result 1's arms do not move together.** The adjudicated negative pool is 208,763 px and
+>    fp-sensitive; the dense pool is 176,519,519 px and barely moves. A detector that makes
+>    fewer false positives raises adjudicated specificity and shrinks the gap, so the
+>    published +0.488 / +0.678 pair describes the bare detector and is expected to be
+>    *smaller* under the default.
+> 2. **The 10-for-10 direction agreement, named above as the real evidence, is not established
+>    for the default.** On `260708_316_H_b2_front_CBS_013` the refined detector's adjudicated
+>    specificity rises to 0.9786 against a dense 0.906, which makes that frame's gap negative.
+>    So the claim "all ten images show it in the same direction" is a property of the bare
+>    detector and must not be quoted for the shipped one until re-measured.
+>
+> Every experiment now pins its detector explicitly (`DETECTOR` in each script) and stamps it
+> into its result JSON, so this class of ambiguity cannot recur silently.
+
 ## Results, all measured on the shipped corpus
 
 Every magnitude below is reproducible from a committed script. Every failure mode was

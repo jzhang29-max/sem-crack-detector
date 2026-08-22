@@ -60,9 +60,14 @@ sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..", "..", "..", "code")
 from detect_cracks import (clean_mask, compute_vesselness, find_field_of_view,
                            flatten_background, load_as_uint8)
 from common import contrast_kwargs_for
+import detector_config as _dc
 import unified_pipeline as up
 
 MIN_AREA = 40
+
+
+#: Which detector this experiment measures. the arm called 'pipeline' is the BARE two-pass detector, which is what the README's table compares against Otsu and Frangi.
+DETECTOR = "off"
 
 
 def _stage(name):
@@ -109,6 +114,10 @@ BASELINES = {"otsu": otsu, "otsu_clean": otsu_clean,
 
 
 def run(names=None):
+    # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement since commit
+    # 4d97602, so an experiment that does not say which detector it wants silently measures a
+    # different one than its output is labelled with. There is no default here on purpose.
+    up.SAM2_MODE = DETECTOR
     names = names or CASES
     rows = {k: [] for k in list(BASELINES) + ["pipeline"]}
     # WHICH frames were scored, and why any were not. The default set holds five and the
@@ -195,6 +204,7 @@ def run(names=None):
     # documented command did not reproduce the documented numbers and nothing on disk
     # revealed the gap.
     payload = {
+        "detector": _dc.stamp(DETECTOR),
         "requested": list(names),
         "scored": scored,
         "skipped": [{"image": n, "why": w} for n, w in skipped.items()],
