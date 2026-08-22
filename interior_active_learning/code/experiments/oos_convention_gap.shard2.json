@@ -1,0 +1,56 @@
+{
+ "per_image": [
+  {
+   "image": "260708_316_H_b2_front_CBS_012",
+   "specimen": "260708_316_H_b2",
+   "arm": "in_sample",
+   "holdout": "held out specimen 260708_316_H_b2: 903 of 4787 rows, 15 frame(s)",
+   "adjudicated": {
+    "recall": 0.635072508644269,
+    "precision": 0.8453759806548232,
+    "specificity": 0.34906588003933137,
+    "tp": 61529,
+    "fp": 11254,
+    "fn": 35356,
+    "tn": 6035
+   },
+   "dense": {
+    "recall": 0.635072508644269,
+    "precision": 0.25837648076527375,
+    "specificity": 0.9692809226298722,
+    "tp": 61529,
+    "fp": 176608,
+    "fn": 35356,
+    "tn": 5572523
+   },
+   "gap_specificity": 0.6202150425905408,
+   "gap_precision": -0.5869994998895495
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_012",
+   "specimen": "260708_316_H_b2",
+   "arm": "out_of_sample",
+   "holdout": "held out specimen 260708_316_H_b2: 903 of 4787 rows, 15 frame(s)",
+   "adjudicated": {
+    "recall": 0.6327398462094236,
+    "precision": 0.792550647067189,
+    "specificity": 0.0718954248366013,
+    "tp": 61303,
+    "fp": 16046,
+    "fn": 35582,
+    "tn": 1243
+   },
+   "dense": {
+    "recall": 0.6327398462094236,
+    "precision": 0.207973158187567,
+    "specificity": 0.959391949844246,
+    "tp": 61303,
+    "fp": 233461,
+    "fn": 35582,
+    "tn": 5515670
+   },
+   "gap_specificity": 0.8874965250076448,
+   "gap_precision": -0.584577488879622
+  }
+ ]
+}
