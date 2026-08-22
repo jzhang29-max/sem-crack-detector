@@ -414,6 +414,54 @@ It finds nothing on **this** corpus, and that is worth knowing: all 62 images ca
 microscope recorded the field width and a re-save threw it away, which is why every scale
 here has to be marked by hand off the burned-in bar.
 
+### SAM 2, applied
+
+The built-in detector is the weakest part of this project. SAM 2 refinement measurably fixes
+some of that, so it is wired in:
+
+```bash
+python3 code/semcrack.py --in ./micrographs --out ./results --sam2 refine
+```
+
+Measured on the ten frames that carry both a crack and a not-crack verdict, scored on
+adjudicated pixels only:
+
+| detector | f1 | recall | specificity | precision |
+|---|---|---|---|---|
+| shipped pipeline | 0.638 | 0.534 | 0.460 | 0.970 |
+| **`--sam2 refine`** | **0.676** | **0.561** | **0.569** | **0.976** |
+| `--sam2 hybrid` | 0.707 | 0.604 | 0.445 | 0.970 |
+
+`refine` beats the shipped detector on **all four** metrics, on **9 of 10 frames**, with
+nothing retrained — a larger gain than any of this project's own model work produced. `hybrid`
+takes a higher f1 but it is a union, and unions only add positives, so it gives back
+specificity. `refine` is the mode that is better in every direction and so the one to reach
+for; `hybrid` is there for a study that cannot afford a missed crack.
+
+**Why it is not the default.** It costs roughly 0.2 s per candidate region — minutes on a
+frame with 1,700 candidates — and silently changing the detector would make every previously
+exported number incomparable. So it is an explicit flag, the mode is part of the
+configuration fingerprint (a run with it cannot share an output directory with a run without
+it), and every CSV's `_provenance.json` records `detector.sam2_mode`, the checkpoint, and the
+prompt count.
+
+**Authority order is unchanged: human correction > imported mask > SAM 2 > built-in
+detector.** Refinement runs after pixel corrections and the human's verdicts are restored
+afterwards, with the sidecar recording how many pixels each verdict put back or took away.
+
+How it is prompted matters more than which model: SAM 2 is promptable, with no automatic mask
+generator, and that suits this problem. Automatic generation proposes whole objects and a
+crack is a thin dark filament — the likeliest reason the earlier SAM 1 attempt disappointed.
+On a synthetic 3-pixel filament a **box** prompt scored IoU 0.742 against 0.604 for a single
+point and 0.545 for ten points along it, so each candidate region is passed as its bounding
+box. The detector proposes; SAM 2 refines. Of the three mask variants SAM 2 returns, the one
+with the highest **model-predicted** IoU is taken — never the one closest to the human mask,
+which would be scoring against an oracle that does not exist at inference.
+
+Caveats: this is `sam2.1-hiera-tiny`, the smallest checkpoint, and a larger one is an untested
+lever. And because SAM 2 is prompted with the *detector's* candidates, a crack no candidate
+covers cannot be recovered by any mode here.
+
 ### The threshold nobody states
 
 Both passes accept a region when its probability clears a threshold. The shipped bundle

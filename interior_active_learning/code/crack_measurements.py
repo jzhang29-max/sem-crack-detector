@@ -32,7 +32,8 @@ import pandas as pd
 from skimage import measure
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import EXP_ROOT, MEASUREMENTS_DIR, ORIGINAL_DIR, PROD_MODEL_PATH
+from common import (EXP_ROOT, MEASUREMENTS_DIR, ORIGINAL_DIR, PROD_MODEL_PATH,
+                    load_correction_mask)
 from unified_pipeline import run_unified_pipeline
 from extended_features import crack_shape_measurements
 
@@ -55,7 +56,13 @@ def all_images():
 
 
 
-def measure_stage(image_name, stage):
+#: Set to "refine" or "hybrid" to run SAM 2 over the detector's accepted candidates before
+#: measuring. None means the shipped detector alone. Read from SEMCRACK_SAM2 by the batch CLI;
+#: inert unless a caller sets it, so the app and every existing script are unaffected.
+SAM2_MODE = os.environ.get("SEMCRACK_SAM2") or None
+
+
+def measure_stage(image_name, stage, crack_mask_override=None):
     """Turn one pipeline stage into measurement rows. No file I/O, no calibration.
 
     Split out of measure_image so a sensitivity sweep can re-measure the SAME geometry
@@ -68,7 +75,12 @@ def measure_stage(image_name, stage):
     Returns (rows, n_bridge_px).
     """
     labeled, df, img8 = stage["labeled"], stage["df"], stage["img8"]
-    crack_mask = np.isin(labeled, df.loc[df["IsCrack"], "Label"].tolist())
+    # An override replaces WHICH PIXELS are crack, not the machinery around it: the merge
+    # rule, the censoring test, the fragment count and the shape measurements all still run,
+    # so a refined mask is measured exactly as the detector's own would be.
+    crack_mask = (np.asarray(crack_mask_override, dtype=bool)
+                  if crack_mask_override is not None
+                  else np.isin(labeled, df.loc[df["IsCrack"], "Label"].tolist()))
     img_area = crack_mask.size
 
     # HONOUR THE MERGE DECISION THE PIPELINE ALREADY PAID FOR.
@@ -135,7 +147,22 @@ def measure_stage(image_name, stage):
 
 
 def measure_image(image_name):
-    rows, n_bridge_px = measure_stage(image_name, run_unified_pipeline(image_name))
+    _stage = run_unified_pipeline(image_name)
+    _sam2_info = {"sam2_mode": "off"}
+    _override = None
+    if SAM2_MODE and SAM2_MODE not in ("off",):
+        import sam2_refine as _sr
+        if _sr.available():
+            # The correction mask is passed in so the human's verdicts are restored after
+            # refinement. Authority order stays human > SAM 2 > detector.
+            _cm2 = load_correction_mask(image_name, _stage["labeled"].shape)
+            _override, _sam2_info = _sr.apply_to_stage(_stage, SAM2_MODE,
+                                                       correction_mask=_cm2)
+        else:
+            _sam2_info = {"sam2_mode": "requested but unavailable",
+                          "requested": SAM2_MODE}
+    rows, n_bridge_px = measure_stage(image_name, _stage,
+                                      crack_mask_override=_override)
 
     cols = ["SourceImage", "CrackID", "Area_px", "AreaPct_of_image", "SkeletonLength_px",
             "MeanWidth_px", "MaxWidth_px", "Tortuosity", "BranchPointCount",
@@ -184,6 +211,11 @@ def measure_image(image_name):
     # not say so is worse than no CSV: the numbers read as native to this pipeline.
     import external_mask as _em
     prov.update(_em.provenance_for(image_name))
+    # Which detector produced these pixels. A CSV whose regions came from SAM 2 but does not
+    # say so reads as native to this pipeline, the same objection external_mask answers.
+    # Nested, not prefixed. Flattening produced detector_detector_px and
+    # detector_sam2_mode -- names that read as a typo in a published sidecar.
+    prov["detector"] = dict(_sam2_info)
     prov["n_cracks"] = int(len(out_df))
     prov["bridge_px_added"] = n_bridge_px
     _cens = int(out_df["LengthIsCensored"].sum()) if len(out_df) else 0

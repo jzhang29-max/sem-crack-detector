@@ -86,6 +86,12 @@ def _parse_args(argv):
                          "'none' is the right answer for files not named like this "
                          "corpus (default: family,condition)")
     ap.add_argument("--model", help="Pass 1 classifier bundle (.joblib)")
+    ap.add_argument("--sam2", choices=["off", "refine", "hybrid"], default="off",
+                    help="run SAM 2 over the detector's candidates before measuring. "
+                         "'refine' replaces their boundaries and beats the shipped detector "
+                         "on f1, recall, specificity AND precision; 'hybrid' unions the two "
+                         "for a higher f1 at lower specificity. Default off because it costs "
+                         "roughly 0.2s per candidate region")
     ap.add_argument("--threshold", type=float,
                     help="decision threshold for BOTH passes; default is each bundle's own")
     ap.add_argument("--um-per-px", type=float, dest="um_per_px",
@@ -139,6 +145,9 @@ def _configure_env(a):
     # here is set unconditionally; this one was the exception.
     os.environ["SEMCRACK_THRESHOLD"] = ("" if a.threshold is None
                                         else repr(float(a.threshold)))
+    # Same hermetic rule as the threshold: written unconditionally so an inherited value
+    # cannot change the detector while the manifest reports something else.
+    os.environ["SEMCRACK_SAM2"] = ("" if a.sam2 in (None, "off") else a.sam2)
 
 
 def _effective_threshold(a, model_path):
@@ -170,6 +179,9 @@ def _config_fingerprint(a, model_path, threshold):
             # The EFFECTIVE threshold, so "unspecified" and "specified as the same value"
             # are correctly the same configuration.
             "threshold": threshold,
+            # The detector is part of the configuration. Two runs that differ in it produce
+            # incomparable rows, so they must not share an output directory unnoticed.
+            "sam2": (a.sam2 if a.sam2 != "off" else None),
             "corrections_dir": (os.path.abspath(os.path.expanduser(a.corrections))
                                 if a.corrections else None)}
 
@@ -438,6 +450,7 @@ def main(argv=None):
         print(f"semcrack --dry-run\n  images     : {len(names)}\n  input      : {a.indir}\n"
               f"  output     : {a.outdir}\n  model      : {PROD_MODEL_PATH}\n"
               f"  threshold  : {eff_threshold}  ({eff_why})\n"
+              f"  detector   : {'pipeline + SAM 2 (' + a.sam2 + ')' if a.sam2 != 'off' else 'pipeline only'}\n"
               f"  corrections: {a.corrections or 'NONE (detector only)'}\n"
               f"  calibrated : {sum(1 for n in names if cal.get_um_per_px(n))}/{len(names)}\n"
               f"  refusals   : {len(refusals)}")
@@ -518,6 +531,14 @@ def main(argv=None):
         "threshold": eff_threshold,
         "threshold_as_given": a.threshold,
         "threshold_note": eff_why,
+        "sam2_mode": a.sam2,
+        "sam2_note": ("SAM 2 refined the detector's candidate boundaries; measured on this "
+                      "corpus that beats the shipped detector on f1, recall, specificity and "
+                      "precision. Per-CSV provenance records it per image."
+                      if a.sam2 == "refine" else
+                      "SAM 2's mask was unioned with the detector's: higher f1, lower "
+                      "specificity than refine." if a.sam2 == "hybrid" else
+                      "shipped detector only; no SAM 2"),
         "corrections_dir": a.corrections,
         "corrections_applied": bool(a.corrections),
         "corrections_note": ("human corrections from the named directory OVERRIDE the "
