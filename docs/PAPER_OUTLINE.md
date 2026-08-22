@@ -80,6 +80,44 @@ printed — if recall ever moves, the experiment raises instead of reporting a f
 the evidence that the effect runs through the negative class and is not an artifact of this
 pipeline.
 
+### Result 1c: the headline gap depends on a convention INSIDE the adjudicated convention
+
+The adjudicated negative pool was defined as `m == 2` — pixels a human painted "not crack".
+The correction mask has a fourth state, **3 = erased**, and on the ten scored frames erased
+pixels number **435,058 against 208,763** marked not-crack: 2.08× more, and 24.9× on one
+frame. The detector does not distinguish them. `unified_pipeline.py` protects
+`np.isin(_cm, (2, 3))` from being re-proposed as crack under a single comment — "pixels the
+human took off the table" — so the pipeline reads an erasure as a human "no" while the
+experiment scoring the pipeline did not.
+
+`experiments/erased_state_sensitivity.py` measures both readings on all ten frames:
+
+| negative pool | macro specificity | macro precision | pooled negatives |
+|---|---|---|---|
+| erased excluded (as shipped) | **0.4599** | 0.9696 | 208,763 |
+| erased counted as negative | **0.3490** | 0.8861 | 643,821 |
+| unlabelled = background | 0.9478 | 0.3791 | 176,519,519 |
+
+So the reported gap of **+0.4879 becomes +0.5988** — 23% larger — under the other reading of
+the same marks. **The finding survives either reading; only its size moves.** That is the
+useful form: an effect whose direction is robust to a defensible re-reading of the annotation
+is a stronger claim than a point estimate that happened to pick one.
+
+**We predicted this the wrong way round.** The expectation, written into the script before it
+ran, was that erasures would add *easy* negatives and inflate specificity — the dense
+convention's error in miniature. Specificity *fell* by 0.111. An erased region is one the
+detector **proposed**; that is why a human was looking at it with the erase tool. Those pixels
+are therefore disproportionately predicted-positive, so they enter the negative pool as false
+positives rather than as easy true negatives. Direction is frame-dependent for the same
+reason: three frames have no erasures and do not move, two rise (0.0000 → 0.6016 on one), five
+fall (0.9312 → 0.0782 on one).
+
+**Neither number is "the" answer, and the corpus cannot settle it.** An erasure is either "this
+is not a crack" or "do not consider this" — off-specimen background, a charging artefact,
+something outside the area of interest — and nothing on disk distinguishes them. Closing it
+needs the annotator, or an interface that records *why* a region was erased. That is a
+one-line addition to the paint tool and it is the cheapest of the outstanding annotation asks.
+
 ### Result 1b answers the two objections the point estimate could not
 
 A single pair of numbers invites two immediate objections, and both are answerable from data

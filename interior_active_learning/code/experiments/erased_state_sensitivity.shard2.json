@@ -1,0 +1,82 @@
+{
+ "per_image": [
+  {
+   "image": "260708_316_H_b2_front_CBS_012",
+   "px_crack": 96885,
+   "px_not_crack": 17289,
+   "px_erased": 11873,
+   "erased_as_negative": {
+    "recall": 0.635072508644269,
+    "precision": 0.7277748864496594,
+    "specificity": 0.2107880117961731,
+    "f1": 0.6782708387303023,
+    "tp": 61529,
+    "fp": 23015,
+    "fn": 35356,
+    "tn": 6147,
+    "negative_pool_px": 29162
+   },
+   "erased_excluded": {
+    "recall": 0.635072508644269,
+    "precision": 0.8453759806548232,
+    "specificity": 0.34906588003933137,
+    "f1": 0.7252870311431737,
+    "tp": 61529,
+    "fp": 11254,
+    "fn": 35356,
+    "tn": 6035,
+    "negative_pool_px": 17289
+   },
+   "unlabelled_as_background": {
+    "recall": 0.635072508644269,
+    "precision": 0.25837648076527375,
+    "specificity": 0.9692809226298722,
+    "f1": 0.3673131913725069,
+    "tp": 61529,
+    "fp": 176608,
+    "fn": 35356,
+    "tn": 5572523,
+    "negative_pool_px": 5749131
+   }
+  },
+  {
+   "image": "MAR_Amb_HIP_CBS_0006",
+   "px_crack": 444504,
+   "px_not_crack": 9733,
+   "px_erased": 59009,
+   "erased_as_negative": {
+    "recall": 0.46804753163076146,
+    "precision": 0.7551276699998185,
+    "specificity": 0.01856215996043176,
+    "f1": 0.577898638785921,
+    "tp": 208049,
+    "fp": 67466,
+    "fn": 236455,
+    "tn": 1276,
+    "negative_pool_px": 68742
+   },
+   "erased_excluded": {
+    "recall": 0.46804753163076146,
+    "precision": 0.9597684181390413,
+    "specificity": 0.10397616356724546,
+    "f1": 0.6292368972619519,
+    "tp": 208049,
+    "fp": 8721,
+    "fn": 236455,
+    "tn": 1012,
+    "negative_pool_px": 9733
+   },
+   "unlabelled_as_background": {
+    "recall": 0.46804753163076146,
+    "precision": 0.2682533726850867,
+    "specificity": 0.9770432970407729,
+    "f1": 0.3410435277233412,
+    "tp": 208049,
+    "fp": 567520,
+    "fn": 236455,
+    "tn": 24153800,
+    "negative_pool_px": 24721320
+   }
+  }
+ ]
+}
