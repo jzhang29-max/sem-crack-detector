@@ -114,11 +114,12 @@ def eligible():
     return out
 
 
-def run(names=None):
+def run(names=None, detector=None):
     # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement since commit
     # 4d97602, so an experiment that does not say which detector it wants silently measures a
     # different one than its output is labelled with. There is no default here on purpose.
-    up.SAM2_MODE = DETECTOR
+    detector = detector or DETECTOR
+    up.SAM2_MODE = detector
     names = names or eligible()
     print(f"{len(names)} image(s) carry both a crack and a not-crack verdict\n")
     print(f"{'image':32s} {'spec adj':>9s} {'spec bg':>8s} {'prec adj':>9s} "
@@ -258,17 +259,22 @@ def run(names=None):
           f"{100 * (1 - frac):.2f}% is what the second convention silently converts into "
           f"negatives.")
 
-    json.dump({"detector": _dc.stamp(DETECTOR),
+    json.dump({"detector": _dc.stamp(detector),
                "n_images": len(rows), "per_image": rows,
                "macro_gap_concentration": concentration,
                "macro_means": summary, "micro": micro_summary,
                "averaging_note": ("macro_means are means of per-image metrics; micro pools "
                                   "the four cells. They are not interconvertible and both "
                                   "are reported so neither can be mistaken for the other."),
-               "mean_adjudicated_fraction": frac}, open(OUT, "w"), indent=1)
-    print(f"\n  -> {OUT}")
+               "mean_adjudicated_fraction": frac}, open(_dc.out_for(OUT, detector), "w"), indent=1)
+    print(f"\n  -> {_dc.out_for(OUT, detector)}")
     return summary
 
 
 if __name__ == "__main__":
-    run(sys.argv[1:] or None)
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--detector", choices=_dc.VALID, default=DETECTOR)
+    ap.add_argument("images", nargs="*")
+    a = ap.parse_args()
+    run(a.images or None, detector=a.detector)

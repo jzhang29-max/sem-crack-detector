@@ -164,11 +164,12 @@ def _bootstrap_ci(values, n_boot, rng, alpha=0.05):
             "n": int(vals.size)}
 
 
-def run(names=None, n_boot=1000):
+def run(names=None, n_boot=1000, detector=None):
     # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement since commit
     # 4d97602, so an experiment that does not say which detector it wants silently measures a
     # different one than its output is labelled with. There is no default here on purpose.
-    up.SAM2_MODE = DETECTOR
+    detector = detector or DETECTOR
+    up.SAM2_MODE = detector
     names = names or eligible()
     rng = np.random.default_rng(SEED)
     per_image = []
@@ -341,7 +342,7 @@ def run(names=None, n_boot=1000):
               f"{LEVELS[0]/LEVELS[-1]:.0f}x change in review effort, so this is a broad "
               f"effect rather than a knife edge at one sparsity.")
 
-    json.dump({"detector": _dc.stamp(DETECTOR),
+    json.dump({"detector": _dc.stamp(detector),
                "levels": list(LEVELS), "n_boot": n_boot, "seed": SEED,
                "curve": curve, "curve_whole_region": out_region,
                "thinning_note": (
@@ -351,14 +352,15 @@ def run(names=None, n_boot=1000):
                    "a model of a reviewer. curve_whole_region[] drops whole marked REGIONS, "
                    "which is what a reviewer who stopped early actually leaves behind, and "
                    "is the arm that answers the question."),
-               "per_image": per_image}, open(OUT, "w"), indent=1)
-    print(f"\n  -> {OUT}")
+               "per_image": per_image}, open(_dc.out_for(OUT, detector), "w"), indent=1)
+    print(f"\n  -> {_dc.out_for(OUT, detector)}")
     return curve
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--boot", type=int, default=1000)
+    ap.add_argument("--detector", choices=_dc.VALID, default=DETECTOR)
     ap.add_argument("images", nargs="*")
     a = ap.parse_args()
-    run(a.images or None, n_boot=a.boot)
+    run(a.images or None, n_boot=a.boot, detector=a.detector)

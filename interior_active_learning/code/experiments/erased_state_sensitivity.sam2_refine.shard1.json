@@ -1,0 +1,128 @@
+{
+ "detector": {
+  "detector_mode": "refine",
+  "git_commit": "9cbca64",
+  "pipeline_default_at_runtime": "refine",
+  "note": "detector_mode is what this experiment PINNED, not what the pipeline defaults to. 'off' is the bare two-pass detector; 'refine' is the shipped default since commit 4d97602, which applies SAM 2 to each accepted candidate's boundary.",
+  "sam2_model": "facebook/sam2.1-hiera-tiny"
+ },
+ "per_image": [
+  {
+   "image": "260708_316_H_b2_front_CBS_013",
+   "px_crack": 222132,
+   "px_not_crack": 8322,
+   "px_erased": 11175,
+   "erased_as_negative": {
+    "recall": 0.644346604721517,
+    "precision": 0.9393211529374704,
+    "specificity": 0.5257731958762887,
+    "f1": 0.7643628440513955,
+    "tp": 143130,
+    "fp": 9246,
+    "fn": 79002,
+    "tn": 10251,
+    "negative_pool_px": 19497
+   },
+   "erased_excluded": {
+    "recall": 0.644346604721517,
+    "precision": 0.998757920004466,
+    "specificity": 0.9786109108387406,
+    "f1": 0.7833296847635727,
+    "tp": 143130,
+    "fp": 178,
+    "fn": 79002,
+    "tn": 8144,
+    "negative_pool_px": 8322
+   },
+   "unlabelled_as_background": {
+    "recall": 0.644346604721517,
+    "precision": 0.20886688293210404,
+    "specificity": 0.908688195905564,
+    "f1": 0.3154724317032932,
+    "tp": 143130,
+    "fp": 542139,
+    "fn": 79002,
+    "tn": 5395089,
+    "negative_pool_px": 5937228
+   }
+  },
+  {
+   "image": "260708_316_H_b2_front_CBS_016",
+   "px_crack": 5322088,
+   "px_not_crack": 822,
+   "px_erased": 1241,
+   "erased_as_negative": {
+    "recall": 0.2994206409213827,
+    "precision": 0.999570951940972,
+    "specificity": 0.6684440135724673,
+    "f1": 0.4608069470520067,
+    "tp": 1593543,
+    "fp": 684,
+    "fn": 3728545,
+    "tn": 1379,
+    "negative_pool_px": 2063
+   },
+   "erased_excluded": {
+    "recall": 0.2994206409213827,
+    "precision": 0.999570951940972,
+    "specificity": 0.1678832116788321,
+    "f1": 0.4608069470520067,
+    "tp": 1593543,
+    "fp": 684,
+    "fn": 3728545,
+    "tn": 138,
+    "negative_pool_px": 822
+   },
+   "unlabelled_as_background": {
+    "recall": 0.2994206409213827,
+    "precision": 0.6444921773258119,
+    "specificity": 0.9556208067583817,
+    "f1": 0.408881534551161,
+    "tp": 1593543,
+    "fp": 879013,
+    "fn": 3728545,
+    "tn": 18927859,
+    "negative_pool_px": 19806872
+   }
+  },
+  {
+   "image": "MAR_Amb_AS_CBS_0003",
+   "px_crack": 9183402,
+   "px_not_crack": 26284,
+   "px_erased": 307370,
+   "erased_as_negative": {
+    "recall": 0.09591989983668361,
+    "precision": 0.7437257419982894,
+    "specificity": 0.09027915145629904,
+    "f1": 0.16992429930925593,
+    "tp": 880871,
+    "fp": 303532,
+    "fn": 8302531,
+    "tn": 30122,
+    "negative_pool_px": 333654
+   },
+   "erased_excluded": {
+    "recall": 0.09591989983668361,
+    "precision": 0.9979075990293615,
+    "specificity": 0.929729112768224,
+    "f1": 0.1750169876774765,
+    "tp": 880871,
+    "fp": 1847,
+    "fn": 8302531,
+    "tn": 24437,
+    "negative_pool_px": 26284
+   },
+   "unlabelled_as_background": {
+    "recall": 0.09591989983668361,
+    "precision": 0.5696456621370726,
+    "specificity": 0.9583618803207674,
+    "f1": 0.16419225385565797,
+    "tp": 880871,
+    "fp": 665478,
+    "fn": 8302531,
+    "tn": 15316944,
+    "negative_pool_px": 15982422
+   }
+  }
+ ]
+}

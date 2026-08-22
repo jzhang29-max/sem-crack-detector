@@ -143,11 +143,12 @@ def _volume_matched_mask(specimen, df, n_rows, seed=0):
     return m
 
 
-def run(shard=0, nshard=1):
+def run(shard=0, nshard=1, detector=None):
     # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement since commit
     # 4d97602, so an experiment that does not say which detector it wants silently measures a
     # different one than its output is labelled with. There is no default here on purpose.
-    up.SAM2_MODE = DETECTOR
+    detector = detector or DETECTOR
+    up.SAM2_MODE = detector
     names = eligible()
     mine = names[shard::nshard]
     df = pd.read_csv(CSV)
@@ -157,7 +158,7 @@ def run(shard=0, nshard=1):
     # RESUME. Each frame costs two full pipeline runs, so a killed shard must not redo the
     # frames it already finished. Only frames with BOTH arms recorded count as done: a frame
     # with one arm is useless, since the comparison is within-frame.
-    out_path = OUT if nshard == 1 else OUT.replace(".json", f".shard{shard}.json")
+    out_path = _dc.out_for(OUT, detector) if nshard == 1 else _dc.out_for(OUT, detector).replace(".json", f".shard{shard}.json")
     rows = []
     if os.path.exists(out_path):
         try:
@@ -226,14 +227,14 @@ def run(shard=0, nshard=1):
         out = out_path
         t = out + ".tmp"
         with open(t, "w") as fh:
-            json.dump({"detector": _dc.stamp(DETECTOR), "per_image": rows}, fh, indent=1)
+            json.dump({"detector": _dc.stamp(detector), "per_image": rows}, fh, indent=1)
         os.replace(t, out)
     return rows
 
 
-def report():
+def report(detector="off"):
     import glob as _g
-    paths = sorted(_g.glob(OUT.replace(".json", ".shard*.json"))) or [OUT]
+    paths = sorted(_g.glob(_dc.out_for(OUT, detector).replace(".json", ".shard*.json"))) or [_dc.out_for(OUT, detector)]
     rows = []
     for p in paths:
         try:
@@ -300,8 +301,8 @@ def report():
            "prediction_that_circularity_shrinks_the_gap_held": bool(pred_held),
            "n_frames_gap_grew": n_up,
            "per_image": rows}
-    json.dump(res, open(OUT.replace(".json", "_report.json"), "w"), indent=1)
-    print(f"\n  -> {OUT.replace('.json', '_report.json')}")
+    json.dump(res, open(_dc.out_for(OUT, detector).replace(".json", "_report.json"), "w"), indent=1)
+    print(f"\n  -> {_dc.out_for(OUT, detector).replace('.json', '_report.json')}")
     return res
 
 
@@ -310,5 +311,6 @@ if __name__ == "__main__":
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--nshard", type=int, default=1)
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--detector", choices=_dc.VALID, default=DETECTOR)
     a = ap.parse_args()
-    report() if a.report else run(a.shard, a.nshard)
+    report(detector=a.detector) if a.report else run(a.shard, a.nshard, detector=a.detector)

@@ -97,11 +97,12 @@ def _score(pred, crack, neg):
             "negative_pool_px": int(neg.sum())}
 
 
-def run(shard=0, nshard=1):
+def run(shard=0, nshard=1, detector=None):
     # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement since commit
     # 4d97602, so an experiment that does not say which detector it wants silently measures a
     # different one than its output is labelled with. There is no default here on purpose.
-    up.SAM2_MODE = DETECTOR
+    detector = detector or DETECTOR
+    up.SAM2_MODE = detector
     names = eligible()
     mine = names[shard::nshard]
     print(f"{len(mine)} of {len(names)} both-class frame(s)"
@@ -137,17 +138,17 @@ def run(shard=0, nshard=1):
                   f"dense {rec['unlabelled_as_background']['specificity']:.4f}", flush=True)
         except Exception as e:
             print(f"  {n[:38]:40s} FAILED {type(e).__name__}: {e}", flush=True)
-        out = OUT if nshard == 1 else OUT.replace(".json", f".shard{shard}.json")
+        out = _dc.out_for(OUT, detector) if nshard == 1 else _dc.out_for(OUT, detector).replace(".json", f".shard{shard}.json")
         tmp = out + ".tmp"
         with open(tmp, "w") as fh:
-            json.dump({"detector": _dc.stamp(DETECTOR), "per_image": rows}, fh, indent=1)
+            json.dump({"detector": _dc.stamp(detector), "per_image": rows}, fh, indent=1)
         os.replace(tmp, out)
     return rows
 
 
-def report():
+def report(detector="off"):
     import glob as _g
-    paths = sorted(_g.glob(OUT.replace(".json", ".shard*.json"))) or [OUT]
+    paths = sorted(_g.glob(_dc.out_for(OUT, detector).replace(".json", ".shard*.json"))) or [_dc.out_for(OUT, detector)]
     rows = []
     for p in paths:
         try:
@@ -191,8 +192,8 @@ def report():
                    "Macro specificity under the adjudicated convention lies between "
                    f"{min(a, b):.4f} and {max(a, b):.4f} depending on whether an erasure is "
                    "read as a not-crack verdict. The corpus cannot decide it.")},
-              open(OUT.replace(".json", "_report.json"), "w"), indent=1)
-    print(f"\n  -> {OUT.replace('.json', '_report.json')}")
+              open(_dc.out_for(OUT, detector).replace(".json", "_report.json"), "w"), indent=1)
+    print(f"\n  -> {_dc.out_for(OUT, detector).replace('.json', '_report.json')}")
     return summary
 
 
@@ -201,8 +202,10 @@ if __name__ == "__main__":
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--nshard", type=int, default=1)
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--detector", choices=_dc.VALID, default=DETECTOR,
+                    help="which detector to measure; results land in a per-detector file")
     a = ap.parse_args()
     if a.report:
-        report()
+        report(detector=a.detector)
     else:
-        run(a.shard, a.nshard)
+        run(a.shard, a.nshard, detector=a.detector)

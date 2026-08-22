@@ -77,3 +77,14 @@ def stamp(mode):
         except Exception:
             pass
     return out
+
+
+def out_for(base, detector):
+    """One result file per detector configuration.
+
+    The bare detector keeps the historical filename so every existing reference stays valid;
+    any other configuration gets its own. Sharing one file would mean a re-measurement
+    silently replacing the number it is supposed to be compared against -- which is the
+    accident this whole audit was about.
+    """
+    return base if detector == "off" else base.replace(".json", f".sam2_{detector}.json")
