@@ -37,6 +37,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 import joblib
 import numpy as np
+import pandas as pd
 import requests
 import tifffile
 from PIL import Image
@@ -1743,6 +1744,57 @@ def main():
               f"cli_synth_00={_v00}, cli_synth_01={_v01}: without this the only record of "
               f"the operating point was one manifest field for a whole directory, so a "
               f"forced mixed run was unreadable per row")
+
+    # ---- SAM 2 as an applied detector mode ----
+    import sam2_refine as _sr
+    check("SAM 2 reports whether it can run without raising",
+          isinstance(_sr.available(), bool))
+    check("mode off is a no-op that returns no mask",
+          _sr.apply_to_stage({}, "off") == (None, {"sam2_mode": "off"}),
+          "the shipped detector must be reachable unchanged")
+    check("the measurement path defaults to the shipped detector",
+          _cm.SAM2_MODE is None,
+          "SAM2_MODE is inert unless a caller sets it, so the app and every existing "
+          "script are unaffected")
+
+    # THE HUMAN STILL WINS. A refined mask must not overturn a painted verdict, which is
+    # the promise the README makes about corrections.
+    _lab2 = _np2.zeros((40, 40), dtype=_np2.int32)
+    _lab2[10:14, 5:35] = 1
+    _df2 = pd.DataFrame({"Label": [1], "IsCrack": [True]})
+    _stage2 = {"labeled": _lab2, "df": _df2,
+               "img8": _np2.full((40, 40), 200, _np2.uint8)}
+    _cmask = _np2.zeros((40, 40), dtype=_np2.uint8)
+    _cmask[10:14, 5:20] = 2          # human says NOT crack over half the region
+    _cmask[30:34, 5:20] = 1          # and crack somewhere the detector found nothing
+    _saved_refine = _sr.refine_mask
+    try:
+        # Stub SAM 2 itself: this asserts the AUTHORITY RULE, not the model, and must not
+        # depend on a checkpoint download to run in the suite.
+        _sr.refine_mask = lambda img8, boxes, **k: (_lab2 == 1)
+        _out2, _info2 = _sr.apply_to_stage(_stage2, "refine", correction_mask=_cmask)
+        check("a human not-crack verdict removes refined pixels",
+              _out2 is not None and not _out2[10:14, 5:20].any()
+              and _info2["px_removed_by_human_not_crack"] > 0,
+              f"{_info2}")
+        check("a human crack verdict is restored even where SAM 2 found nothing",
+              bool(_out2[30:34, 5:20].all())
+              and _info2["px_restored_by_human_crack"] > 0)
+        check("the refinement is recorded, not silent",
+              _info2.get("sam2_mode") == "refine" and "sam2_model" in _info2)
+        _hyb, _ = _sr.apply_to_stage(_stage2, "hybrid", correction_mask=None)
+        check("hybrid is a union and so never predicts fewer pixels than the detector",
+              int(_hyb.sum()) >= int((_lab2 == 1).sum()))
+    finally:
+        _sr.refine_mask = _saved_refine
+
+    # An override replaces which pixels are crack without bypassing the measurement rules.
+    _rows_o, _ = _cm.measure_stage("SYNTH_SAM2", _stage2,
+                                   crack_mask_override=(_lab2 == 1))
+    check("an override still goes through the normal measurement rules",
+          _rows_o and all("LengthIsCensored" in r and "NFragmentsMerged" in r
+                          for r in _rows_o),
+          "a refined mask must be measured exactly as the detector's own would be")
 
     # The batch entry point must not have changed where the app itself reads and writes.
     check("the overrides are inert for the app: repo paths unchanged",
