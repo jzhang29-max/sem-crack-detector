@@ -593,28 +593,20 @@ def main():
     if not _im:
         check("an image is available for the stroke test", False)
     else:
-        # PICK AN IMAGE THE STROKE ACTUALLY FITS IN. The stroke below is at fixed
-        # coordinates around (300..360, 400..420), and this used to paint on _im[0] --
-        # whichever templated image happened to be first. On a fresh clone that is one of the
-        # small synthetic uploads from an earlier section, so every point fell outside the
-        # frame: the endpoint returned 200 in 2 ms, recorded an undo entry, and painted
-        # nothing, and the check failed on a clone while passing here. Choose a frame that
-        # comfortably contains the stroke.
-        _need_w, _need_h = 380, 440
-        _sn = None
-        for _cand in _im:
-            _p = os.path.join(ORIGINAL_DIR, f"{_cand}.tif")
-            try:
-                with Image.open(_p) as _imh:
-                    if _imh.width >= _need_w and _imh.height >= _need_h:
-                        _sn = _cand
-                        break
-            except (OSError, ValueError):
-                continue
-        if _sn is None:
-            _sn = _im[0]
-            print(f"  NOTE: no templated frame is at least {_need_w}x{_need_h}; "
-                  f"painting on {_sn} anyway")
+        # SCALE THE STROKE TO THE IMAGE, rather than requiring a big image. This used to
+        # paint at fixed coordinates around (300..360, 400..420) on whichever templated image
+        # came first. On a fresh clone the only templated images at this point are the small
+        # synthetic apptest_* uploads from earlier sections -- real overlays are derived and
+        # deliberately not shipped, so no real frame has one yet. Every point fell outside the
+        # frame, so nothing was painted while the endpoint still returned 200 and recorded an
+        # undo entry. Requiring a large frame just turned the failure into a fallback; putting
+        # the stroke inside whatever image exists is what the check actually needs.
+        _sn = _im[0]
+        try:
+            with Image.open(os.path.join(ORIGINAL_DIR, f"{_sn}.tif")) as _imh:
+                _iw, _ih = _imh.width, _imh.height
+        except (OSError, ValueError):
+            _iw = _ih = 0
         _mp = os.path.join(PAINT_DIR, f"{_sn}_correction_mask.png")
 
         def _count(v):
@@ -627,16 +619,23 @@ def main():
 
         _b4 = _count(2)
         _d0 = requests.get(f"{BASE}/api/undo_depth/{_sn}", timeout=60).json().get("depth", 0)
-        _pts = [[300 + i * 3, 400 + i] for i in range(20)]
+        if _iw and _ih:
+            # a diagonal across the middle of the frame, so every point is interior
+            _x0, _y0, _x1, _y1 = _iw * 0.3, _ih * 0.3, _iw * 0.7, _ih * 0.7
+            _pts = [[int(_x0 + (_x1 - _x0) * i / 19), int(_y0 + (_y1 - _y0) * i / 19)]
+                    for i in range(20)]
+            _rad = max(2, min(12, min(_iw, _ih) // 8))
+        else:
+            _pts, _rad = [[300 + i * 3, 400 + i] for i in range(20)], 12
         _t0 = time.time()
         _sr = requests.post(f"{BASE}/api/stroke/{_sn}",
-                            json={"mode": "not_crack", "points": _pts, "radius": 12},
+                            json={"mode": "not_crack", "points": _pts, "radius": _rad},
                             timeout=300)
         _el = time.time() - _t0
         check("a stroke commits in under 2 s", _sr.status_code == 200 and _el < 2.0,
               f"{_el*1000:.0f} ms, HTTP {_sr.status_code}")
         check("the stroke reaches the correction mask", _count(2) > _b4,
-              f"not-crack px {_b4} -> {_count(2)}")
+              f"not-crack px {_b4} -> {_count(2)} on {_sn} ({_iw}x{_ih}, radius {_rad})")
         # >= 1, not > _d0: the stack is capped at MAX_DEPTH, so once it is full a new
         # snapshot trims the oldest and the count stays flat. Strictly-increasing was
         # the wrong property to assert -- what matters is that an entry exists, which
