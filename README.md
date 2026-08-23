@@ -193,6 +193,51 @@ held-out AUC from 0.9252 to 0.9153 and the gate declined to deploy.
 
 ## How well it works
 
+### The short version
+
+Three numbers, because they answer three different questions and conflating them is how this
+kind of README misleads.
+
+- **Region level, on images the classifier never saw: AUC 0.801 ± 0.044, balanced accuracy
+  0.766 ± 0.012, worst repeat 0.744.** This is the headline, because grouping the
+  cross-validation by source image is the only way to answer "how will it do on a frame it has
+  not seen". 5 × StratifiedGroupKFold(5) over 243 Pass-2 candidate regions — 168 crack, 75
+  not — drawn from 24 images, train and test never sharing one. Recall 0.777, specificity
+  0.755, precision 0.877. From `benchmark_results.json`.
+- **Pixel level, on adjudicated pixels: f1 0.638, recall 0.534, specificity 0.460, precision
+  0.970** over the ten frames carrying both a crack and a not-crack verdict. Lower than the
+  region number and not in conflict with it: getting a region's *label* right is an easier
+  question than getting its *boundary* right, and roughly 47% of crack pixels are still missed.
+  From `sam2_hybrid_report.json`.
+- **The retrain gate's own bar: AUC 0.885** on a held-out specimen (`AS_24hr_BSE_Side_008`,
+  leave-one-specimen-out), against 0.862 in-sample. A retrain that cannot beat the recorded
+  out-of-sample baseline is refused rather than promoted.
+
+![Six model families under 5x StratifiedGroupKFold grouped by source image, accuracy and AUC with error bars](docs/img/benchmark/model_comparison_bars.png)
+
+**Read that chart's blue bars with care — they are raw accuracy, and the dataset is 69%
+positive.** RandomForest posts the highest accuracy at 0.816 while its specificity is 0.549:
+it scores well largely by saying "crack". On balanced accuracy the order inverts —
+LogisticRegression 0.766, SVC (RBF) 0.784, RandomForest 0.743 — and LogisticRegression has the
+best AUC of the six at 0.801. That, plus being the only one whose decision surface is eight
+coefficients you can read, is why it ships. A more flexible model does not have the data to
+justify itself here: 243 regions from 24 images.
+
+**What is missing, compared with what an NDT reader would want.** There is no false-call rate
+per frame on crack-free specimens, because **no frame in this corpus is established as
+crack-free.** Two of the 39 masks contain zero crack marks — `260708_316_H_b2_front_CBS_010`
+and `MAR_Amb_HIP_CBS_0007` — but neither is evidence of a clean frame: the second is 100%
+UNREVIEWED, an empty mask file, and the first is 99.89% UNREVIEWED with 1,730 not-crack pixels
+against a detector that still accepted 30 regions there. Absence of marks is not absence of
+cracks, which is the same confusion this tool exists to refuse. So MIL-HDBK-1823A-style "≤1%
+probability of false calls" has no denominator here, and specificity 0.460 on hand-marked
+not-crack regions is the nearest available substitute.
+
+The only genuinely crack-free frame ever put through this detector came from outside the
+corpus, and it returned 95.4% of the frame flagged as crack — see [Outside this corpus, it does
+not work](#outside-this-corpus-it-does-not-work).
+
+
 ### A crack it finds on an image it has never seen
 
 ![An SEM micrograph beside the same frame with detected cracks in red and rejected candidates in cyan](docs/img/detection.png)
