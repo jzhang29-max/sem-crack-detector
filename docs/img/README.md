@@ -14,7 +14,7 @@ image were used**: it has no correction mask and contributes no rows to
 an image the classifier never saw.
 
     ./.venv/bin/python3 code/build_figures.py 260622_316_H_b2_front_CBS_02 \
-        --out docs/img/detection.png --frac 0.28 \
+        --out docs/img/detection.png --frac 0.55 \
         --note "Pass 1 + Pass 2; no correction mask and no training rows from this image"
 
 The first version of this figure used `..._CBS_01` and was rejected as a poor
@@ -40,16 +40,29 @@ not-crack" rather than "rejected". Mislabelling this one as model output would
 present corrected pixels as unaided accuracy.
 
     ./.venv/bin/python3 code/build_figures.py AS_24hr_BSE_Side_008 \
-        --out docs/img/review.png --frac 0.32 --reviewed \
+        --out docs/img/review.png --frac 0.55 --reviewed \
         --note "in the training set; 134,039 px adjudicated not-crack by hand"
 
 ## app.png
 
-A screenshot of the running app at a 1440x900 viewport, with
-`260622_316_H_b2_back_CBS_01` open. Not scripted. To retake it: start the app,
-size the window to 1440x900, open that image, and capture at 1x rather than
-retina — a 2880x1800 grab is four times the pixels for no legibility a reader
-gains at the rendered size.
+The running app at a 1440x900 viewport with `260622_316_H_b2_back_CBS_01` open. Retaken
+2026-08-23; the previous one dated from 2026-08-17 and showed a threshold of 0.400 and a
+sidebar model panel that no longer exist — the app now reports
+`LogisticRegression / thr 0.500 / no SAM` in the status bar.
+
+It used to say "not scripted", which is why it went stale unnoticed. It is scriptable, so
+here is the command:
+
+    ./run &                       # or: make run
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+        --headless=new --disable-gpu --hide-scrollbars \
+        --virtual-time-budget=25000 --window-size=1440,900 \
+        --screenshot=docs/img/app.png http://127.0.0.1:8767/
+
+The virtual-time budget matters: the overlay is fetched and drawn after load, so a shorter
+budget captures an empty canvas. The app reopens whatever image was last painted, so open that
+frame once in a real browser first if you want the same one in the shot.
+
 
 ## benchmark/
 
@@ -78,3 +91,18 @@ The architecture diagram at the top of the top-level README.
 Generated rather than drawn on purpose: the stage order lives in the `STAGES` list in that
 script, so changing the pipeline and forgetting the picture is a diff someone sees in review
 instead of a diagram that quietly stops being true.
+
+## Both figures were rebuilt on 2026-08-23, and why
+
+They had been built on 2026-08-17/18, which put them **before** commit `ce11f25`
+("drop the exclusion that deleted main cracks"). The old `detection.png` therefore showed a
+detector that left the large through-cracks unmarked — the very thing that commit fixed. Any
+figure that predates a detection change is evidence for a detector nobody runs.
+
+Rebuilding also forced a crop change. `--frac` is the crop height as a fraction of the frame,
+and the window is still chosen by `densest()` rather than by eye. At the old `0.28` the denser
+mask put that window *inside* the main crack, so the figure was a solid red rectangle that
+demonstrated nothing. `0.55` keeps the same data-picked centre and pulls back far enough to show
+the crack against correctly-unmarked material, which is what the figure is for. The frame-level
+number in the caption (9.8% of area marked crack, up from 2.5%) comes from the whole image, not
+the crop, so it is unaffected by the zoom.

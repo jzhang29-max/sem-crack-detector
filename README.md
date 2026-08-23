@@ -722,7 +722,11 @@ this repo becomes unreproducible:
 - `code/generate_pipeline_diagram.py` → rebuilds `docs/img/pipeline.png`, the architecture
   diagram at the top of this file
 - `code/pipeline_stages_unified.py`, `code/generate_full_workflow_diagram_unified.py`
-  → rebuild `docs/diagram/full_workflow_unified_*.svg`, the per-image stage strip
+  → rebuild `docs/diagram/full_workflow_unified_*.svg`, the per-image stage strip. The
+  import in that script was dead until 2026-08-23 (it pulls from a module that had been
+  moved into `archive/superseded_code/`), and it still needs a derived input that is not
+  shipped — `candidates/original_ledger_unified_features.csv` — so the committed SVG
+  dates from 2026-08-17 and cannot be regenerated on a clean clone.
 - `code/build_figures.py` → rebuilds the two composite figures above. The crop is
   picked from the data (the densest crack window), not by eye, so the figures can be
   regenerated after a model change without re-deciding what to show.

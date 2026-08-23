@@ -54,8 +54,13 @@ def font(size, bold=False):
 STAGES = [
     ("Load", ["16-bit TIFF, ~25 MP", "contrast stretch to 8-bit"], BLUE, None),
     ("Frame", ["find_field_of_view: crop the burned-in", "info bar and vignette"], BLUE, None),
-    ("Flatten", ["flatten_background", "compute_vesselness"], BLUE, None),
-    ("Candidates", ["segment_dark_regions -> clean_mask", "extract_candidates: regions + 8 features"], BLUE, None),
+    ("Flatten", ["flatten_background", "even illumination before thresholding"], BLUE, None),
+    # compute_vesselness belongs HERE, not with Flatten: in run_unified_pipeline it runs at
+    # L226, AFTER segment_dark_regions (L224) and clean_mask (L225). The diagram used to group
+    # it with flatten_background, which implied it fed the threshold when in fact it only feeds
+    # the feature vector -- and the footer of this image claims the order comes from the code.
+    ("Candidates", ["segment_dark_regions -> clean_mask -> compute_vesselness",
+                    "extract_candidates: regions + 8 features"], BLUE, None),
     ("Pass 1", ["LogisticRegression over the 8 features", "threshold 0.5 (bundle fallback)"], VIOLET, "model"),
     ("Pass 2", ["interior_fill / concavity / bridge_corridor", "scored with the unified model"], VIOLET, "model"),
     ("Corrections", ["1 crack   2 not-crack   3 erased   0 UNREVIEWED", "human verdicts override the model"], GREEN, "human"),
@@ -100,6 +105,14 @@ def main():
 
     # ---- the main column of stages ----
     x0, y0, cw, ch, gap = 56, 156, 760, 96, 16
+    # The box draws exactly lines[0] and lines[1]. A third entry used to be dropped in
+    # silence -- a stage was given three lines and the image shipped with the last one
+    # missing and the second left dangling mid-sentence. Refuse instead of clipping.
+    for _t, _l, *_ in STAGES + [(t, l, a) for t, l, a in SIDE] + \
+                      [(t, l, None) for t, l in [(o[0], o[1]) for o in OUTPUTS]]:
+        if len(_l) != 2:
+            raise ValueError(f"stage {_t!r} has {len(_l)} body line(s); the box renders "
+                             f"exactly 2, so anything else is silently clipped")
     for i, (title, lines, accent, tag) in enumerate(STAGES):
         y = y0 + i * (ch + gap)
         rr(d, (x0, y, x0 + cw, y + ch), 14, fill=(22, 25, 30), outline=LINE)
