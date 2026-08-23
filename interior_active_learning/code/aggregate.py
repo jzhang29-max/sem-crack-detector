@@ -495,12 +495,59 @@ def write_report(result, stem="aggregate"):
     return jp, cp
 
 
+#: Everything parse_name() can key on. Anything else is a typo, and it used to be accepted
+#: silently: the grouping matched nothing, aggregate() returned zero groups, and write_report()
+#: then OVERWROTE aggregate.csv with a header and no rows -- exit 0, no warning. `--help` hit
+#: this exact path, so asking for help destroyed the output file.
+GROUPABLE = ("family", "condition", "alloy", "block", "face", "detector", "date", "index")
+
+USAGE = """usage: aggregate.py [GROUP_BY]
+
+  GROUP_BY   comma-separated fields, default "family,condition"
+             one or more of: family, condition, alloy, block, face, detector, date, index
+             pass "none" to pool every frame into a single group
+
+Writes aggregate.json and aggregate.csv next to the per-image measurement CSVs.
+Group statistics use the SPECIMEN as the unit, and refuse rather than guess: dispersion is
+withheld below three independent specimens, and a longest-crack mean is withheld when any
+crack in the group touches a frame edge (its length is a lower bound, not a measurement)."""
+
+
 if __name__ == "__main__":
     import sys
     from crack_measurements import all_images
 
-    by = tuple(sys.argv[1].split(",")) if len(sys.argv) > 1 else ("family", "condition")
+    _argv = sys.argv[1:]
+    if _argv and _argv[0] in ("-h", "--help"):
+        print(USAGE)
+        sys.exit(0)
+    if len(_argv) > 1:
+        print(f"expected at most one argument, got {len(_argv)}: {_argv}\n\n{USAGE}")
+        sys.exit(2)
+
+    if _argv and _argv[0].strip().lower() == "none":
+        by = ()
+    elif _argv:
+        by = tuple(f.strip() for f in _argv[0].split(",") if f.strip())
+    else:
+        by = ("family", "condition")
+
+    # REFUSE AN UNKNOWN FIELD instead of grouping by it. Writing an empty CSV is worse than
+    # failing, because the file still looks like a result.
+    _unknown = [f for f in by if f not in GROUPABLE]
+    if _unknown:
+        print(f"unknown group-by field(s) {_unknown}. Valid: {', '.join(GROUPABLE)}.\n"
+              f"Refusing rather than grouping by nothing and writing an empty table.\n\n"
+              f"{USAGE}")
+        sys.exit(2)
+
     res = aggregate(all_images(), by=by, require_calibrated=False)
+    # REFUSE TO WRITE AN EMPTY TABLE over a good one. semcrack.py already refuses on
+    # aggregate_empty; this path did not, so a bad argument silently replaced real output.
+    if not res["groups"]:
+        print("no groups produced -- refusing to overwrite the existing report with an empty "
+              "one. Nothing was written.")
+        sys.exit(1)
     jp, cp = write_report(res)
     print(f"grouped by {by}: {len(res['groups'])} group(s)")
     for g in res["groups"]:

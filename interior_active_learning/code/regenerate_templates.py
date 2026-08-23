@@ -76,6 +76,22 @@ def process(image_name):
 
 
 if __name__ == "__main__":
+    # --help USED TO RENDER THE WHOLE CORPUS. There was no argument handling here at all, so
+    # `--help` fell through to the default branch and started re-rendering every image --
+    # roughly 40 s each, unattended, with no way to tell it was not printing help. Anything
+    # unrecognised now refuses instead of doing an hour of work.
+    if any(a in ("-h", "--help") for a in sys.argv[1:]):
+        print(__doc__ or "")
+        print("usage: regenerate_templates.py [--only IMAGE_NAME] [--with-sam]\n"
+              "  no arguments  re-render every image in original/ (~40 s each)\n"
+              "  --only NAME   re-render one image\n"
+              "  --with-sam    include the SAM stage (~3 min each)")
+        sys.exit(0)
+    _KNOWN = {"--only", "--with-sam"}
+    _bad = [a for a in sys.argv[1:] if a.startswith("-") and a not in _KNOWN]
+    if _bad:
+        print(f"unknown option(s) {_bad}. Use --help.")
+        sys.exit(2)
     if "--only" in sys.argv:
         names = [sys.argv[sys.argv.index("--only") + 1]]
     else:

@@ -89,10 +89,11 @@ def _parse_args(argv):
     ap.add_argument("--sam2", choices=["off", "refine", "hybrid"], default="off",
                     help="SAM 2 refinement of the detector's candidate boundaries. Default "
                          "'off'. It scores better on adjudicated pixels (f1 0.676 vs 0.638) "
-                         "but fragments the mask -- components +98%, skeleton +133%, pixels "
-                         "-6.5% on a measured frame -- so overlays and crack counts get "
-                         "worse while the f1 improves. Opt in with 'refine' or 'hybrid' if "
-                         "boundary tightness on reviewed pixels is what you need")
+                         "but fragments the mask -- on a measured frame the connected "
+                         "components rise 83%% and the skeleton length 97%%, so overlays "
+                         "and crack counts get worse while the f1 improves. Opt in with "
+                         "'refine' or 'hybrid' if boundary tightness on reviewed pixels is "
+                         "what you need")
     ap.add_argument("--threshold", type=float,
                     help="decision threshold for BOTH passes; default is each bundle's own")
     ap.add_argument("--um-per-px", type=float, dest="um_per_px",

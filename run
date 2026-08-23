@@ -8,6 +8,12 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# --setup-only builds the venv and installs dependencies, then exits without serving.
+# `make test` needs this: the test entry point imports numpy/skimage, which live in the
+# venv, so on a fresh clone there is nothing to import until setup has run once.
+SETUP_ONLY=0
+if [ "${1:-}" = "--setup-only" ]; then SETUP_ONLY=1; fi
+
 PORT="${PORT:-8767}"
 VENV="${VENV:-.venv}"
 
@@ -58,6 +64,11 @@ fi
 
 mkdir -p original interior_active_learning/paint interior_active_learning/labels \
          models training_data figures
+
+if [ "$SETUP_ONLY" = "1" ]; then
+  echo "==> setup complete. $VENV is ready; run ./run to start the app."
+  exit 0
+fi
 
 # SAM 2 refinement is OPT-IN (--sam2 refine); the default detector needs no torch. This
 # check exists only so that opting in later does not fail confusingly.

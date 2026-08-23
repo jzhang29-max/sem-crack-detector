@@ -18,10 +18,31 @@ import os
 import subprocess
 import sys
 
+if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+    print(__doc__ or "")
+    print("usage: generate_full_workflow_diagram_unified.py [IMAGE_NAME]\n"
+          "  IMAGE_NAME  a frame in original/, without the .tif "
+          "(default 260708_316_H_b2_front_CBS_002)")
+    sys.exit(0)
+# argv[1] is DATA, an image name -- so a flag-shaped argument must be rejected by name rather
+# than looked up as a frame. Otherwise `--help` is treated as an image and the error names a
+# missing file, which reads like a broken checkout.
+if len(sys.argv) > 1 and sys.argv[1].startswith("-"):
+    print(f"unknown option {sys.argv[1]!r}. Pass an image name, or --help.")
+    sys.exit(2)
+
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# generate_scientific_diagram.py was moved to archive/superseded_code/ when it was
+# superseded, which silently broke THIS script: the module is still tracked, so a clone has
+# the file, but it is no longer on sys.path and the import died with ModuleNotFoundError --
+# a documented command that could not run at all. Point at where it actually lives rather
+# than un-archiving it.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                "archive", "superseded_code"))
+
 from generate_scientific_diagram import (
     SVG, icon_svg as _base_icon_svg, doc_glyph_svg, esc, wrap_tspans, rounded_rect,
     to_data_uri, draw_card, draw_document, doc_cy_above, doc_arrow_start_y,

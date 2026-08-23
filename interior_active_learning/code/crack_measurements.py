@@ -225,6 +225,15 @@ def measure_image(image_name):
 
 
 if __name__ == "__main__":
+    # --help USED TO BE TREATED AS AN IMAGE NAME. `crack_measurements.py --help` looked for
+    # original/--help.tif and died in tifffile with FileNotFoundError, which reads like a
+    # broken install rather than a bad argument. Anything flag-shaped is now rejected by name.
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print(__doc__)
+        sys.exit(0)
+    if len(sys.argv) > 1 and sys.argv[1].startswith("-") and sys.argv[1] != "--all":
+        print(f"unknown option {sys.argv[1]!r}. Use --all, one image name, or --help.")
+        sys.exit(2)
     if len(sys.argv) > 1 and sys.argv[1] == "--all":
         imgs = all_images()
         failed = []
