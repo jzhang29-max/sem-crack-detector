@@ -47,6 +47,16 @@ exclusively.
 > figure here has been silently re-attributed: where a number describes the old default, the
 > row says so.
 
+## How it works
+
+![pipeline](docs/img/pipeline.png)
+
+One shared path. Overlays, measurements, exports, undo and the app all call
+`run_unified_pipeline`, so there is exactly one mask and the thing you paint on is the thing
+that gets measured. Regenerate the diagram with `python3 code/generate_pipeline_diagram.py` —
+the stage order is read from a list in that file, so the image cannot drift from the code
+without the edit showing up in review.
+
 ## Install
 
 ```bash
@@ -597,8 +607,10 @@ this repo becomes unreproducible:
   → rebuild the Pass 2 model, `interior_active_learning/models/unified_model.joblib`
 - `train_interior_model.py`, `apply_interior_model.py` → rebuild and inspect
   `interior_model.joblib`, which `interior_candidates.py` loads at runtime
+- `code/generate_pipeline_diagram.py` → rebuilds `docs/img/pipeline.png`, the architecture
+  diagram at the top of this file
 - `code/pipeline_stages_unified.py`, `code/generate_full_workflow_diagram_unified.py`
-  → rebuild `docs/diagram/full_workflow_unified_*.svg`
+  → rebuild `docs/diagram/full_workflow_unified_*.svg`, the per-image stage strip
 - `code/build_figures.py` → rebuilds the two composite figures above. The crop is
   picked from the data (the densest crack window), not by eye, so the figures can be
   regenerated after a model change without re-deciding what to show.
@@ -631,7 +643,7 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 python3 interior_active_learning/code/test_app.py
 ```
 
-223 checks covering upload, detection, exports, correction precedence, region
+276 checks covering upload, detection, exports, correction precedence, region
 isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
 routing, physical-unit calibration, calibration *uncertainty*, instrument metadata,
 right-censoring, the specimen as statistical unit, the batch CLI and its refusals,
