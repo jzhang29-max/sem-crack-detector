@@ -203,18 +203,25 @@ has no correction mask and contributes no training rows, so every red pixel is t
 model's own -- none of it is hand-painted.
 
 And the honest part, in the same frame, re-measured 2026-08-23: **the model marks 9.78% of the
-area and the segmenter proposed 10.63%, so it accepts 92% of what it proposed.** That is the
-opposite balance from what this paragraph used to report — 2.5% marked against 12.3% dark, only
-about a fifth accepted — and the difference is commit `ce11f25`, which dropped an exclusion
-that had been deleting main cracks. The old figure above showed that bug: the large
-through-cracks were left unmarked.
+area, against 10.63% the segmenter proposed.** That is the opposite balance from what this
+paragraph used to report — 2.5% marked against 12.3% dark, only about a fifth accepted — and
+the difference is commit `ce11f25`, which dropped an exclusion that had been deleting main
+cracks. The old figure above showed that bug: the large through-cracks were left unmarked.
 
-A 92% acceptance rate is not self-evidently good. It means the darkness threshold is doing most
-of the deciding and Pass 1 is rejecting little, so the burden shifts onto what the threshold
-lets through in the first place. **31 dark regions larger than 2,000 px are still unmarked**
-(largest 14,140 px). Some are voids and pull-outs that genuinely are not cracks, which is the
-right call — but telling those apart from a crack the model missed is exactly the judgement the
-review tools exist for. Expect to add as well as remove.
+Those percentages are **area**, and area is the misleading way to read them. By area the model
+keeps 92% of what was proposed, which makes Pass 1 look like it barely rejects anything. By
+**region count** it keeps 462 of 783, or 59% — and across all 62 images the median is 63.9%
+with a maximum of 88.2%, so no frame accepts even nine in ten. Both numbers are true of the
+same frame: the classifier throws out many small regions while the few large ones it keeps
+dominate the pixels. Quote the count when you mean "how selective is Pass 1" and the area when
+you mean "how much of the frame ends up red".
+
+Either way the darkness threshold is doing most of the deciding: Pass 1 re-ranks what the
+threshold proposed and cannot recover a crack the threshold never offered, so the burden sits on
+what gets proposed in the first place. **31 dark regions larger than 2,000 px are still
+unmarked** (largest 14,140 px). Some are voids and pull-outs that genuinely are not cracks,
+which is the right call — but telling those apart from a crack the model missed is exactly the
+judgement the review tools exist for. Expect to add as well as remove.
 
 Measured on the 5 images with enough human not-crack marks for specificity to
 mean anything. Pixel-level, scored only on pixels a human actually adjudicated,
