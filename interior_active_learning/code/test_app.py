@@ -51,6 +51,7 @@ CODE = os.path.dirname(os.path.abspath(__file__))
 BASE = os.environ.get("BASE", "http://127.0.0.1:8767")
 TMP = os.path.join(PROJECT_ROOT, ".test_tmp")
 results = []
+skipped = []
 
 
 def check(name, cond, detail=""):
@@ -58,6 +59,21 @@ def check(name, cond, detail=""):
     print(f"  {'PASS' if cond else 'FAIL'}  {name}" + (f"  -- {detail}" if detail else ""),
           flush=True)
     return bool(cond)
+
+
+def skip(name, why):
+    """A DERIVED prerequisite is missing, which is not a defect in the code.
+
+    Overlays and per-image measurement CSVs are regenerable artifacts and are deliberately not
+    shipped, so on a fresh clone they do not exist yet. Asserting False for those made
+    `make test` report failures on a clean checkout, which reads as "the software is broken"
+    when the real message is "this fixture has not been built". Skips are counted and listed
+    separately, and never affect the exit status -- but they are printed, so a skip cannot
+    quietly stand in for a passing test.
+    """
+    skipped.append((name, why))
+    print(f"  SKIP  {name}  -- {why}", flush=True)
+    return False
 
 
 def poll(job, timeout=1800):
@@ -577,7 +593,28 @@ def main():
     if not _im:
         check("an image is available for the stroke test", False)
     else:
-        _sn = _im[0]
+        # PICK AN IMAGE THE STROKE ACTUALLY FITS IN. The stroke below is at fixed
+        # coordinates around (300..360, 400..420), and this used to paint on _im[0] --
+        # whichever templated image happened to be first. On a fresh clone that is one of the
+        # small synthetic uploads from an earlier section, so every point fell outside the
+        # frame: the endpoint returned 200 in 2 ms, recorded an undo entry, and painted
+        # nothing, and the check failed on a clone while passing here. Choose a frame that
+        # comfortably contains the stroke.
+        _need_w, _need_h = 380, 440
+        _sn = None
+        for _cand in _im:
+            _p = os.path.join(ORIGINAL_DIR, f"{_cand}.tif")
+            try:
+                with Image.open(_p) as _imh:
+                    if _imh.width >= _need_w and _imh.height >= _need_h:
+                        _sn = _cand
+                        break
+            except (OSError, ValueError):
+                continue
+        if _sn is None:
+            _sn = _im[0]
+            print(f"  NOTE: no templated frame is at least {_need_w}x{_need_h}; "
+                  f"painting on {_sn} anyway")
         _mp = os.path.join(PAINT_DIR, f"{_sn}_correction_mask.png")
 
         def _count(v):
@@ -927,7 +964,10 @@ def main():
               str(list(_g2["metrics"].keys())))
         _cal.clear(_cal_img)
     else:
-        check("have a measurement CSV to aggregate", False, "run crack_measurements first")
+        skip("aggregate a measurement CSV",
+             "no per-image measurement CSV exists yet -- these are derived and not shipped. "
+             "Build one with: ./.venv/bin/python3 "
+             "interior_active_learning/code/crack_measurements.py --all")
 
 
     # ---------- 16. metric honesty ----------
@@ -1918,9 +1958,16 @@ def main():
           "a refined mask must be measured exactly as the detector's own would be")
 
     # The batch entry point must not have changed where the app itself reads and writes.
+    # Derived from THIS file's location, not from a hardcoded "sem-crack-detector". The
+    # literal name meant anyone who cloned into a differently-named directory got a spurious
+    # failure here -- the property under test is "the batch overrides did not move the app's
+    # paths", which has nothing to do with what the checkout is called.
+    _repo_root = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                              "..", ".."))
     check("the overrides are inert for the app: repo paths unchanged",
-          ORIGINAL_DIR.endswith("/sem-crack-detector/original")
-          and _cm.OUT_DIR.endswith("/interior_active_learning/measurements"),
+          os.path.abspath(ORIGINAL_DIR) == os.path.join(_repo_root, "original")
+          and os.path.abspath(_cm.OUT_DIR) == os.path.join(
+              _repo_root, "interior_active_learning", "measurements"),
           f"{ORIGINAL_DIR} | {_cm.OUT_DIR}")
     shutil.rmtree(_md, ignore_errors=True)
 
@@ -2118,12 +2165,17 @@ def main():
     n_pass = sum(1 for _, ok, _ in results if ok)
     n_fail = len(results) - n_pass
     print("\n" + "=" * 70)
-    print(f"{n_pass} passed, {n_fail} failed, {len(results)} total")
+    print(f"{n_pass} passed, {n_fail} failed, {len(skipped)} skipped, "
+          f"{len(results) + len(skipped)} total")
     if n_fail:
         print("\nfailures:")
         for name, ok, detail in results:
             if not ok:
                 print(f"  - {name}  {detail}")
+    if skipped:
+        print("\nskipped (a derived fixture is absent, not a defect):")
+        for name, why in skipped:
+            print(f"  - {name}\n      {why}")
     return 1 if n_fail else 0
 
 
