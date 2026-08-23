@@ -36,6 +36,11 @@ from sklearn.pipeline import Pipeline
 from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.metrics import balanced_accuracy_score, accuracy_score
 
+# `os` is imported HERE because the block below needs it. It was missing entirely:
+# the hardcoded /Users/... path was replaced with a __file__-derived one and the
+# import was never added, so this script raised NameError on line 1 of real work.
+import os
+
 # Project root derived from this file's location, not hardcoded: these scripts
 # shipped with an absolute /Users/... path and could only run on the machine that
 # wrote them, while archive/README.md advertises them as rerunnable.

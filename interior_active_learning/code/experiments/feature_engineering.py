@@ -31,6 +31,11 @@ from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings("ignore")
 
+# `os` is imported HERE because the block below needs it. It was missing entirely: the
+# hardcoded /Users/... path was replaced with a __file__-derived one and the import was
+# never added, so this script raised NameError before doing any work.
+import os
+
 # Project root derived from this file's location, not hardcoded: this script
 # shipped with an absolute /Users/... path and could only run on the machine that
 # wrote it, while archive/README.md advertises these as rerunnable.
