@@ -1760,7 +1760,6 @@ def main():
 
     # ---- SAM 2 as an applied detector mode ----
     import sam2_refine as _sam2
-    from detector_config import VALID as _dc_valid
     check("SAM 2 reports whether it can run without raising",
           isinstance(_sam2.available(), bool))
     check("mode off is a no-op that returns no mask",
@@ -1777,9 +1776,15 @@ def main():
           _upmod.SAM2_MODE == "off",
           "it wins on adjudicated pixels and fragments the mask on the whole frame; opt in "
           "with --sam2 refine")
+    # No cross-package import here: detector_config lives in experiments/ and is not on this
+    # module's path, which is how the first version of this check crashed the suite at 239.
+    _ref_off, _ = _sam2.refine_labeled(np.zeros((4, 4), dtype=np.int32),
+                                       pd.DataFrame({"Label": [], "IsCrack": []}),
+                                       np.zeros((4, 4), np.uint8), mode="off")
     check("refinement is still reachable, so the measurement layer stays detector-agnostic",
-          hasattr(_sam2, "refine_labeled") and "refine" in _dc_valid,
-          "the point was never that SAM 2 is useless")
+          hasattr(_sam2, "refine_labeled") and _ref_off is not None,
+          "the point was never that SAM 2 is useless -- only that an objective scored on "
+          "reviewed pixels cannot choose a default for the whole frame")
     check("the measurement path does not apply it a second time",
           "SAM2_MODE" not in open(os.path.join(
               os.path.dirname(os.path.abspath(__file__)),
