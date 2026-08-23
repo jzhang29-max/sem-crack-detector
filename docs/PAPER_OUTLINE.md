@@ -14,12 +14,16 @@ and "our software is careful" is not a finding. This is the paper that *is* here
 This is a claim about **everyone's numbers**, not about this repo's software. That is what
 makes it a contribution rather than a release note.
 
-> **Which detector every result below was measured with.** All of them, under **both**
+> **Which detector every result below was measured with.** The **bare two-pass detector**, which is the default. All of them were also run under **both**
 > configurations. Results 1, 1b, 1c and 5 were re-measured; results 2, 3 and 4 were run
 > under both and come out identical, which is now measured rather than assumed.
 >
 > | | bare detector (`--sam2 off`) | shipped default (`--sam2 refine`) |
 > |---|---|---|
+> SAM 2 refinement was briefly the default and is now opt-in: it wins on adjudicated pixels
+> but fragments the mask on the whole frame (components +98%, skeleton +133%, pixels −6.5%), so
+> the bare-detector column below is the shipped configuration again.
+>
 > | result 1, macro specificity gap | +0.4879 | **+0.3717** |
 > | result 1, micro specificity gap | +0.2662 | **+0.2001** |
 > | result 1, precision gap | −0.5905 | −0.5942 |

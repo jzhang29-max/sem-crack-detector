@@ -60,7 +60,7 @@ STAGES = [
     ("Pass 2", ["interior_fill / concavity / bridge_corridor", "scored with the unified model"], VIOLET, "model"),
     ("Corrections", ["1 crack   2 not-crack   3 erased   0 UNREVIEWED", "human verdicts override the model"], GREEN, "human"),
     ("Merge", ["merge_large_cracks: bridge fragments", "a connector cannot invent a region"], BLUE, None),
-    ("SAM 2 refine", ["box prompt per accepted region", "boundary redrawn; the DEFAULT"], AMBER, "new"),
+    ("SAM 2 refine", ["box prompt per accepted region", "OPT-IN: --sam2 refine"], AMBER, "opt"),
 ]
 
 OUTPUTS = [
@@ -108,8 +108,8 @@ def main():
         d.text((x0 + 26, y + 50), lines[0], font=font(15), fill=DIM)
         d.text((x0 + 26, y + 70), lines[1], font=font(15), fill=FAINT)
         if tag:
-            label = {"model": "MODEL", "human": "AUTHORITATIVE", "new": "NEW"}[tag]
-            col = {"model": VIOLET, "human": GREEN, "new": AMBER}[tag]
+            label = {"model": "MODEL", "human": "AUTHORITATIVE", "opt": "OPT-IN"}[tag]
+            col = {"model": VIOLET, "human": GREEN, "opt": AMBER}[tag]
             t = label
             f = font(12, True)
             tw = d.textlength(t, font=f)
@@ -158,15 +158,15 @@ def main():
 
     # ---- measured footnote ----
     fy = oy + 14
-    rr(d, (ax, fy, ax + 944, fy + 96), 14, fill=(18, 30, 24), outline=(34, 74, 56))
-    d.text((ax + 24, fy + 14), "What SAM 2 refinement is worth, on the ten both-class frames",
+    rr(d, (ax, fy, ax + 944, fy + 96), 14, fill=(30, 24, 18), outline=(84, 60, 34))
+    d.text((ax + 24, fy + 14), "Why SAM 2 refinement is opt-in, not the default",
            font=font(17, True), fill=INK)
-    d.text((ax + 24, fy + 42),
-           "bare detector    f1 0.638   recall 0.534   specificity 0.460   precision 0.970",
+    d.text((ax + 24, fy + 40),
+           "on adjudicated pixels it wins:  f1 0.638 -> 0.676   specificity 0.460 -> 0.569",
            font=font(15), fill=DIM)
-    d.text((ax + 24, fy + 64),
-           "--sam2 refine    f1 0.676   recall 0.561   specificity 0.569   precision 0.976",
-           font=font(15), fill=(140, 220, 175))
+    d.text((ax + 24, fy + 62),
+           "on the whole frame it fragments:  components +98%   skeleton +133%   pixels -6.5%",
+           font=font(15), fill=(240, 170, 140))
 
     d.text((56, H - 42), "Regenerate: python3 code/generate_pipeline_diagram.py    "
                          "Stage order is read from STAGES in that file, so this image "

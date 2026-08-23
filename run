@@ -59,14 +59,12 @@ fi
 mkdir -p original interior_active_learning/paint interior_active_learning/labels \
          models training_data figures
 
-# SAM 2 refinement is the DEFAULT detector, so torch and transformers are in
-# requirements.txt and installed above. If they are missing the pipeline falls back to the
-# bare detector, records why in every CSV sidecar, and keeps working -- so this is a warning
-# rather than a hard stop.
+# SAM 2 refinement is OPT-IN (--sam2 refine); the default detector needs no torch. This
+# check exists only so that opting in later does not fail confusingly.
 if ! python3 -c "import torch; from transformers import Sam2Model" 2>/dev/null; then
-  echo "==> NOTE: torch/transformers unavailable, so SAM 2 refinement is off and the"
-  echo "    bare two-pass detector will run instead. Every CSV records this in"
-  echo "    detector.sam2_mode. Re-run after 'pip install -r requirements.txt' to enable it."
+  echo "==> NOTE: torch/transformers unavailable. That is fine -- the default detector does"
+  echo "    not need them. Only --sam2 refine does, and it would fall back with a reason"
+  echo "    recorded in every CSV sidecar."
 fi
 
 if [ ! -f models/crack_classifier.joblib ]; then

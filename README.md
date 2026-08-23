@@ -435,15 +435,35 @@ It finds nothing on **this** corpus, and that is worth knowing: all 62 images ca
 microscope recorded the field width and a re-save threw it away, which is why every scale
 here has to be marked by hand off the burned-in bar.
 
-### SAM 2, on by default
+### SAM 2, available but not the default
 
-The built-in detector was the weakest part of this project. SAM 2 refinement measurably fixes
-some of that, so it is **the default** — nothing to switch on:
+SAM 2 can redraw each candidate's boundary, and on reviewed pixels it scores better. It is
+**off by default anyway**, and the reason is the most useful thing in this section:
 
 ```bash
-python3 code/semcrack.py --in ./micrographs --out ./results     # SAM 2 refine, by default
-python3 code/semcrack.py --in ./micrographs --out ./results --sam2 off     # bare detector
+python3 code/semcrack.py --in ./micrographs --out ./results                # bare detector
+python3 code/semcrack.py --in ./micrographs --out ./results --sam2 refine  # opt in
 ```
+
+**It was briefly the default, and that was a mistake caught by looking at overlays.** On
+adjudicated pixels it beats the bare detector on all four metrics (below). On the whole frame
+it fragments the mask. Measured on `260708_316_H_b2_front_CBS_002`:
+
+| | bare detector | `--sam2 refine` |
+|---|---|---|
+| crack pixels | 335,228 | 313,396 (**−6.5%**) |
+| connected components | 102 | 202 (**+98%**) |
+| skeleton length px | 9,323 | 21,732 (**+133%**) |
+
+Fewer pixels, twice the components, more than double the skeleton: solid crack regions are
+being made lacy and broken apart. Crack **count** and crack **length** are the two headline
+quantities this tool exists to produce, and both get worse.
+
+The f1 improved anyway because trimming a region removes false positives from the small marked
+not-crack pool faster than it loses true positives from the marked crack pool — the adjudicated
+region is ~8% of a frame, and an overlay is all of it. So the proxy rose while the result got
+worse, which is this project's own thesis landing on its own default. Before SAM 2 could be a
+default it needs an objective that counts fragmentation.
 
 Measured on the ten frames that carry both a crack and a not-crack verdict, scored on
 adjudicated pixels only:
@@ -454,11 +474,9 @@ adjudicated pixels only:
 | **`--sam2 refine`** — the default | **0.676** | **0.561** | **0.569** | **0.976** |
 | `--sam2 hybrid` | 0.707 | 0.604 | 0.445 | 0.970 |
 
-`refine` beats the shipped detector on **all four** metrics, on **9 of 10 frames**, with
-nothing retrained — a larger gain than any of this project's own model work produced. `hybrid`
-takes a higher f1 but it is a union, and unions only add positives, so it gives back
-specificity. `refine` is the mode that is better in every direction and so the one to reach
-for; `hybrid` is there for a study that cannot afford a missed crack.
+`refine` beats the bare detector on all four of these, on 9 of 10 frames, with nothing
+retrained. Read alongside the fragmentation table above, that is a statement about reviewed
+pixels and not about the mask as a whole — which is exactly why it is not the default.
 
 **It is applied in one place, on purpose.** Refinement happens inside
 `run_unified_pipeline`, which is the single function the overlays, the measurements, the

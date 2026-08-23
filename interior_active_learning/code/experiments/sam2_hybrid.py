@@ -90,6 +90,23 @@ def _without_human_input():
         up.load_correction_mask, up.load_hard_overrides = a, b
 
 
+def _shape_cost(pred):
+    """What an adjudicated-pixel score cannot see: is the mask solid or lacy?
+
+    This exists because the four-metric comparison below was used to make SAM 2 the default,
+    and it was wrong to. Refinement raised f1 while nearly doubling the number of connected
+    components and more than doubling total skeleton length -- turning solid crack regions
+    into ragged, broken ones. Crack COUNT and crack LENGTH are the two headline quantities
+    this tool produces, and both degrade in a way f1 on 8% of the frame is blind to. Any
+    future comparison has to report these beside the metrics.
+    """
+    from skimage import measure as _m, morphology as _mo
+    lab = _m.label(pred, connectivity=2)
+    return {"components": int(lab.max()),
+            "skeleton_px": int(_mo.skeletonize(pred).sum()),
+            "predicted_px": int(pred.sum())}
+
+
 def _score(pred, crack, neg):
     tp = int((pred & crack).sum()); fn = int((~pred & crack).sum())
     fp = int((pred & neg).sum());   tn = int((~pred & neg).sum())
@@ -226,7 +243,7 @@ def run(frames, model_id, max_candidates, shard=0, nshard=1):
                "seconds_refine": t_ref, "seconds_all": t_all, "arms": {}}
         for k, pm in arms.items():
             s = _score(pm, crack, neg)
-            s["predicted_px"] = int(pm.sum())
+            s.update(_shape_cost(pm))
             rec["arms"][k] = s
             print(f"     {k:14s} f1 {s['f1']:.3f}  recall {s['recall']:.3f}  "
                   f"spec {s['specificity']:.3f}  prec {s['precision']:.3f}", flush=True)
@@ -271,13 +288,20 @@ def report(model_id=None):
         print(f"  {r['image'][:30]:30s} "
               + " ".join(f"{r['arms'][a]['f1']:11.3f}" for a in ARMS))
     print(f"\n  {'arm':14s} {'f1':>7s} {'recall':>7s} {'spec':>7s} {'prec':>7s} "
-          f"{'pred px':>12s}")
+          f"{'pred px':>12s} {'compnts':>9s} {'skel px':>11s}")
+    print(f"  (components and skeleton are the columns that showed refinement fragments the "
+          f"mask; f1 alone made it look like a clear win)")
     means = {}
     for a in ARMS:
         f = lambda k: float(np.mean([r["arms"][a][k] for r in uniq]))
         means[a] = {k: f(k) for k in ("f1", "recall", "specificity", "precision")}
+        for k in ("components", "skeleton_px"):
+            if k in uniq[0]["arms"][a]:
+                means[a][k] = f(k)
         print(f"  {a:14s} {f('f1'):7.3f} {f('recall'):7.3f} {f('specificity'):7.3f} "
-              f"{f('precision'):7.3f} {f('predicted_px'):12,.0f}")
+              f"{f('precision'):7.3f} {f('predicted_px'):12,.0f}"
+              + (f" {f('components'):9,.0f} {f('skeleton_px'):11,.0f}"
+                 if "components" in means[a] else ""))
     best = max(ARMS, key=lambda a: means[a]["f1"])
     d = means[best]["f1"] - means["pipeline"]["f1"]
     print(f"\n  Best f1: {best} ({means[best]['f1']:.3f}), "

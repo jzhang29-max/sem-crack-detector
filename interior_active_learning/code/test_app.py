@@ -1760,16 +1760,26 @@ def main():
 
     # ---- SAM 2 as an applied detector mode ----
     import sam2_refine as _sam2
+    from detector_config import VALID as _dc_valid
     check("SAM 2 reports whether it can run without raising",
           isinstance(_sam2.available(), bool))
     check("mode off is a no-op that returns no mask",
           _sam2.apply_to_stage({}, "off") == (None, {"sam2_mode": "off"}),
           "the shipped detector must be reachable unchanged")
-    check("SAM 2 refinement is ON by default in the one place every consumer reads",
-          _upmod.SAM2_MODE == "refine",
-          "a Pareto improvement belongs in the default path, and applying it inside "
-          "run_unified_pipeline is what keeps overlays, measurements, exports and "
-          "corrections looking at the same mask")
+    # OFF by default, and this assertion is the record of why. It briefly asserted the
+    # opposite: SAM 2 was made the default on a four-metric win scored over ADJUDICATED
+    # pixels (~8% of a frame), which is blind to mask shape. On the whole frame refinement
+    # fragments -- components +98%, skeleton +133%, pixels -6.5% on a measured frame -- so
+    # crack count and crack length, the two headline outputs, both got worse while f1 rose.
+    # A user looking at overlays caught it. If someone flips this default again, this test
+    # should be what stops them until there is an objective that counts fragmentation.
+    check("SAM 2 refinement is OFF by default",
+          _upmod.SAM2_MODE == "off",
+          "it wins on adjudicated pixels and fragments the mask on the whole frame; opt in "
+          "with --sam2 refine")
+    check("refinement is still reachable, so the measurement layer stays detector-agnostic",
+          hasattr(_sam2, "refine_labeled") and "refine" in _dc_valid,
+          "the point was never that SAM 2 is useless")
     check("the measurement path does not apply it a second time",
           "SAM2_MODE" not in open(os.path.join(
               os.path.dirname(os.path.abspath(__file__)),

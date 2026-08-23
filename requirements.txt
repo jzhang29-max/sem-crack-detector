@@ -33,21 +33,24 @@ tifffile>=2026.7
 # runs without it.
 #   rsvg-convert
 
-# ---- SAM 2: REQUIRED, because it is the default detector ----
-# run_unified_pipeline applies SAM 2 boundary refinement to every accepted candidate by
-# default. Measured on the ten both-class frames it beats the bare pipeline on all four
-# metrics (f1 0.676 vs 0.638, recall 0.561 vs 0.534, specificity 0.569 vs 0.460, precision
-# 0.976 vs 0.970), so it is not optional garnish and these are not optional installs.
+# ---- SAM 2: installed, but OPT-IN at runtime ----
+# SAM 2 boundary refinement is available via --sam2 refine and is NOT on by default. On
+# adjudicated pixels it beats the bare pipeline on all four metrics (f1 0.676 vs 0.638,
+# specificity 0.569 vs 0.460), but on the whole frame it fragments the mask: components +98%,
+# skeleton +133%, pixels -6.5%. It was briefly the default and that was reverted.
+#
+# These stay in requirements because the test suite exercises the SAM 2 path and because
+# --sam2 refine should work without a second install step. If you never opt in, they are
+# 0.63 GB you did not need; remove them and the pipeline is unaffected.
 #
 # Cost, measured rather than guessed: 0.63 GB installed here (torch 0.52, transformers 0.10,
 # torchvision 0.01), plus a ~150 MB checkpoint fetched from HuggingFace on first detection and
 # cached after. An earlier version of this file said "~2.5 GB plus a ~2.4 GB checkpoint" --
 # that was SAM 1's ViT-Huge and is not what runs now.
 #
-# If these are absent the pipeline degrades to the bare detector, records
+# If these are absent and you DO opt in, the pipeline degrades to the bare detector, records
 # detector.sam2_mode = "unavailable" with the reason in every CSV's sidecar, and does not
-# raise. So the tool still works without them; it just is not the detector the README
-# describes. Set SEMCRACK_SAM2= or pass --sam2 off to choose that deliberately.
+# raise.
 torch>=2.2
 # FLOOR SET TO WHAT IS VERIFIED, not to the oldest that might work. Sam2Model arrived in
 # transformers recently, and a looser floor lets pip resolve a version without it -- which

@@ -82,9 +82,28 @@ def _load_unified_bundle():
 #: this pipeline is supposed to make impossible. EVERY decision point must honour it -- Pass 1, Pass 2's generic branch,
 #: and the interior_fill floor. A partially-applied override reports half a
 #: detector while claiming to report all of it.
-#: SAM 2 refinement of the accepted candidates' boundaries. Measured on the ten both-class
-#: frames it beats the shipped detector on f1, recall, specificity AND precision, so it is ON
-#: by default -- a Pareto improvement is not something to hide behind a flag.
+#: SAM 2 refinement of the accepted candidates' boundaries. OFF by default, and the reason is
+#: a correction rather than caution.
+#:
+#: It was briefly the default on the strength of beating the bare detector on f1, recall,
+#: specificity and precision over the ten both-class frames. Those metrics are scored on
+#: ADJUDICATED pixels only -- about 8% of a frame -- and they are blind to the thing a person
+#: looking at an overlay sees first. Measured on 260708_316_H_b2_front_CBS_002:
+#:
+#:     crack pixels        335,228 -> 313,396   -6.5%
+#:     connected components    102 -> 202       +98%
+#:     skeleton length       9,323 -> 21,732    +133%
+#:
+#: Fewer pixels, twice the components, and more than double the skeleton: refinement is not
+#: tightening boundaries, it is making solid crack regions lacy and breaking them apart. The
+#: f1 improved anyway because trimming a region removes false positives from the small marked
+#: not-crack pool faster than it loses true positives from the marked crack pool -- so the
+#: proxy rose while the result got worse. A user reported the overlays looked worse and was
+#: right; the metric that said otherwise was measured on the wrong region.
+#:
+#: Kept available because prompting SAM 2 with candidate boxes clearly does something real,
+#: and because the measurement layer is meant to accept a better mask from anywhere. What it
+#: needs before it could be a default is an objective that counts fragmentation.
 #:
 #: Applied HERE, in the one function every consumer goes through, because overlays
 #: (regenerate_templates), measurements (crack_measurements), exports, undo and the app all
@@ -96,7 +115,7 @@ def _load_unified_bundle():
 #: Degrades to the shipped detector, on the record, if torch/transformers or the checkpoint
 #: are unavailable: a detector that crashes is worse than one that does not improve.
 _SAM2_ENV = os.environ.get("SEMCRACK_SAM2")
-SAM2_MODE = "refine" if _SAM2_ENV is None else (_SAM2_ENV or "off")
+SAM2_MODE = _SAM2_ENV if _SAM2_ENV else "off"
 
 THRESHOLD_OVERRIDE = None
 
