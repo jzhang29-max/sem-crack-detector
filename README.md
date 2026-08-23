@@ -40,7 +40,7 @@ forced only 10.9% of the red. The review there ran mostly one way — of that fr
 exclusively.
 
 > **Which detector produced a number in this README.** SAM 2 refinement became the default
-> in commit `4d97602`. Every detector metric below it that is labelled `--sam2 off` was
+> when SAM 2 refinement became the default. Every detector metric below it that is labelled `--sam2 off` was
 > measured on the bare two-pass pipeline, which is what the paper's results and the
 > naive-baseline comparison were measured on and what those numbers still describe. The
 > default configuration's own figures are the `--sam2 refine` row in the SAM 2 section. No
@@ -451,7 +451,7 @@ adjudicated pixels only:
 | detector | f1 | recall | specificity | precision |
 |---|---|---|---|---|
 | two-pass pipeline, `--sam2 off` | 0.638 | 0.534 | 0.460 | 0.970 |
-| **`--sam2 refine`** — the default since 4d97602 | **0.676** | **0.561** | **0.569** | **0.976** |
+| **`--sam2 refine`** — the default | **0.676** | **0.561** | **0.569** | **0.976** |
 | `--sam2 hybrid` | 0.707 | 0.604 | 0.445 | 0.970 |
 
 `refine` beats the shipped detector on **all four** metrics, on **9 of 10 frames**, with

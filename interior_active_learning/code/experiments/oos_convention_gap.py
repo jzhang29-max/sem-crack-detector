@@ -144,8 +144,7 @@ def _volume_matched_mask(specimen, df, n_rows, seed=0):
 
 
 def run(shard=0, nshard=1, detector=None):
-    # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement since commit
-    # 4d97602, so an experiment that does not say which detector it wants silently measures a
+    # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement, so an experiment that does not say which detector it wants silently measures a
     # different one than its output is labelled with. There is no default here on purpose.
     detector = detector or DETECTOR
     up.SAM2_MODE = detector

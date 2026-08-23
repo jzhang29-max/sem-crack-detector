@@ -60,7 +60,7 @@ STAGES = [
     ("Pass 2", ["interior_fill / concavity / bridge_corridor", "scored with the unified model"], VIOLET, "model"),
     ("Corrections", ["1 crack   2 not-crack   3 erased   0 UNREVIEWED", "human verdicts override the model"], GREEN, "human"),
     ("Merge", ["merge_large_cracks: bridge fragments", "a connector cannot invent a region"], BLUE, None),
-    ("SAM 2 refine", ["box prompt per accepted region", "boundary redrawn; DEFAULT since 4d97602"], AMBER, "new"),
+    ("SAM 2 refine", ["box prompt per accepted region", "boundary redrawn; the DEFAULT"], AMBER, "new"),
 ]
 
 OUTPUTS = [

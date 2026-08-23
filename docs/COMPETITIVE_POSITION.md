@@ -47,7 +47,7 @@ Annotation platforms own the human workflow and ignore both.
 
 - **Mask quality.** ilastik's Random Forest over a multi-scale filter bank, micro-sam's ViT,
   and the commercial CNNs are all stronger detectors than a darkness threshold plus a
-  LogisticRegression over 8 features, and since commit `4d97602` SAM 2 boundary refinement on
+  LogisticRegression over 8 features, and now SAM 2 boundary refinement on
   top. Recall 0.597 means roughly 40% of crack pixels are missed — measured on the BARE
   detector (`--sam2 off`); the default now reaches recall 0.561 and specificity 0.569 against
   0.534/0.460, so the survey's "last place" verdict was fair when written and is no longer a

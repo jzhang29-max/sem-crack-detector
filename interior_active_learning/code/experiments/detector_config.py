@@ -1,7 +1,7 @@
 """Pin the detector configuration for an experiment, and stamp it into the result.
 
 WHY THIS EXISTS
-Commit 4d97602 made SAM 2 refinement the DEFAULT inside run_unified_pipeline. Every
+SAM 2 refinement is the DEFAULT inside run_unified_pipeline. Every
 experiment here calls run_unified_pipeline and none of them said which detector they wanted,
 so overnight they all started measuring a different detector than the one their output is
 labelled with:
@@ -68,7 +68,7 @@ def stamp(mode):
            "pipeline_default_at_runtime": up.SAM2_MODE,
            "note": ("detector_mode is what this experiment PINNED, not what the pipeline "
                     "defaults to. 'off' is the bare two-pass detector; 'refine' is the "
-                    "shipped default since commit 4d97602, which applies SAM 2 to each "
+                    "shipped default, which applies SAM 2 to each "
                     "accepted candidate's boundary.")}
     if mode != "off":
         try:

@@ -114,8 +114,7 @@ BASELINES = {"otsu": otsu, "otsu_clean": otsu_clean,
 
 
 def run(names=None):
-    # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement since commit
-    # 4d97602, so an experiment that does not say which detector it wants silently measures a
+    # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement, so an experiment that does not say which detector it wants silently measures a
     # different one than its output is labelled with. There is no default here on purpose.
     up.SAM2_MODE = DETECTOR
     names = names or CASES
