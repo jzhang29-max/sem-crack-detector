@@ -5,21 +5,28 @@
 > (calibration that refuses, unreviewed-aware metrics, a gated retrain, per-CSV
 > provenance), what it loses at outright (mask quality, 3D, stitching, batch/CLI,
 > multi-annotator), and the claims this repo should not make. Specificity here rests on
-> approximately one frame, and roughly 40% of crack pixels are missed at the deployed
-> operating point.
+> approximately one frame, and roughly 47% of crack pixels are missed at the deployed
+> operating point (recall 0.534 on the ten both-class frames). On micrographs from outside this
+> corpus the detector does not work at all — six outside SEM images, six wrong answers, one of
+> them 95% of the frame flagged as crack on a specimen with no cracks. See
+> [Outside this corpus, it does not work](#outside-this-corpus-it-does-not-work).
 
 Drop SEM images into a browser window, see cracks detected, fix what's wrong by
 painting.
 
-**First run on a fresh clone:** the 62 shipped micrographs come with their hand-drawn
-correction masks, but *not* with rendered overlays — those are derived and would add
-hundreds of megabytes to every clone. So the first time you open an image, the pipeline runs
-for it: about 20 seconds on a small frame, up to ~200 seconds at 25 megapixels. To render
+**First run on a fresh clone:** 39 of the 62 shipped micrographs come with a hand-drawn
+correction mask; the other 23 ship as images only, with nothing marked on them yet. None ship
+with rendered overlays — those are derived and would add hundreds of megabytes to every
+clone. So the first time you open an image, the pipeline runs for it: about 20 seconds on a small frame, up to ~200 seconds at 25 megapixels. To render
 everything up front instead:
 
 ```bash
 ./.venv/bin/python3 interior_active_learning/code/regenerate_templates.py
 ```
+
+`./run` creates `.venv` and installs everything into it, so the commands below call
+`./.venv/bin/python3` rather than a bare `python3` — your system `python3` will not have
+the dependencies. Run `make setup` if you want the venv without starting the app.
 
 `./run` prints this reminder when it sees no overlays. Corrections save themselves. One button retrains the model on them.
 
@@ -39,13 +46,15 @@ forced only 10.9% of the red. The review there ran mostly one way — of that fr
 *not*-crack — so the reviewer overwhelmingly added rather than overruled, but not
 exclusively.
 
-> **Which detector produced a number in this README.** SAM 2 refinement became the default
-> when SAM 2 refinement became the default. Every detector metric below it that is labelled `--sam2 off` was
-> measured on the bare two-pass pipeline, which is what the paper's results and the
-> naive-baseline comparison were measured on and what those numbers still describe. The
-> default configuration's own figures are the `--sam2 refine` row in the SAM 2 section. No
-> figure here has been silently re-attributed: where a number describes the old default, the
-> row says so.
+> **Which detector produced a number in this README.** The shipped detector is the **bare
+> two-pass pipeline**, written `--sam2 off` where a table needs to be explicit. Every detector
+> metric here describes it unless the row says otherwise, and so do the paper's results and the
+> naive-baseline comparison.
+>
+> SAM 2 refinement is **opt-in** (`--sam2 refine`). Its figures appear once, in the SAM 2
+> section, beside the fragmentation measurements that are the reason it is not the default.
+> Nothing has been silently re-attributed: a row that is not the shipped configuration says
+> which one it is.
 
 ## How it works
 
@@ -53,7 +62,7 @@ exclusively.
 
 One shared path. Overlays, measurements, exports, undo and the app all call
 `run_unified_pipeline`, so there is exactly one mask and the thing you paint on is the thing
-that gets measured. Regenerate the diagram with `python3 code/generate_pipeline_diagram.py` —
+that gets measured. Regenerate the diagram with `./.venv/bin/python3 code/generate_pipeline_diagram.py` —
 the stage order is read from a list in that file, so the image cannot drift from the code
 without the edit showing up in review.
 
@@ -204,6 +213,13 @@ with the classifier trained on *other* images:
 > reference because the stage still exists in `hybrid_detect.py`; the shipped overlays
 > are the `Pass 1 + Pass 2` row.
 
+> **Provenance caveat.** Unlike every other table in this README, these three rows trace to
+> **no committed artifact.** They predate the discipline of writing results to JSON, and no
+> script in the repo reproduces them — `benchmark_results.json` contains per-sample scores,
+> not these f1s. Treat them as historical. Both reproducible tables come later: the
+> naive-baseline comparison (`naive_baselines.json`) and the detector comparison
+> (`sam2_hybrid_report.json`). Prefer those wherever they disagree with this one.
+
 **SAM is not part of the model.** `crack_classifier.joblib` is a LogisticRegression
 over 8 features and is identical whether or not SAM is installed. SAM is a
 separate stage run at detection time: it proposes regions the darkness threshold
@@ -244,15 +260,53 @@ invalidated, is in [docs/MODEL_VALIDATION_BENCHMARK.md](docs/MODEL_VALIDATION_BE
 A comparison against the sibling TXM app — what was adopted from it and what was
 declined — is in [docs/APP_COMPARISON.md](docs/APP_COMPARISON.md).
 
+### Outside this corpus, it does not work
+
+Every number above comes from one corpus: 62 frames of one steel family, from one lab's
+instruments. That is the entire evidence base, and it says nothing about someone else's image.
+So the question was asked separately — the shipped detector was run on six electron micrographs
+from Wikimedia Commons, none of them from this project. **It got all six wrong.**
+
+| micrograph | what it is | result |
+|---|---|---|
+| SEM crack propagation, ceramic composite | a real plan-view crack across the frame | **missed entirely** — 0.02% of frame, 1 region; it flagged pores instead |
+| BSE-SEM of coal fly ash | flat plan view, **no cracks** | **95.4% of the frame claimed as crack** |
+| SEM fracture surface, 500× | no crack | 110 regions accepted, all on topographic shadow |
+| the same surface, 2000× | no crack | 97 regions — the count follows magnification, not the specimen |
+| SEM ductile fracture, 6061-T6 Al | no crack | **0 candidates** — no answer at all |
+| SEM faceted ceramic grains | no crack | **0 candidates** |
+
+For scale, the same detector on this project's own `260708_316_H_b2_front_CBS_002` flags 5.35%
+of the frame. Reproduce with `./.venv/bin/python3 code/generalisation_probe.py`; results and
+per-image attribution land in `docs/generalisation_probe.json`. The images are third-party
+CC BY / CC BY-SA works and are fetched at run time rather than redistributed here.
+
+**Why it fails is the useful part.** Pass 1 is a darkness threshold plus a LogisticRegression
+over 8 morphology features, fitted on 16-bit ~27-megapixel frames of one material at one
+contrast regime. Nothing in it is invariant to contrast polarity, magnification, detector mode
+or material. Where the matrix is darker than the feature of interest the threshold inverts its
+meaning — that is the fly-ash row. Where the frame never clears the threshold there are no
+candidates — that is the aluminium and ceramic rows. A crack that is thin and bright-edged on a
+porous dark matrix loses to the pores, which is the first row and the one that matters most,
+because it is the case closest to what this tool is for.
+
+So: **this is a detector for this corpus.** Point it at another lab's micrographs and it needs
+retraining at minimum, and probably a different Pass 1. The parts that do travel are the
+measurement, review and provenance layers — the correction precedence, the unreviewed-pixel
+accounting, the calibration that refuses, the retrain gate, the per-CSV provenance. If you have
+your own segmentation, `import_mask.py` lets you keep all of that and throw this detector away,
+which is the next section.
+
 ## Use a better segmenter and keep the measurement layer
 
 The built-in detector was the weakest part of this project, and partly still is. ilastik's
 Random Forest over a multi-scale filter bank, micro-sam's ViT, and the commercial CNNs all
 produce better masks than a darkness threshold plus a LogisticRegression over 8 morphology
-features — at `--sam2 off` that pipeline misses roughly 40% of crack pixels (recall 0.534).
-The shipped default now puts SAM 2 on top of it and reaches recall 0.561 at specificity 0.569
-against 0.460, which narrows the gap without closing it: this is still a candidate proposer
-plus a boundary refiner, not a learned segmenter.
+features — at `--sam2 off` that pipeline misses roughly 47% of crack pixels (recall 0.534).
+Opting into SAM 2 refinement reaches recall 0.561 at specificity 0.569 against 0.460, which
+narrows the gap without closing it — and costs mask integrity, which is why it is not the
+default. Either way this is a candidate proposer plus a boundary refiner, not a learned
+segmenter.
 
 Everything this project does that those tools do not is **downstream of the mask**: a
 calibration that refuses when the scale bar and HFW disagree, reporting pixels and saying so
@@ -261,10 +315,10 @@ per-CSV provenance, and one row per crack carrying opening width and tortuosity.
 wherever you segment best, and bring the mask here:
 
 ```bash
-python3 code/import_mask.py IMAGE --shape          # what size must the mask be?
-python3 code/import_mask.py IMAGE mask.png --from ilastik
-python3 code/import_mask.py --list
-python3 code/import_mask.py IMAGE --clear          # back to the built-in detector
+./.venv/bin/python3 code/import_mask.py IMAGE --shape          # what size must the mask be?
+./.venv/bin/python3 code/import_mask.py IMAGE mask.png --from ilastik
+./.venv/bin/python3 code/import_mask.py --list
+./.venv/bin/python3 code/import_mask.py IMAGE --clear          # back to the built-in detector
 ```
 
 or `POST /api/external_mask/<image>` with a `mask` file. Exporting a compatible mask:
@@ -294,8 +348,15 @@ pixels only, human corrections neutralised so the pipeline cannot see the answer
 
 Measured on the **4** frames of the default set that carry a marked not-crack region
 (`Cast_24hr_SE_Side_006` has none, so specificity is undefined there and it is skipped and
-named). Reproduce with `python3 interior_active_learning/code/experiments/naive_baselines.py`;
-the numbers land in `naive_baselines.json`.
+named). Reproduce with `./.venv/bin/python3 interior_active_learning/code/experiments/naive_baselines.py`;
+the numbers land in `interior_active_learning/code/experiments/naive_baselines.json`.
+Every column is a **macro mean** — the per-frame ratio averaged with equal weight, the
+artifact's `macro_means` — not a pooled count over all pixels. That matters most for
+specificity: the adjudicated not-crack pools differ between these frames by orders of
+magnitude, so this averaging gives a few-hundred-pixel estimate the same weight as a
+hundred-thousand-pixel one. The artifact says so in its own `averaging_note`, and its
+`per_method_per_image` block has the per-frame numbers. Read those before quoting a
+specificity.
 
 | method | f1 | recall | specificity | precision |
 |---|---|---|---|---|
@@ -319,8 +380,8 @@ crack, at the best precision in the table. So the defensible claim is that the p
 only method that is competitive on *both* sides of the confusion matrix — Otsu families
 collapse specificity, Frangi families collapse recall — and not that it wins on f1, which it
 does not. The two families fail in opposite directions —
-Otsu takes nearly everything dark (specificity 0.02–0.04), Frangi is precise but finds a
-seventh of the crack — and the pipeline is the only one that is not degenerate at one end.
+Otsu takes nearly everything dark (specificity 0.091 macro, 0.000–0.182 across the
+four frames), Frangi is precise but finds a seventh of the crack — and the pipeline is the only one that is not degenerate at one end.
 
 Two caveats that belong next to those numbers. Specificity is weak for every method
 including the pipeline, because 27 of 38 labelled images carry no not-crack label at all, so
@@ -343,8 +404,8 @@ plausible. Uncalibrated is a state, not a 1.0 default: those images export pixel
 and say `"calibrated": false` in their provenance sidecar.
 
 ```bash
-python3 interior_active_learning/code/crack_measurements.py --all      # per-crack CSVs
-python3 interior_active_learning/code/aggregate.py family,condition    # group statistics
+./.venv/bin/python3 interior_active_learning/code/crack_measurements.py --all      # per-crack CSVs
+./.venv/bin/python3 interior_active_learning/code/aggregate.py family,condition    # group statistics
 ```
 
 `aggregate.py` answers the question a paper actually asks — does one condition crack more
@@ -394,7 +455,7 @@ calibration and which must never be scaled, are in
 A hundred frames should not mean a hundred clicks.
 
 ```bash
-python3 code/semcrack.py --in ./micrographs --out ./results --jobs 6
+./.venv/bin/python3 code/semcrack.py --in ./micrographs --out ./results --jobs 6
 ```
 
 Per-crack CSV and provenance sidecar per image, a combined `all_cracks.csv`, the group
@@ -415,11 +476,11 @@ one refuses rather than guesses:
 | one image unreadable | that image fails, **exit 1**; a run that measured 40 of 62 and exited 0 reads as success |
 
 ```bash
-python3 code/semcrack.py --in ./m --out ./r --um-per-px 0.0431   # one scale, cross-checked
-python3 code/semcrack.py --in ./m --out ./r --scale-csv scale.csv # per-image: image,um_per_px
-python3 code/semcrack.py --in ./m --out ./r --from-metadata       # FEI/ZEISS TIFF tags
-python3 code/semcrack.py --in ./m --out ./r --threshold 0.6 --model my.joblib
-python3 code/semcrack.py --in ./m --out ./r --group-by none       # see below
+./.venv/bin/python3 code/semcrack.py --in ./m --out ./r --um-per-px 0.0431   # one scale, cross-checked
+./.venv/bin/python3 code/semcrack.py --in ./m --out ./r --scale-csv scale.csv # per-image: image,um_per_px
+./.venv/bin/python3 code/semcrack.py --in ./m --out ./r --from-metadata       # FEI/ZEISS TIFF tags
+./.venv/bin/python3 code/semcrack.py --in ./m --out ./r --threshold 0.6 --model my.joblib
+./.venv/bin/python3 code/semcrack.py --in ./m --out ./r --group-by none       # see below
 ```
 
 **If your files aren't named like this corpus, pass `--group-by none`.** Grouping parses
@@ -441,8 +502,8 @@ SAM 2 can redraw each candidate's boundary, and on reviewed pixels it scores bet
 **off by default anyway**, and the reason is the most useful thing in this section:
 
 ```bash
-python3 code/semcrack.py --in ./micrographs --out ./results                # bare detector
-python3 code/semcrack.py --in ./micrographs --out ./results --sam2 refine  # opt in
+./.venv/bin/python3 code/semcrack.py --in ./micrographs --out ./results                # bare detector
+./.venv/bin/python3 code/semcrack.py --in ./micrographs --out ./results --sam2 refine  # opt in
 ```
 
 **It was briefly the default, and that was a mistake caught by looking at overlays.** On
@@ -451,13 +512,24 @@ it fragments the mask. Measured on `260708_316_H_b2_front_CBS_002`:
 
 | | bare detector | `--sam2 refine` |
 |---|---|---|
-| crack pixels | 335,228 | 313,396 (**−6.5%**) |
-| connected components | 102 | 202 (**+98%**) |
-| skeleton length px | 9,323 | 21,732 (**+133%**) |
+| crack pixels | 257,148 | 294,706 (**+14.6%**) |
+| connected components | 111 | 203 (**+82.9%**) |
+| skeleton length px | 9,479 | 18,657 (**+96.8%**) |
 
-Fewer pixels, twice the components, more than double the skeleton: solid crack regions are
-being made lacy and broken apart. Crack **count** and crack **length** are the two headline
+Twice the components and twice the skeleton for *more* total pixels, not fewer: refinement is
+not tightening boundaries, it is shattering them. The pixel flow says where everything went —
+**240,489 px kept, 16,659 trimmed away from the candidates it was given, and 54,217 px claimed
+outside them.** So it trims what it was pointed at and spills into territory the detector never
+proposed, while 144 of the 170 regions individually shrink (the main through-crack by 4.1%,
+the worst small one by 62.3%). Crack **count** and crack **length** are the two headline
 quantities this tool exists to produce, and both get worse.
+
+Reproduce with `./.venv/bin/python3 interior_active_learning/code/experiments/fragmentation_check.py`;
+the numbers land in `interior_active_learning/code/experiments/fragmentation_check.json`. It
+runs the shipped model (`facebook/sam2.1-hiera-tiny`, read from `sam2_refine.DEFAULT_MODEL` so
+the two cannot drift) with human corrections neutralised, so the difference is refinement's
+alone — which also means these absolute counts are lower than an overlay's, since an overlay
+includes the human's pixels.
 
 The f1 improved anyway because trimming a region removes false positives from the small marked
 not-crack pool faster than it loses true positives from the marked crack pool — the adjudicated
@@ -466,17 +538,28 @@ worse, which is this project's own thesis landing on its own default. Before SAM
 default it needs an objective that counts fragmentation.
 
 Measured on the ten frames that carry both a crack and a not-crack verdict, scored on
-adjudicated pixels only:
+adjudicated pixels only. Columns are **macro means** over frames (the artifact's `means`), not
+pooled pixel counts:
 
 | detector | f1 | recall | specificity | precision |
 |---|---|---|---|---|
-| two-pass pipeline, `--sam2 off` | 0.638 | 0.534 | 0.460 | 0.970 |
-| **`--sam2 refine`** — the default | **0.676** | **0.561** | **0.569** | **0.976** |
+| **two-pass pipeline, `--sam2 off` — SHIPPED** | **0.638** | **0.534** | **0.460** | **0.970** |
+| `--sam2 refine` — opt-in | 0.676 | 0.561 | 0.569 | 0.976 |
 | `--sam2 hybrid` | 0.707 | 0.604 | 0.445 | 0.970 |
 
-`refine` beats the bare detector on all four of these, on 9 of 10 frames, with nothing
-retrained. Read alongside the fragmentation table above, that is a statement about reviewed
-pixels and not about the mask as a whole — which is exactly why it is not the default.
+> **Why this f1 is not the other two.** The bare detector appears with three different f1s in
+> this README because the frame set differs each time, and macro means over different frames
+> are not comparable: **0.638** here (ten both-class frames), **0.658** in the naive-baseline
+> table (four frames, the subset that table's command produces), **0.715** in the two-pass
+> table (five frames, an earlier out-of-sample run). Same detector, three populations. Compare
+> rows within a table, never across them.
+
+`refine` beats the bare detector on all four of these means, with nothing retrained. (The
+"9 of 10 frames" figure recorded in `sam2_hybrid_report.json` is `hybrid_wins_on_n_frames` —
+it belongs to the `hybrid` arm, not to `refine`, and an earlier draft of this paragraph
+misattributed it.) Read alongside the fragmentation table above, this is a statement about
+reviewed pixels and not about the mask as a whole — which is exactly why it is not the
+default.
 
 **It is applied in one place, on purpose.** Refinement happens inside
 `run_unified_pipeline`, which is the single function the overlays, the measurements, the
@@ -502,8 +585,8 @@ refined run cannot share an output directory with a bare one, and every CSV's
 regions were refined, how many kept their original pixels, and the pixel count before and
 after.
 
-On that same frame refinement moved 335,228 crack pixels to 313,396 (−6.5%, it is slightly
-more conservative), and the human's own marks put **13,962 px back** and took 154 away — the
+On that same frame refinement moved 257,148 crack pixels to 294,706 (+14.6% — more
+expansive, not more conservative), and the human's own marks put **13,962 px back** and took 154 away — the
 authority order is not a claim in a docstring, it is visible in the sidecar on every image.
 
 **Two guarantees, because a detection disappearing is worse than one not improving.** A region
@@ -553,11 +636,12 @@ move across 0.3–0.7 instead of assuming the answer.
 
 ## SAM 1, and why it is still off
 
-Two different things are called SAM here, and only one of them is on.
+Two different things are called SAM here, and neither is on by default.
 
-**SAM 2 refinement is the default** — see [SAM 2, on by default](#sam-2-on-by-default) above.
-It takes each accepted candidate's bounding box, has SAM 2 redraw the boundary, and beats the
-bare detector on all four metrics.
+**SAM 2 refinement is available but off by default** — see
+[SAM 2, available but not the default](#sam-2-available-but-not-the-default) above. It takes
+each accepted candidate's bounding box and has SAM 2 redraw the boundary. It wins on
+adjudicated pixels and fragments the mask on the whole frame, which is why it is opt-in.
 
 **SAM 1 automatic mask generation is still disabled**, and the measurement is the reason
 rather than inertia. SAM 1 is a *proposal* stage: it generates masks unprompted and the
@@ -615,8 +699,10 @@ unexplained, and nothing that the app does not use sits next to code that it doe
 | `…/build_training_data.py` | correction masks → training rows |
 | `…/train_v3_weighted.py` | trains Pass 1 with per-image weighting |
 | `…/regenerate_templates.py` | batch re-render; **the only** overlay renderer |
+| `…/run_all_candidates.py` | precomputes Pass 2 candidates for the whole corpus |
 | `…/hybrid_detect.py` | Pass 1 + Pass 2 + SAM, as one call |
 | `…/unified_pipeline.py` | orchestrates the two passes |
+| `…/sam2_refine.py` | the opt-in SAM 2 boundary refiner (`--sam2 refine`) |
 | `…/interior_candidates.py` | Pass 2 candidate generation |
 | `…/common.py` | paths and per-image contrast settings |
 | `…/calibration.py` | per-image µm/px with provenance, and the 5% cross-check |
@@ -652,10 +738,12 @@ non-browser way in, and each one is the entry point for a result the repo claims
 | file | what it does |
 |---|---|
 | `code/semcrack.py` | batch: a directory of micrographs in, tables and a run manifest out |
-| `…/crack_measurements.py` | one CSV per image, one row per crack, plus a provenance sidecar |
-| `…/aggregate.py` | group statistics with the specimen as the unit, and refusals |
+| `interior_active_learning/code/crack_measurements.py` | one CSV per image, one row per crack, plus a provenance sidecar |
+| `interior_active_learning/code/aggregate.py` | group statistics with the specimen as the unit, and refusals |
 | `code/import_mask.py` | register a mask segmented elsewhere so it overrides the detector |
 | `code/establish_baseline.py` | records the out-of-sample baseline the retrain gate needs |
+| `code/resave_models.py` | re-pickles the shipped models for your sklearn, after a deliberate upgrade |
+| `code/generalisation_probe.py` | runs the detector on outside micrographs, to show it does not travel |
 
 **`archive/` — nothing imports it, and nothing should.** Superseded code, models
 kept as counterexamples, and one-off analyses that are the evidence behind the
@@ -666,10 +754,10 @@ wholesale if you don't care about reproducing the reasoning.
 
 ```bash
 PORT=8799 ./run &
-BASE=http://127.0.0.1:8799 python3 interior_active_learning/code/test_app.py
+BASE=http://127.0.0.1:8799 ./.venv/bin/python3 interior_active_learning/code/test_app.py
 ```
 
-276 checks covering upload, detection, exports, correction precedence, region
+281 checks covering upload, detection, exports, correction precedence, region
 isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
 routing, physical-unit calibration, calibration *uncertainty*, instrument metadata,
 right-censoring, the specimen as statistical unit, the batch CLI and its refusals,
@@ -700,9 +788,13 @@ Two consequences worth knowing:
   lives in the private `CBS_Crack_Detection_All` repo, which is archived
   (read-only) on GitHub.
 - **`interior_active_learning/paint/candidate_counts.json` is a cached count**,
-  not ground truth. 34 of the 62 entries were measured with SAM enabled and the
-  rest with the pipeline alone, so the sidebar understates those 28. Each entry is
-  rewritten the next time that image is processed, so it self-corrects as you work.
+  not ground truth. It holds 63 entries of `n_candidates`/`n_crack` and **nothing
+  else** — no record of which detector, threshold, or model produced any of them,
+  because the writer stores only those two integers. Entries written at different
+  times are therefore not necessarily comparable, and an earlier version of this
+  README claimed a specific 34/28 split by detector that the file cannot support.
+  Each entry is rewritten the next time that image is processed, so anything stale
+  self-corrects as you work.
 
 ## Notes for maintainers
 

@@ -13,7 +13,7 @@ image were used**: it has no correction mask and contributes no rows to
 `training_data/labeled_regions.csv`, so the right panel is unaided model output on
 an image the classifier never saw.
 
-    python3 code/build_figures.py 260622_316_H_b2_front_CBS_02 \
+    ./.venv/bin/python3 code/build_figures.py 260622_316_H_b2_front_CBS_02 \
         --out docs/img/detection.png --frac 0.28 \
         --note "Pass 1 + Pass 2; no correction mask and no training rows from this image"
 
@@ -39,7 +39,7 @@ in the training set — 1,285 of the 4,128 training rows come from it. Built wit
 not-crack" rather than "rejected". Mislabelling this one as model output would
 present corrected pixels as unaided accuracy.
 
-    python3 build_figures.py AS_24hr_BSE_Side_008 \
+    ../../.venv/bin/python3 build_figures.py AS_24hr_BSE_Side_008 \
         --out docs/img/review.png --frac 0.32 --reviewed \
         --note "in the training set; 134,039 px adjudicated not-crack by hand"
 
@@ -73,7 +73,7 @@ sharp on retina displays without needing an HTML `width` attribute.
 
 The architecture diagram at the top of the top-level README.
 
-    python3 code/generate_pipeline_diagram.py
+    ./.venv/bin/python3 code/generate_pipeline_diagram.py
 
 Generated rather than drawn on purpose: the stage order lives in the `STAGES` list in that
 script, so changing the pipeline and forgetting the picture is a diff someone sees in review

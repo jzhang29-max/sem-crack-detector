@@ -152,107 +152,99 @@
     "n_crack": 679
   },
   "260622_316_H_b2_front_CBS_01": {
-    "n_candidates": 1056,
-    "n_crack": 60
+    "n_candidates": 1201,
+    "n_crack": 695
   },
   "260622_316_H_b2_front_CBS_02": {
-    "n_candidates": 696,
-    "n_crack": 17
+    "n_candidates": 783,
+    "n_crack": 462
   },
   "260622_316_H_b2_front_CBS_03": {
-    "n_candidates": 234,
-    "n_crack": 16
+    "n_candidates": 291,
+    "n_crack": 182
   },
   "260622_316_H_b2_front_CBS_04": {
-    "n_candidates": 431,
-    "n_crack": 31
+    "n_candidates": 379,
+    "n_crack": 158
   },
   "260622_316_H_b4_CBS_01": {
-    "n_candidates": 777,
-    "n_crack": 274
+    "n_candidates": 954,
+    "n_crack": 737
   },
   "260622_316_H_b4_CBS_02": {
-    "n_candidates": 636,
-    "n_crack": 258
+    "n_candidates": 824,
+    "n_crack": 713
   },
   "260622_316_amb_b3_CBS_01": {
-    "n_candidates": 622,
-    "n_crack": 363
+    "n_candidates": 623,
+    "n_crack": 370
   },
   "260622_316_amb_b3_CBS_02": {
-    "n_candidates": 263,
-    "n_crack": 10
+    "n_candidates": 351,
+    "n_crack": 191
   },
   "260708_316_H_b2_front_CBS_001": {
-    "n_candidates": 3,
-    "n_crack": 1
+    "n_candidates": 17,
+    "n_crack": 15
   },
   "260708_316_H_b2_front_CBS_002": {
-    "n_candidates": 294,
-    "n_crack": 80
+    "n_candidates": 316,
+    "n_crack": 139
   },
   "260708_316_H_b2_front_CBS_003": {
-    "n_candidates": 271,
-    "n_crack": 47
+    "n_candidates": 288,
+    "n_crack": 164
   },
   "260708_316_H_b2_front_CBS_004": {
-    "n_candidates": 219,
-    "n_crack": 51
+    "n_candidates": 284,
+    "n_crack": 185
   },
   "260708_316_H_b2_front_CBS_005": {
     "n_candidates": 735,
-    "n_crack": 398
+    "n_crack": 400
   },
   "260708_316_H_b2_front_CBS_006": {
     "n_candidates": 146,
     "n_crack": 100
   },
   "260708_316_H_b2_front_CBS_007": {
-    "n_candidates": 145,
-    "n_crack": 15
+    "n_candidates": 170,
+    "n_crack": 89
   },
   "260708_316_H_b2_front_CBS_008": {
-    "n_candidates": 275,
-    "n_crack": 55
+    "n_candidates": 285,
+    "n_crack": 111
   },
   "260708_316_H_b2_front_CBS_009": {
-    "n_candidates": 164,
-    "n_crack": 4
+    "n_candidates": 169,
+    "n_crack": 47
   },
   "260708_316_H_b2_front_CBS_010": {
-    "n_candidates": 272,
-    "n_crack": 8
+    "n_candidates": 268,
+    "n_crack": 30
   },
   "260708_316_H_b2_front_CBS_011": {
-    "n_candidates": 232,
-    "n_crack": 53
+    "n_candidates": 243,
+    "n_crack": 118
   },
   "260708_316_H_b2_front_CBS_012": {
-    "n_candidates": 275,
-    "n_crack": 28
+    "n_candidates": 251,
+    "n_crack": 74
   },
   "260708_316_H_b2_front_CBS_013": {
-    "n_candidates": 286,
-    "n_crack": 29
+    "n_candidates": 275,
+    "n_crack": 114
   },
   "260708_316_H_b2_front_CBS_014": {
-    "n_candidates": 116,
-    "n_crack": 11
+    "n_candidates": 75,
+    "n_crack": 43
   },
   "260708_316_H_b2_front_CBS_015": {
-    "n_candidates": 110,
-    "n_crack": 7
+    "n_candidates": 111,
+    "n_crack": 75
   },
   "260708_316_H_b2_front_CBS_016": {
-    "n_candidates": 171,
-    "n_crack": 15
-  },
-  "apptest_tif": {
-    "n_candidates": 2,
-    "n_crack": 2
-  },
-  "apptest_jpg": {
-    "n_candidates": 4,
-    "n_crack": 4
+    "n_candidates": 112,
+    "n_crack": 80
   }
 }

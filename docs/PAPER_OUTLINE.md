@@ -14,27 +14,28 @@ and "our software is careful" is not a finding. This is the paper that *is* here
 This is a claim about **everyone's numbers**, not about this repo's software. That is what
 makes it a contribution rather than a release note.
 
-> **Which detector every result below was measured with.** The **bare two-pass detector**, which is the default. All of them were also run under **both**
-> configurations. Results 1, 1b, 1c and 5 were re-measured; results 2, 3 and 4 were run
-> under both and come out identical, which is now measured rather than assumed.
+> **Which detector every result below was measured with: the bare two-pass detector**
+> (`--sam2 off`), which is what ships. Every result was ALSO run under SAM 2 refinement and
+> both columns are given, because the two do not always agree.
 >
-> | | bare detector (`--sam2 off`) | shipped default (`--sam2 refine`) |
-> |---|---|---|
 > SAM 2 refinement was briefly the default and is now opt-in: it wins on adjudicated pixels
-> but fragments the mask on the whole frame (components +98%, skeleton +133%, pixels −6.5%), so
-> the bare-detector column below is the shipped configuration again.
+> but fragments the mask on the whole frame (connected components +83%, skeleton length
+> +97%, and 54,217 px claimed outside the detector's own candidates). So the **left** column
+> is the shipped configuration.
 >
-> | result 1, macro specificity gap | +0.4879 | **+0.3717** |
-> | result 1, micro specificity gap | +0.2662 | **+0.2001** |
-> | result 1, precision gap | −0.5905 | −0.5942 |
-> | result 1, per-frame direction | 10/10 positive | **9/10 positive, 1 negative** |
-> | result 1c, erased-as-negative gap | +0.5988 | **+0.4964** |
-> | result 1b, i.i.d. thinning, 8.16% → 0.163% | +0.488 → +0.470 | **+0.372 → +0.364** |
-> | result 1b, whole-region, worst level | +0.156 [−0.014, +0.391] | **+0.136 [−0.024, +0.384]** |
-> | result 1b, levels whose interval includes zero | 1 of 6 | **2 of 6** |
-> | result 5, crack-count span across 0.3–0.7 | 1.34–1.38× | **1.38×** |
-> | result 5, count-vs-area sensitivity | 1.4–3.5× | **1.3–2.0×** |
-> | result 5, condition ordering | stable | **stable** |
+> | | **bare detector (`--sam2 off`) — SHIPPED** | `--sam2 refine` (opt-in) |
+> |---|---|---|
+> | result 1, macro specificity gap | **+0.4879** | +0.3717 |
+> | result 1, micro specificity gap | **+0.2662** | +0.2001 |
+> | result 1, precision gap | **−0.5905** | −0.5942 |
+> | result 1, per-frame direction | **10/10 positive** | 9/10 positive, 1 negative |
+> | result 1c, erased-as-negative gap | **+0.5988** | +0.4964 |
+> | result 1b, i.i.d. thinning, 8.16% → 0.163% | **+0.488 → +0.470** | +0.372 → +0.364 |
+> | result 1b, whole-region, worst level | **+0.156 [−0.014, +0.391]** | +0.136 [−0.024, +0.384] |
+> | result 1b, levels whose interval includes zero | **1 of 6** | 2 of 6 |
+> | result 5, crack-count span across 0.3–0.7 | **1.34–1.38×** | 1.38× |
+> | result 5, count-vs-area sensitivity | **1.4–3.5×** | 1.3–2.0× |
+> | result 5, condition ordering | **stable** | stable |
 >
 > **1b and 5 were re-measured against predictions written down first, and both held.** 1b was
 > predicted to get *noisier*, not cleaner, because refinement shrinks the gap so the sparsest
@@ -71,7 +72,7 @@ than documenting the fix.
 
 | # | failure mode | measured magnitude | script |
 |---|---|---|---|
-| 1 | Unlabelled pixels scored as background | specificity gap **+0.372** macro / **+0.200** micro on the shipped detector (**+0.488** / **+0.266** bare, **+0.678** bare out-of-sample); precision **−0.594**; recall **exactly unchanged** under every configuration (n=10) | `scoring_convention_bias.py`, `oos_convention_gap.py` |
+| 1 | Unlabelled pixels scored as background | specificity gap **+0.488** macro / **+0.266** micro on the shipped bare detector (**+0.678** out-of-sample; **+0.372** / **+0.200** under opt-in SAM 2 refinement); precision **−0.594**; recall **exactly unchanged** under every configuration (n=10) | `scoring_convention_bias.py`, `oos_convention_gap.py` |
 | 2 | Calibration accepted without a cross-check | length error up to **+136%**, area up to **+458%** | `experiments/failure_mode_magnitudes.py` |
 | 3 | Model promotion gated on an in-sample baseline | **+0.029** AUC bar that every honest candidate must clear | same |
 | 1b | **Sparsity sensitivity of result 1** | gap **+0.488 [+0.279, +0.689]** at 8.16% adjudicated. Invariant under i.i.d. pixel thinning (**+0.470** at 0.163%) but **NOT** under whole-region thinning, where it swings to **+0.156 [−0.014, +0.391]** — the invariance was a property of the sampling model | `experiments/sparsity_sensitivity.py` |

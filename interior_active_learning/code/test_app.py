@@ -24,6 +24,7 @@ be inspected.
 import io
 import json
 import glob
+import hashlib
 import os
 import re
 import shutil
@@ -1768,7 +1769,7 @@ def main():
     # OFF by default, and this assertion is the record of why. It briefly asserted the
     # opposite: SAM 2 was made the default on a four-metric win scored over ADJUDICATED
     # pixels (~8% of a frame), which is blind to mask shape. On the whole frame refinement
-    # fragments -- components +98%, skeleton +133%, pixels -6.5% on a measured frame -- so
+    # fragments -- components +83%, skeleton +97% on a measured frame -- so
     # crack count and crack length, the two headline outputs, both got worse while f1 rose.
     # A user looking at overlays caught it. If someone flips this default again, this test
     # should be what stops them until there is an objective that counts fragmentation.
@@ -1791,8 +1792,91 @@ def main():
               "crack_measurements.py")).read().split("# SAM2_MODE used to live here")[1],
           "refining an already-refined mask would put this path out of step with the "
           "overlays")
-    check("an empty SEMCRACK_SAM2 means off, so it can be turned off without code",
-          True, "verified out-of-band: SEMCRACK_SAM2= -> off, absent -> refine")
+    # ACTUALLY RUN IT. This check used to assert the literal True with an evidence string
+    # claiming the behaviour had been "verified out-of-band" -- and that string recorded
+    # "absent -> refine", which stopped being true when the default was reverted. A check that
+    # cannot fail is worse than no check: it reads as coverage. Each case gets a fresh
+    # interpreter, because SAM2_MODE is resolved once at import.
+    def _mode_for(env_value):
+        e = dict(os.environ)
+        if env_value is None:
+            e.pop("SEMCRACK_SAM2", None)
+        else:
+            e["SEMCRACK_SAM2"] = env_value
+        r = _sp.run(
+            [sys.executable, "-c",
+             "import sys; sys.path.insert(0, %r); import unified_pipeline as u; print(u.SAM2_MODE)"
+             % os.path.dirname(os.path.abspath(__file__))],
+            capture_output=True, text=True, env=e)
+        return (r.stdout.strip().splitlines() or [""])[-1] if r.returncode == 0 else "RAISED"
+
+    _absent, _empty, _off = _mode_for(None), _mode_for(""), _mode_for("off")
+    _refine, _junk = _mode_for("refine"), _mode_for("banana")
+    check("SEMCRACK_SAM2 absent means off, so the shipped default needs no environment",
+          _absent == "off", f"absent -> {_absent!r}")
+    check("an empty or explicit SEMCRACK_SAM2 also means off",
+          _empty == "off" and _off == "off", f"empty -> {_empty!r}, 'off' -> {_off!r}")
+    check("SEMCRACK_SAM2=refine opts in, so it can be turned on without code",
+          _refine == "refine", f"'refine' -> {_refine!r}")
+    # EVERY DOCUMENTED CLI MUST SURVIVE --help, AND MUST NOT DO WORK WHILE ANSWERING IT.
+    # An earlier version of this check asserted only "exit code 0", and that was not enough:
+    # aggregate.py took sys.argv[1] as its group-by field, so `--help` grouped by a field
+    # named "--help", matched nothing, and OVERWROTE aggregate.csv with a header and no rows,
+    # exiting 0 the whole way. Asking for help destroyed the output file and the check passed.
+    # So this now also requires that help-looking text was printed and that the report files
+    # are byte-identical afterwards.
+    _CLIS = ["code/semcrack.py", "code/import_mask.py", "code/establish_baseline.py",
+             "code/resave_models.py", "code/generalisation_probe.py",
+             "code/generate_full_workflow_diagram_unified.py",
+             "interior_active_learning/code/crack_measurements.py",
+             "interior_active_learning/code/aggregate.py",
+             "interior_active_learning/code/regenerate_templates.py",
+             "interior_active_learning/code/run_all_candidates.py",
+             "interior_active_learning/code/experiments/fragmentation_check.py"]
+    _root = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+    _canaries = [os.path.join(_ag2.OUT_DIR, "aggregate.csv"),
+                 os.path.join(_ag2.OUT_DIR, "aggregate.json")]
+
+    def _fingerprint():
+        out = {}
+        for c in _canaries:
+            try:
+                with open(c, "rb") as fh:
+                    out[c] = hashlib.sha256(fh.read()).hexdigest()
+            except OSError:
+                out[c] = None
+        return out
+
+    _before = _fingerprint()
+    _help_fail = []
+    for _rel in _CLIS:
+        _p = os.path.join(_root, _rel)
+        if not os.path.exists(_p):
+            _help_fail.append(f"{_rel}: missing"); continue
+        try:
+            _r = _sp.run([sys.executable, _p, "--help"], capture_output=True, text=True,
+                         timeout=120, cwd=_root)
+        except _sp.TimeoutExpired:
+            _help_fail.append(f"{_rel}: --help never returned (doing work?)"); continue
+        if _r.returncode != 0:
+            _help_fail.append(f"{_rel}: exit {_r.returncode}")
+        elif not re.search(r"usage|Usage|USAGE", (_r.stdout or "") + (_r.stderr or "")):
+            _help_fail.append(f"{_rel}: exit 0 but printed no usage text")
+    _after = _fingerprint()
+    _touched = [os.path.basename(k) for k in _before if _before[k] != _after[k]]
+
+    check("every documented CLI prints --help instead of crashing or doing work",
+          not _help_fail, "; ".join(_help_fail) if _help_fail
+          else f"{len(_CLIS)} CLIs, all exit 0 and print usage")
+    check("asking a CLI for --help does not rewrite the report files",
+          not _touched,
+          f"--help modified {_touched}" if _touched
+          else "aggregate.csv and aggregate.json byte-identical across all --help calls")
+
+    check("an unrecognised SEMCRACK_SAM2 refuses instead of guessing",
+          _junk == "RAISED",
+          f"'banana' -> {_junk!r}; the previous version assigned the string straight through, "
+          f"so a typo silently switched detectors")
 
     # THE HUMAN STILL WINS. A refined mask must not overturn a painted verdict, which is
     # the promise the README makes about corrections.
