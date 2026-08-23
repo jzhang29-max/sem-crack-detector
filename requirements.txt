@@ -2,7 +2,7 @@
 # built and tested against are recorded below -- worth pinning if you need to
 # reproduce a published number exactly, because the models are pickled sklearn
 # estimators and sklearn warns (loudly, if you do not silence it) when the version
-# that loads a model differs from the one that saved it. `python3
+# that loads a model differs from the one that saved it. `./.venv/bin/python3
 # code/resave_models.py` reconciles the shipped models with your environment.
 #   tested: numpy 2.5.2, pandas 3.0.5, scikit-learn 1.9.0, scikit-image 0.26.0,
 #           scipy 1.18.0, Pillow 12.3.0, joblib 1.5.3, Flask 3.1.3,
@@ -15,7 +15,7 @@ pandas>=2.2
 # unpickle a 1.9.0 estimator and could report different numbers from the ones in
 # docs/MODEL_VALIDATION_BENCHMARK.md with nothing on screen saying so.
 # /api/pipeline_info reports sklearn_built vs sklearn_running; re-save with
-# python3 code/resave_models.py after a deliberate upgrade.
+# ./.venv/bin/python3 code/resave_models.py after a deliberate upgrade.
 scikit-learn>=1.9,<1.10
 scikit-image>=0.26
 scipy>=1.16
@@ -36,8 +36,10 @@ tifffile>=2026.7
 # ---- SAM 2: installed, but OPT-IN at runtime ----
 # SAM 2 boundary refinement is available via --sam2 refine and is NOT on by default. On
 # adjudicated pixels it beats the bare pipeline on all four metrics (f1 0.676 vs 0.638,
-# specificity 0.569 vs 0.460), but on the whole frame it fragments the mask: components +98%,
-# skeleton +133%, pixels -6.5%. It was briefly the default and that was reverted.
+# specificity 0.569 vs 0.460), but on the whole frame it fragments the mask: connected
+# components +83%, skeleton length +97%, and it claims 54,217 px of new area outside the
+# detector's own candidates. It was briefly the default and that was reverted. Reproduce with
+# interior_active_learning/code/experiments/fragmentation_check.py.
 #
 # These stay in requirements because the test suite exercises the SAM 2 path and because
 # --sam2 refine should work without a second install step. If you never opt in, they are

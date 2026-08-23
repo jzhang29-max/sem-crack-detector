@@ -185,8 +185,11 @@ def _boxes_from(labeled, labels):
 
 
 def run(frames, model_id, max_candidates, shard=0, nshard=1):
-    # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement, so an experiment that does not say which detector it wants silently measures a
-    # different one than its output is labelled with. There is no default here on purpose.
+    # PINNED, not inherited. The default inside run_unified_pipeline has already changed
+    # once -- SAM 2 refinement was briefly the default and was reverted to off after it
+    # was found to fragment the mask -- so an experiment that does not say which detector
+    # it wants measures whatever the default happens to be on the day it is re-run, and
+    # its number silently stops matching the one in the writeup. Say it explicitly.
     up.SAM2_MODE = DETECTOR
     base = _out_for(model_id)
     out_path = base if nshard == 1 else base.replace(".json", f".shard{shard}.json")

@@ -1,30 +1,49 @@
-"""SAM 2 as a boundary refiner for the built-in detector's candidates.
+"""SAM 2 as a boundary refiner for the built-in detector's candidates. OPT-IN, not default.
 
-WHY THIS IS IN THE PRODUCTION TREE AND NOT ONLY IN experiments/
-Measured on the ten both-class frames, scored on adjudicated pixels only, SAM 2 refinement
-beats the shipped detector on ALL FOUR metrics:
+READ THIS BEFORE MAKING IT THE DEFAULT AGAIN. It was the default briefly, on the strength of
+the table below, and that was wrong. If you are here to turn it back on, the second table is
+the reason not to.
+
+On ADJUDICATED pixels -- the ~8% of a frame a human has marked -- refinement wins on all four
+metrics over the ten both-class frames:
 
     arm            f1     recall  specificity  precision
     pipeline       0.638  0.534   0.460        0.970
-    sam2_refine    0.676  0.561   0.569        0.976     <- dominates on every one
-    hybrid_or      0.707  0.604   0.445        0.970     <- better f1, WORSE specificity
+    sam2_refine    0.676  0.561   0.569        0.976
+    hybrid_or      0.707  0.604   0.445        0.970
 
-That is a Pareto improvement with nothing retrained, which is a stronger result than any of
-this project's own model work produced. `hybrid_or` reaches a higher f1 but it is a union and
-unions only add positives, so it gives back specificity; "refine" is the mode that is better
-in every direction and is therefore the default.
+On the WHOLE FRAME it fragments the mask. Measured on 260708_316_H_b2_front_CBS_002:
+
+    crack pixels            257,148 -> 294,706   +14.6%
+    connected components        111 -> 203        +82.9%
+    skeleton length px        9,479 -> 18,657     +96.8%
+
+Fewer pixels, twice the components, more than double the skeleton: solid crack regions become
+lacy and break apart. Per region the trimming is near-universal -- 144 of 170 regions lose
+pixels, -4.1% on the main through-crack and up to -62.3% on smaller ones -- while the frame
+TOTAL rises, because refinement claims 54,217 px of new area outside the candidates it was
+given. It trims what it was pointed at and spills elsewhere.
+
+WHY THE f1 ROSE ANYWAY. Trimming a region removes false positives from the small marked
+not-crack pool faster than it loses true positives from the marked crack pool, so specificity
+climbs and carries f1 with it. Crack COUNT and crack LENGTH -- the two headline quantities this
+tool produces -- both get worse at the same time, and neither is in the objective. A user
+looking at overlays caught what the metric could not.
+
+So the four-metric win is a statement about reviewed pixels, not about the mask. Before this
+could be a default it needs an objective that counts fragmentation; sam2_hybrid.py now reports
+components and skeleton length beside the metrics so a future comparison can see it.
 
 HOW IT IS PROMPTED. transformers exposes SAM 2 as a promptable segmenter with no automatic
 mask generator, which suits this problem: automatic generation proposes whole objects and a
-crack is a thin dark filament. On a synthetic 3-px filament, a BOX prompt scored IoU 0.742
+crack is a thin dark filament. On a synthetic 3-px filament a BOX prompt scored IoU 0.742
 against 0.604 for a single point and 0.545 for ten points along it, so each candidate region
-is passed as its bounding box and SAM 2 redraws the boundary in a padded window. The detector
-proposes; SAM 2 refines.
+is passed as its bounding box and SAM 2 redraws the boundary in a padded window.
 
 SAM 2 returns three variants per prompt. The one with the highest MODEL-PREDICTED IoU is
 taken -- never the one closest to the human mask, which would be scoring against an oracle
-that does not exist at inference. A variant covering more than half its window is discarded
-as the background object rather than a crack.
+that does not exist at inference. A variant covering more than half its window is discarded as
+the background object rather than a crack.
 
 AUTHORITY ORDER IS UNCHANGED: human correction > imported mask > SAM 2 > built-in detector.
 Refinement is applied only where the human has not ruled, so a painted verdict still wins.
@@ -129,7 +148,7 @@ def apply_to_stage(stage, mode, correction_mask=None, model_id=DEFAULT_MODEL,
 
     mode "refine"  SAM 2's boundaries for the ACCEPTED candidates, replacing theirs
     mode "hybrid"  the union of the detector's mask and SAM 2's -- higher f1, lower
-                   specificity, so not the default
+                   specificity; neither mode is the default, see the module docstring
     """
     if mode in (None, "off"):
         return None, {"sam2_mode": "off"}

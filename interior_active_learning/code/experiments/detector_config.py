@@ -1,7 +1,8 @@
 """Pin the detector configuration for an experiment, and stamp it into the result.
 
 WHY THIS EXISTS
-SAM 2 refinement is the DEFAULT inside run_unified_pipeline. Every
+SAM 2 refinement is OPT-IN inside run_unified_pipeline; the shipped default is off. It was
+briefly the default and was reverted, which is exactly why nothing here inherits. Every
 experiment here calls run_unified_pipeline and none of them said which detector they wanted,
 so overnight they all started measuring a different detector than the one their output is
 labelled with:
@@ -18,9 +19,9 @@ That is the failure this project documents, committed against its own experiment
 fix is not to remember: it is to make an experiment state its detector or not run.
 
 USE
-    with pinned("off"):          # measure the bare two-pass detector
+    with pinned("off"):          # measure the bare two-pass detector, which is what ships
         ...
-    with pinned("refine"):       # measure the shipped default
+    with pinned("refine"):       # measure the opt-in SAM 2 arm
         ...
     payload["detector"] = stamp("off")
 """

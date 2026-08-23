@@ -165,10 +165,11 @@ def main():
            "on adjudicated pixels it wins:  f1 0.638 -> 0.676   specificity 0.460 -> 0.569",
            font=font(15), fill=DIM)
     d.text((ax + 24, fy + 62),
-           "on the whole frame it fragments:  components +98%   skeleton +133%   pixels -6.5%",
+           "on the whole frame it fragments:  components +83%   skeleton +97%   "
+           "54,217 px claimed outside the candidates",
            font=font(15), fill=(240, 170, 140))
 
-    d.text((56, H - 42), "Regenerate: python3 code/generate_pipeline_diagram.py    "
+    d.text((56, H - 42), "Regenerate: ./.venv/bin/python3 code/generate_pipeline_diagram.py    "
                          "Stage order is read from STAGES in that file, so this image "
                          "cannot drift from the code without the edit showing up in review.",
            font=font(14), fill=FAINT)

@@ -98,8 +98,11 @@ def _score(pred, crack, neg):
 
 
 def run(shard=0, nshard=1, detector=None):
-    # PINNED, not inherited. run_unified_pipeline defaults to SAM 2 refinement, so an experiment that does not say which detector it wants silently measures a
-    # different one than its output is labelled with. There is no default here on purpose.
+    # PINNED, not inherited. The default inside run_unified_pipeline has already changed
+    # once -- SAM 2 refinement was briefly the default and was reverted to off after it
+    # was found to fragment the mask -- so an experiment that does not say which detector
+    # it wants measures whatever the default happens to be on the day it is re-run, and
+    # its number silently stops matching the one in the writeup. Say it explicitly.
     detector = detector or DETECTOR
     up.SAM2_MODE = detector
     names = eligible()
