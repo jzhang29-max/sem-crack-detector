@@ -33,18 +33,29 @@ tifffile>=2026.7
 # runs without it.
 #   rsvg-convert
 
-# ---- SAM: NOT USED IN THIS BUILD ----
-# SAM is switched off by `const USE_SAM = false` in
-# interior_active_learning/code/paint_frontend.py, so installing these changes nothing:
-# the output is byte-identical with or without them. Do not install them expecting an
-# improvement -- it is ~2.5 GB plus a ~2.4 GB checkpoint on first use.
+# ---- SAM 2: REQUIRED, because it is the default detector ----
+# run_unified_pipeline applies SAM 2 boundary refinement to every accepted candidate by
+# default. Measured on the ten both-class frames it beats the bare pipeline on all four
+# metrics (f1 0.676 vs 0.638, recall 0.561 vs 0.534, specificity 0.569 vs 0.460, precision
+# 0.976 vs 0.970), so it is not optional garnish and these are not optional installs.
 #
-# They are listed only so the stage in hybrid_detect.py can be revived. To actually use
-# it, flip USE_SAM to true and then:
-#   pip install torch transformers torchvision
-# torchvision is genuinely required, not optional-within-optional: SAM's mask-generation
-# post-processing calls its NMS. With SAM on, a re-render costs ~3 min/image instead of
-# ~40 s, and measured f1 on 5 images with human ground truth was 0.776 vs 0.715 without.
+# Cost, measured rather than guessed: 0.63 GB installed here (torch 0.52, transformers 0.10,
+# torchvision 0.01), plus a ~150 MB checkpoint fetched from HuggingFace on first detection and
+# cached after. An earlier version of this file said "~2.5 GB plus a ~2.4 GB checkpoint" --
+# that was SAM 1's ViT-Huge and is not what runs now.
+#
+# If these are absent the pipeline degrades to the bare detector, records
+# detector.sam2_mode = "unavailable" with the reason in every CSV's sidecar, and does not
+# raise. So the tool still works without them; it just is not the detector the README
+# describes. Set SEMCRACK_SAM2= or pass --sam2 off to choose that deliberately.
+torch>=2.2
+# FLOOR SET TO WHAT IS VERIFIED, not to the oldest that might work. Sam2Model arrived in
+# transformers recently, and a looser floor lets pip resolve a version without it -- which
+# would not error, it would silently fall back to the bare detector and quietly change every
+# number the README attributes to the default. A too-tight floor costs a larger download; a
+# too-loose one costs a wrong result, so this errs tight and says why.
+transformers>=5.15
+torchvision>=0.17
 
 # ---- test suite only ----
 # interior_active_learning/code/test_app.py drives the running server over HTTP.

@@ -246,10 +246,13 @@ declined — is in [docs/APP_COMPARISON.md](docs/APP_COMPARISON.md).
 
 ## Use a better segmenter and keep the measurement layer
 
-The built-in detector is the weakest part of this project. ilastik's Random Forest over a
-multi-scale filter bank, micro-sam's ViT, and the commercial CNNs all produce better masks
-than a darkness threshold plus a LogisticRegression over 8 morphology features — the
-deployed operating point misses roughly 40% of crack pixels.
+The built-in detector was the weakest part of this project, and partly still is. ilastik's
+Random Forest over a multi-scale filter bank, micro-sam's ViT, and the commercial CNNs all
+produce better masks than a darkness threshold plus a LogisticRegression over 8 morphology
+features — at `--sam2 off` that pipeline misses roughly 40% of crack pixels (recall 0.534).
+The shipped default now puts SAM 2 on top of it and reaches recall 0.561 at specificity 0.569
+against 0.460, which narrows the gap without closing it: this is still a candidate proposer
+plus a boundary refiner, not a learned segmenter.
 
 Everything this project does that those tools do not is **downstream of the mask**: a
 calibration that refuses when the scale bar and HFW disagree, reporting pixels and saying so
@@ -530,27 +533,32 @@ and invisible in every figure. `--threshold` makes it explicit and the manifest 
 `experiments/threshold_sensitivity.py` measures how far the published quantities actually
 move across 0.3–0.7 instead of assuming the answer.
 
-## Turning SAM on
+## SAM 1, and why it is still off
 
-SAM is **disabled** in this build. It is a runtime proposal stage, not part of the
-model, and it was switched off deliberately: the deployed detector is the archived
-LogisticRegression on its own.
+Two different things are called SAM here, and only one of them is on.
 
-Do not install PyTorch expecting a change — with `USE_SAM = false` the output is
-byte-identical either way. To actually re-enable it, flip that one constant:
+**SAM 2 refinement is the default** — see [SAM 2, on by default](#sam-2-on-by-default) above.
+It takes each accepted candidate's bounding box, has SAM 2 redraw the boundary, and beats the
+bare detector on all four metrics.
+
+**SAM 1 automatic mask generation is still disabled**, and the measurement is the reason
+rather than inertia. SAM 1 is a *proposal* stage: it generates masks unprompted and the
+classifier then filters them. Automatic generation proposes whole objects, and a crack is a
+thin dark filament, which is why that experiment disappointed and was switched off. Measured
+on a synthetic 3-pixel filament, prompt geometry decides everything — a **box** prompt scores
+IoU 0.742 against 0.604 for a single point and 0.545 for ten points along it. Prompting with
+the detector's own boxes is what made SAM 2 work; asking a foundation model to find cracks
+unprompted is what did not.
+
+To re-enable SAM 1 anyway, flip one constant:
 
 ```
 interior_active_learning/code/paint_frontend.py   const USE_SAM = false;   ->   true
 ```
 
-and then install the dependencies (~2.5 GB, plus a ~2.4 GB checkpoint on first run):
-
-```bash
-pip install torch transformers torchvision   # torchvision is required, not extra:
-                                             # SAM's post-processing calls its NMS
-```
-
-With SAM on, a re-render costs about 3 minutes per image instead of about 40 seconds.
+Its dependencies are already installed (torch, transformers, torchvision — SAM 2 needs them
+too), but it downloads a ~2.4 GB checkpoint of its own on first run and costs about 3 minutes
+per image on top. SAM 2's checkpoint is ~150 MB by comparison.
 
 ## What ships here
 
