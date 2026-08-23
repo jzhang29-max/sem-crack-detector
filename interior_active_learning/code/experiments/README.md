@@ -75,3 +75,8 @@ Running an experiment **can overwrite a tracked result JSON**. The figures and t
 are gitignored, but the result JSONs are tracked on purpose so a number in the docs can be
 traced to a file. Check `git diff` afterwards: if a measurement moved, that is a finding, not
 noise.
+
+Expect one line of harmless churn. Every artifact records the commit it was produced at, so
+re-running at a later commit rewrites `git_commit` and nothing else. `failure_mode_magnitudes`
+and `fragmentation_check` were both re-run at a clean checkout and came back byte-identical
+apart from that one field — so if you see more than `git_commit` change, look at it.
