@@ -34,17 +34,27 @@ the dependencies. Run `make setup` if you want the venv without starting the app
 
 ![The app: a sidebar of SEM images with crack counts, and a large through-crack marked in red on the open image](docs/img/app.png)
 
-The sidebar lists every image with how much of it is flagged; the toolbar is the
-entire workflow. The card at the bottom names the model that is actually live —
-family, threshold, how many reviewed regions it was trained on — so the number on
-screen is never ambiguous about which model produced it.
+The sidebar lists every image and the toolbar is the entire workflow. Per-image crack
+and candidate counts show on the selected row and on hover rather than on all 62 at once,
+because a worklist read through a six-row porthole is not navigable. The strip along the
+bottom always names the model that is actually live — `LogisticRegression · thr 0.500 ·
+no SAM` in this shot — and the model card above it expands to the full record: type,
+threshold, how many reviewed regions it was trained on, from how many images, and whether
+SAM is installed. It sits collapsed by default so six rows of metadata are not competing
+with the worklist, which is why they are not visible here.
 
-The image open here is `260622_316_H_b2_back_CBS_01`, where 14.9% of the frame is
-marked crack. **13.2 of those 14.9 points the detector found on its own**; a human
-forced only 10.9% of the red. The review there ran mostly one way — of that frame's
-453,764 hand-marked pixels, 411,002 add crack, 38,025 erase and 4,737 mark
-*not*-crack — so the reviewer overwhelmingly added rather than overruled, but not
-exclusively.
+The image open here is `260622_316_H_b2_back_CBS_01`, where **11.10% of the frame is marked
+crack** — and **99.4% of that red is the detector's own**. Re-measured 2026-08-23 by running
+the frame twice, once as shipped and once with the correction mask and override ledger
+neutralised: the detector alone claims 11.29% of the frame, review then removed 65,936 px and
+added 16,460, landing at 11.10%. So a human forced 0.6% of the red here, not because the
+review was light but because the detector already found almost all of it.
+
+That is worth separating from how much *marking* the reviewer did, which was a lot: of this
+frame's 453,764 hand-marked pixels, 411,002 say crack, 38,025 erase and 4,737 say
+*not*-crack. Most of those crack marks agree with pixels the detector had already claimed —
+confirming a detection and creating one are different acts, and only the 16,460 px above are
+the second kind.
 
 > **Which detector produced a number in this README.** The shipped detector is the **bare
 > two-pass pipeline**, written `--sam2 off` where a table needs to be explicit. Every detector
@@ -170,7 +180,7 @@ multiply by the microscope's own value.
 
 ## Managing models
 
-The sidebar's model card shows what is live — type, threshold, how many reviewed
+The sidebar's model card, expanded, shows what is live — type, threshold, how many reviewed
 regions it was trained on, and its held-out AUC. The dropdown switches models,
 which is how you **roll back** a retrain you did not want; the model being
 replaced is backed up first. **Advanced → Re-apply model** re-renders every image
@@ -192,11 +202,18 @@ calls crack, cyan where it proposed a region and then turned it down. This image
 has no correction mask and contributes no training rows, so every red pixel is the
 model's own -- none of it is hand-painted.
 
-And the honest part, in the same frame: **the model marks 2.5% of the area, while
-12.3% of the frame is clearly dark, so only about a fifth of the dark features are
-called crack.** Ten unmarked dark regions are larger than 2,000 px. Some of those
-are voids and pull-outs that are genuinely not cracks, which is the right call --
-but telling those apart from a crack the model missed is exactly the judgement the
+And the honest part, in the same frame, re-measured 2026-08-23: **the model marks 9.78% of the
+area and the segmenter proposed 10.63%, so it accepts 92% of what it proposed.** That is the
+opposite balance from what this paragraph used to report — 2.5% marked against 12.3% dark, only
+about a fifth accepted — and the difference is commit `ce11f25`, which dropped an exclusion
+that had been deleting main cracks. The old figure above showed that bug: the large
+through-cracks were left unmarked.
+
+A 92% acceptance rate is not self-evidently good. It means the darkness threshold is doing most
+of the deciding and Pass 1 is rejecting little, so the burden shifts onto what the threshold
+lets through in the first place. **31 dark regions larger than 2,000 px are still unmarked**
+(largest 14,140 px). Some are voids and pull-outs that genuinely are not cracks, which is the
+right call — but telling those apart from a crack the model missed is exactly the judgement the
 review tools exist for. Expect to add as well as remove.
 
 Measured on the 5 images with enough human not-crack marks for specificity to
