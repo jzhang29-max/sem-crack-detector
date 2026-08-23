@@ -106,3 +106,22 @@ demonstrated nothing. `0.55` keeps the same data-picked centre and pulls back fa
 the crack against correctly-unmarked material, which is what the figure is for. The frame-level
 number in the caption (9.8% of area marked crack, up from 2.5%) comes from the whole image, not
 the crop, so it is unaffected by the zoom.
+
+## model_card.png
+
+The sidebar model card, opened, showing the Performance rows the app now carries: held-out AUC,
+grouped-CV AUC with its spread, pixel f1, and a dash for the false-call rate that this corpus
+cannot support. Every row has a `title=` tooltip with the protocol behind it.
+
+The card is collapsed by default, so the URL fragment `#model` opens it on load purely so this
+screenshot is scriptable:
+
+    ./run &
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+        --headless=new --disable-gpu --hide-scrollbars \
+        --virtual-time-budget=25000 --window-size=1440,900 \
+        --screenshot=docs/img/model_card.png "http://127.0.0.1:8767/#model"
+
+That fragment exists because of what happened to `app.png`: its doc said "not scripted" and it
+sat six days stale, showing a threshold and a sidebar panel that no longer existed. A panel
+that can only be photographed by hand is one whose screenshot will rot the same way.

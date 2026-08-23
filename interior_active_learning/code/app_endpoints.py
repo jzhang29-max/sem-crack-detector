@@ -451,6 +451,74 @@ def register(app, get_stage, invalidate_stage=None):
             return jsonify({"ok": False, "error": f"missing or bad field: {e}"}), 400
         return jsonify({"ok": True, "record": rec})
 
+    #: Performance the app can state on screen, read from the committed experiment
+    #: artifacts rather than recomputed. Cached on the artifacts' mtimes because
+    #: benchmark_results.json is ~190 KB of per-fold predictions and /api/pipeline_info
+    #: is polled. Returns None rather than raising when an artifact is absent: a clone
+    #: has them, but the app must still start for someone who deleted one.
+    _PERF_CACHE = {}
+
+    def _perf_summary():
+        import json as _json
+        exp = os.path.join(PROJECT_ROOT, "interior_active_learning", "code", "experiments")
+        bench = os.path.join(exp, "benchmark_results.json")
+        hyb = os.path.join(exp, "sam2_hybrid_report.json")
+        try:
+            key = (os.path.getmtime(bench), os.path.getmtime(hyb))
+        except OSError:
+            return None
+        if _PERF_CACHE.get("key") == key:
+            return _PERF_CACHE.get("val")
+        out = {}
+        try:
+            d = _json.load(open(bench))
+            FAM = "LogisticRegression"        # the family that ships
+            folds = d["oof"][FAM]
+            rec, spec, prec, bal = [], [], [], []
+            for k in sorted(folds):
+                yt = np.array(folds[k]["y_true"]); yp = np.array(folds[k]["y_pred"])
+                tp = int(((yp == 1) & (yt == 1)).sum()); fp = int(((yp == 1) & (yt == 0)).sum())
+                fn = int(((yp == 0) & (yt == 1)).sum()); tn = int(((yp == 0) & (yt == 0)).sum())
+                r = tp / (tp + fn) if tp + fn else float("nan")
+                sp = tn / (tn + fp) if tn + fp else float("nan")
+                pr = tp / (tp + fp) if tp + fp else float("nan")
+                rec.append(r); spec.append(sp); prec.append(pr); bal.append((r + sp) / 2)
+            out["grouped_cv"] = {
+                "model": FAM,
+                "auc": round(float(d["results"][FAM]["auc_mean"]), 3),
+                "auc_sd": round(float(d["results"][FAM]["auc_std"]), 3),
+                "balacc": round(float(np.mean(bal)), 3),
+                "balacc_sd": round(float(np.std(bal)), 3),
+                "balacc_worst": round(float(np.min(bal)), 3),
+                "recall": round(float(np.mean(rec)), 3),
+                "specificity": round(float(np.mean(spec)), 3),
+                "precision": round(float(np.mean(prec)), 3),
+                "n_regions": int(d["n_examples"]), "n_pos": int(d["n_pos"]),
+                "n_neg": int(d["n_neg"]), "n_groups": int(d["n_groups"]),
+                "repeats": len(folds),
+            }
+        except Exception:
+            pass
+        try:
+            h = _json.load(open(hyb))
+            m = h["means"]["pipeline"]
+            out["pixel"] = {k: round(float(m[k]), 3)
+                            for k in ("f1", "recall", "specificity", "precision") if k in m}
+            out["pixel"]["n_frames"] = int(h.get("n_frames") or 0)
+        except Exception:
+            pass
+        # STATED, not omitted. The sibling TXM app shows false indications per frame on
+        # crack-free specimens; this corpus has no frame established as crack-free, so the
+        # row would have no denominator. Saying so beats leaving a gap to be noticed.
+        out["false_calls"] = None
+        out["false_calls_reason"] = (
+            "no frame in this corpus is established as crack-free, so a false-call rate has "
+            "no denominator. Two masks hold zero crack marks, but one is 100% UNREVIEWED and "
+            "the other 99.89%. Specificity is the nearest substitute.")
+        _PERF_CACHE.update(key=key, val=out or None)
+        return out or None
+
+
     @app.route("/api/pipeline_info")
     def api_pipeline_info():
         import joblib
@@ -474,6 +542,19 @@ def register(app, get_stage, invalidate_stage=None):
             # requirements.txt's `scikit-learn>=1.7` installs whatever is newest,
             # so every clone silently ran a mismatch. Report it instead of hiding
             # it -- the bundles now record the version they were saved under.
+            # The gate's own bar. It was recorded in the bundle and surfaced only in the
+            # model-picker label, so the card itself said nothing about how well the model does.
+            for _src, _dst in (("loio_out_of_sample", "held_out_auc"),
+                               ("loio_in_sample_for_reference", "in_sample_auc")):
+                _v = b.get(_src)
+                if isinstance(_v, (int, float)):
+                    info["model"][_dst] = round(float(_v), 4)
+            for _src, _dst in (("loio_out_of_sample_image", "held_out_image"),
+                               ("loio_out_of_sample_holdout_kind", "held_out_kind")):
+                if b.get(_src):
+                    info["model"][_dst] = str(b[_src])
+            info["performance"] = _perf_summary()
+            
             import sklearn
             built = b.get("sklearn_version")
             info["model"]["sklearn_built"] = built

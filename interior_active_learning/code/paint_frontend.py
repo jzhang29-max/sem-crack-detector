@@ -1332,11 +1332,69 @@ refreshModelInfo = async function () {
       // provenance records the same string, which is what ties a CSV to a version
       // rather than to a moving `main`.
       (i.version ? '<div class="row"><span>version</span><b>' + i.version + '</b></div>' : '');
-    // The collapsed line has to carry enough to be useful on its own, otherwise
-    // collapsing the card just hides information rather than compacting it.
-    const _sum = document.getElementById('modelSummary');
-    if (_sum) _sum.textContent = m.family + ' \u00b7 thr ' + Number(m.threshold).toFixed(3)
-                                 + ' \u00b7 no SAM';
+
+      // ---- HOW WELL IT DOES, on screen ----
+      // The card listed what the model IS and nothing about how well it works, so the only
+      // performance figure anywhere in the UI was a fragment of the model-picker label. The
+      // sibling TXM app leads its panel with a held-out score and a false-call rate; this is
+      // the same idea with this project's numbers, and it states outright where a number
+      // does not exist rather than leaving the row off.
+      const P = i.performance || {};
+      const g = P.grouped_cv, pxm = P.pixel;
+      const perfRow = (label, val, tip) =>
+        '<div class="row" title="' + String(tip).replace(/"/g, '&quot;') + '">' +
+        '<span>' + label + '</span><b>' + val + '</b></div>';
+      let perf = '';
+      if (m.held_out_auc != null)
+        perf += perfRow('held out', 'AUC ' + m.held_out_auc.toFixed(3),
+          (m.held_out_kind || 'held out by specimen') +
+          (m.held_out_image ? ', holding out ' + m.held_out_image : '') +
+          (m.in_sample_auc != null ? '. In-sample for reference ' +
+             m.in_sample_auc.toFixed(3) + '.' : '') +
+          ' This is the bar a retrain has to clear before it is deployed.');
+      if (g)
+        perf += perfRow('grouped CV', 'AUC ' + g.auc.toFixed(3) + ' \u00b1' + g.auc_sd.toFixed(3),
+          g.repeats + ' x StratifiedGroupKFold(' + g.repeats + ') over ' + g.n_regions +
+          ' candidate regions (' + g.n_pos + ' crack / ' + g.n_neg + ' not) from ' +
+          g.n_groups + ' images, grouped so train and test never share an image. ' +
+          'Balanced accuracy ' + g.balacc.toFixed(3) + ' \u00b1' + g.balacc_sd.toFixed(3) +
+          ', worst repeat ' + g.balacc_worst.toFixed(3) + '. Recall ' + g.recall.toFixed(3) +
+          ', specificity ' + g.specificity.toFixed(3) + ', precision ' +
+          g.precision.toFixed(3) + '. This answers "how will it do on an image it has not ' +
+          'seen"; it scores the region LABEL, not the boundary.');
+      if (pxm && pxm.f1 != null)
+        perf += perfRow('pixel f1', pxm.f1.toFixed(3),
+          'Pixel level on adjudicated pixels over ' + pxm.n_frames + ' frames carrying both ' +
+          'a crack and a not-crack verdict: recall ' + pxm.recall.toFixed(3) + ', specificity ' +
+          pxm.specificity.toFixed(3) + ', precision ' + pxm.precision.toFixed(3) + '. Lower ' +
+          'than the region number because drawing a boundary is harder than labelling a ' +
+          'region -- about ' + Math.round((1 - pxm.recall) * 100) + '% of crack pixels are ' +
+          'still missed.');
+      if (P.false_calls_reason)
+        perf += perfRow('false calls', '\u2014', P.false_calls_reason);
+      if (perf)
+        card.innerHTML += '<div class="k" style="margin-top:9px">Performance</div>' +
+                          '<div class="v">' + perf + '</div>';
+
+      // The collapsed line has to carry enough to be useful on its own, otherwise collapsing
+      // the card just hides information rather than compacting it. The held-out score belongs
+      // here: the card is collapsed by default, so a performance number only inside it is a
+      // number nobody sees.
+      const _sum = document.getElementById('modelSummary');
+      if (_sum) {
+        // "held-out AUC 0.885" spelled out wrapped this line to two in a 296 px sidebar,
+        // which is most of what collapsing the card was meant to save. The number stays; the
+        // word moves to the tooltip.
+        _sum.textContent = m.family + ' \u00b7 thr ' + Number(m.threshold).toFixed(3)
+                           + (m.held_out_auc != null
+                              ? ' \u00b7 AUC ' + m.held_out_auc.toFixed(3) : '')
+                           + ' \u00b7 no SAM';
+        _sum.title = (m.held_out_auc != null
+          ? 'AUC ' + m.held_out_auc.toFixed(3) + ' is held out by specimen'
+            + (m.held_out_image ? ' (' + m.held_out_image + ' left out)' : '')
+            + ' -- the bar a retrain must clear. Click for the full breakdown.'
+          : 'Click for the full model breakdown.');
+      }
   } catch (e) { }
 };
 
@@ -1479,7 +1537,11 @@ function slimSidebar(nImages) {
   const mc = document.getElementById('modelcard');
   if (mc && !mc.dataset.wired) {
     mc.dataset.wired = '1';
-    mc.classList.add('collapsed');
+    // Collapsed by default, EXCEPT when the URL asks for it. #model opens the card on load,
+    // which is how docs/img/README.md captures the performance panel with headless Chrome --
+    // app.png went stale for six days because its doc said "not scripted", and a panel that
+    // can only be photographed by hand is a panel whose screenshot will rot the same way.
+    if ((location.hash || '').toLowerCase() !== '#model') mc.classList.add('collapsed');
     const sum = mc.querySelector('.sum');
     if (sum) sum.addEventListener('click', () => {
       mc.classList.toggle('collapsed');

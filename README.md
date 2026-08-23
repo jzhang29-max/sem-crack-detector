@@ -213,6 +213,14 @@ kind of README misleads.
   leave-one-specimen-out), against 0.862 in-sample. A retrain that cannot beat the recorded
   out-of-sample baseline is refused rather than promoted.
 
+**These numbers are in the app, not just here.** The sidebar model card carries a Performance
+block — held-out AUC, grouped-CV AUC with its spread, pixel f1, and a dash where the false-call
+rate would go — each row with a tooltip giving the protocol behind it. The collapsed line shows
+the held-out AUC on its own, because a performance number only visible after a click is one
+nobody sees.
+
+![The app sidebar model card, opened, listing held-out AUC 0.885, grouped CV AUC 0.801, pixel f1 0.638 and a dash for false calls](docs/img/model_card.png)
+
 ![Six model families under 5x StratifiedGroupKFold grouped by source image, accuracy and AUC with error bars](docs/img/benchmark/model_comparison_bars.png)
 
 **Read that chart's blue bars with care — they are raw accuracy, and the dataset is 69%
