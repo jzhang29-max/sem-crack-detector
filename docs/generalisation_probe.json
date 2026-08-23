@@ -1,0 +1,138 @@
+{
+ "what_this_is": "The shipped detector run on electron micrographs from Wikimedia Commons, none from this project's corpus. No ground truth exists for them, so this is a generalisation probe, not a benchmark.",
+ "in_domain_reference": {
+  "image": "260708_316_H_b2_front_CBS_002",
+  "flagged_pct_of_frame": 5.347,
+  "note": "same detector and code path, one of this project's own frames"
+ },
+ "detector": "--sam2 off",
+ "overlays_written_to": "/var/folders/kk/knst1lgn50gblcmt0sywmmt00000gn/T/semcrack_probe_h736vmrf",
+ "images": [
+  {
+   "key": "SEM_flyash_BSE_NOcracks",
+   "commons_title": "Back-Scattered Electron Micrograph of Coal Fly Ash.tif",
+   "what_it_shows": "BSE-SEM, flat plan view, NO cracks (control)",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/a/af/Back-Scattered_Electron_Micrograph_of_Coal_Fly_Ash.tif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "source_px": [
+    4096,
+    3744
+   ],
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "author": "wabeggs",
+   "source_page": "https://commons.wikimedia.org/wiki/File%3ABack-Scattered_Electron_Micrograph_of_Coal_Fly_Ash.tif",
+   "candidates": 184,
+   "accepted": 116,
+   "flagged_px": 13699920,
+   "flagged_pct_of_frame": 95.372,
+   "components": 16,
+   "seconds": 42.6,
+   "overlay_written_to": "/var/folders/kk/knst1lgn50gblcmt0sywmmt00000gn/T/semcrack_probe_h736vmrf/SEM_flyash_BSE_NOcracks_overlay.png"
+  },
+  {
+   "key": "SEM_bruchflaeche_2000x",
+   "commons_title": "Bruchfl\u00e4che 2000x.tif",
+   "what_it_shows": "the same surface at 2000x",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/7/7c/Bruchfl%C3%A4che_2000x.tif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "source_px": [
+    1024,
+    768
+   ],
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "author": "Carsten Pietzsch",
+   "source_page": "https://commons.wikimedia.org/wiki/File%3ABruchfl%C3%A4che_2000x.tif",
+   "candidates": 243,
+   "accepted": 97,
+   "flagged_px": 28311,
+   "flagged_pct_of_frame": 3.878,
+   "components": 80,
+   "seconds": 1.7,
+   "overlay_written_to": "/var/folders/kk/knst1lgn50gblcmt0sywmmt00000gn/T/semcrack_probe_h736vmrf/SEM_bruchflaeche_2000x_overlay.png"
+  },
+  {
+   "key": "SEM_bruchflaeche_500x",
+   "commons_title": "Bruchfl\u00e4che 500x.tif",
+   "what_it_shows": "SEM 500x, fracture surface of a metal, no crack",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/f/f1/Bruchfl%C3%A4che_500x.tif?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "source_px": [
+    1024,
+    768
+   ],
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "author": "Carsten Pietzsch",
+   "source_page": "https://commons.wikimedia.org/wiki/File%3ABruchfl%C3%A4che_500x.tif",
+   "candidates": 223,
+   "accepted": 110,
+   "flagged_px": 13545,
+   "flagged_pct_of_frame": 1.855,
+   "components": 103,
+   "seconds": 1.5,
+   "overlay_written_to": "/var/folders/kk/knst1lgn50gblcmt0sywmmt00000gn/T/semcrack_probe_h736vmrf/SEM_bruchflaeche_500x_overlay.png"
+  },
+  {
+   "key": "SEM_cubic_ceramics",
+   "commons_title": "Cubic ceramics.jpg",
+   "what_it_shows": "SEM, faceted ceramic grains",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/4/4d/Cubic_ceramics.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "source_px": [
+    1024,
+    768
+   ],
+   "license": "CC BY 4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0",
+   "author": "Mikhailovskii Vladimir",
+   "source_page": "https://commons.wikimedia.org/wiki/File%3ACubic_ceramics.jpg",
+   "candidates": 0,
+   "accepted": 0,
+   "flagged_px": 0,
+   "flagged_pct_of_frame": 0.0,
+   "components": 0,
+   "seconds": 0.9,
+   "overlay_written_to": "/var/folders/kk/knst1lgn50gblcmt0sywmmt00000gn/T/semcrack_probe_h736vmrf/SEM_cubic_ceramics_overlay.png"
+  },
+  {
+   "key": "SEM_ductile_fracture_Al",
+   "commons_title": "Ductile Fracture Surface 6061-T6 Al SEM.png",
+   "what_it_shows": "SEM, ductile fracture surface, 6061-T6 aluminium",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/9/9b/Ductile_Fracture_Surface_6061-T6_Al_SEM.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "source_px": [
+    1018,
+    858
+   ],
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "author": "Bob Clemintime",
+   "source_page": "https://commons.wikimedia.org/wiki/File%3ADuctile_Fracture_Surface_6061-T6_Al_SEM.png",
+   "candidates": 0,
+   "accepted": 0,
+   "flagged_px": 0,
+   "flagged_pct_of_frame": 0.0,
+   "components": 0,
+   "seconds": 0.9,
+   "overlay_written_to": "/var/folders/kk/knst1lgn50gblcmt0sywmmt00000gn/T/semcrack_probe_h736vmrf/SEM_ductile_fracture_Al_overlay.png"
+  },
+  {
+   "key": "SEM_crack_propagation_TaC",
+   "commons_title": "SEM-image-showing-crack-propagation-of-TaCCNTsSiC.jpg",
+   "what_it_shows": "SEM, plan view, a crack propagating through a ceramic composite -- the closest analogue to this project",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/1/16/SEM-image-showing-crack-propagation-of-TaCCNTsSiC.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+   "source_px": [
+    600,
+    444
+   ],
+   "license": "CC BY 4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0",
+   "author": "Qiaoyun Xie, Sylvanus N. Wosu",
+   "source_page": "https://commons.wikimedia.org/wiki/File%3ASEM-image-showing-crack-propagation-of-TaCCNTsSiC.jpg",
+   "candidates": 15,
+   "accepted": 1,
+   "flagged_px": 55,
+   "flagged_pct_of_frame": 0.022,
+   "components": 1,
+   "seconds": 0.3,
+   "overlay_written_to": "/var/folders/kk/knst1lgn50gblcmt0sywmmt00000gn/T/semcrack_probe_h736vmrf/SEM_crack_propagation_TaC_overlay.png"
+  }
+ ]
+}
