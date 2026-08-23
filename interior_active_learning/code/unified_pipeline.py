@@ -90,9 +90,9 @@ def _load_unified_bundle():
 #: ADJUDICATED pixels only -- about 8% of a frame -- and they are blind to the thing a person
 #: looking at an overlay sees first. Measured on 260708_316_H_b2_front_CBS_002:
 #:
-#:     crack pixels        335,228 -> 313,396   -6.5%
-#:     connected components    102 -> 202       +98%
-#:     skeleton length       9,323 -> 21,732    +133%
+#:     crack pixels        257,148 -> 294,706   +14.6%
+#:     connected components    111 -> 203        +82.9%
+#:     skeleton length       9,479 -> 18,657     +96.8%
 #:
 #: Fewer pixels, twice the components, and more than double the skeleton: refinement is not
 #: tightening boundaries, it is making solid crack regions lacy and breaking them apart. The
@@ -111,11 +111,20 @@ def _load_unified_bundle():
 #: mask that gets measured out of step -- the train/serve skew this project documents as a
 #: failure mode.
 #:
-#: SEMCRACK_SAM2 absent -> "refine" (default). Set empty -> off. Set to a mode -> that mode.
+#: SEMCRACK_SAM2 absent or empty -> "off" (the default). Set to "refine" or "hybrid" to opt in.
+#: An unrecognised value RAISES rather than being treated as a mode: the previous version
+#: assigned whatever string it found, so SEMCRACK_SAM2=banana silently enabled refinement --
+#: a typo would have changed the detector without a word.
 #: Degrades to the shipped detector, on the record, if torch/transformers or the checkpoint
 #: are unavailable: a detector that crashes is worse than one that does not improve.
-_SAM2_ENV = os.environ.get("SEMCRACK_SAM2")
-SAM2_MODE = _SAM2_ENV if _SAM2_ENV else "off"
+_SAM2_VALID = ("off", "refine", "hybrid")
+_SAM2_ENV = (os.environ.get("SEMCRACK_SAM2") or "off").strip().lower()
+if _SAM2_ENV not in _SAM2_VALID:
+    raise ValueError(
+        f"SEMCRACK_SAM2={_SAM2_ENV!r} is not one of {_SAM2_VALID}. Refusing to guess: an "
+        f"unrecognised value used to be passed straight through as a mode, so a typo turned "
+        f"the detector on silently.")
+SAM2_MODE = _SAM2_ENV
 
 THRESHOLD_OVERRIDE = None
 
