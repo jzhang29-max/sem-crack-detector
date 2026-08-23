@@ -3,7 +3,7 @@
   "detector_mode": "refine",
   "git_commit": null,
   "pipeline_default_at_runtime": "refine",
-  "note": "detector_mode is what this experiment PINNED, not what the pipeline defaults to. 'off' is the bare two-pass detector; 'refine' is the shipped default which applies SAM 2 to each accepted candidate's boundary.",
+  "note": "detector_mode is what this experiment PINNED, not what the pipeline defaults to. 'off' is the bare two-pass detector and is what ships; 'refine' is OPT-IN and applies SAM 2 to each accepted candidate's boundary. pipeline_default_at_runtime records what the pipeline would have done had this experiment not pinned anything.",
   "sam2_model": "facebook/sam2.1-hiera-tiny",
   "git_commit_note": "the recording commit's hash was dropped when history was rewritten to clean up commit metadata; re-run the experiment to stamp a resolvable one"
  },

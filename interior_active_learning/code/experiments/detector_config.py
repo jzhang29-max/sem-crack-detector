@@ -67,10 +67,15 @@ def stamp(mode):
         sha = None
     out = {"detector_mode": mode, "git_commit": sha,
            "pipeline_default_at_runtime": up.SAM2_MODE,
+           # This string is written into every experiment artifact, so a stale claim here
+           # outlives any docstring. It read "'refine' is the shipped default" for as long as
+           # that was true and kept saying it after the revert, which is how
+           # failure_mode_magnitudes.json came to assert the wrong default on disk.
            "note": ("detector_mode is what this experiment PINNED, not what the pipeline "
-                    "defaults to. 'off' is the bare two-pass detector; 'refine' is the "
-                    "shipped default, which applies SAM 2 to each "
-                    "accepted candidate's boundary.")}
+                    "defaults to. 'off' is the bare two-pass detector and is what ships; "
+                    "'refine' is OPT-IN and applies SAM 2 to each accepted candidate's "
+                    "boundary. pipeline_default_at_runtime records what the pipeline would "
+                    "have done had this experiment not pinned anything.")}
     if mode != "off":
         try:
             import sam2_refine as _sr

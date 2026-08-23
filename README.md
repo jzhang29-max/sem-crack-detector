@@ -729,8 +729,12 @@ this repo becomes unreproducible:
   `docs/img/README.md` records the exact command behind each one
 - `extended_features.py` → the extended-feature study
 - `ingest_labels.py`, `ingest_marginal_verdicts.py` → the CSV-era label ingest paths
-- `interior_active_learning/code/experiments/` (33 scripts) → produced every figure
-  and table in the benchmark doc
+- `interior_active_learning/code/experiments/` (37 scripts) → produced every figure
+  and table in the benchmark doc. **21 of them need the interior candidate pool
+  generated first** — only 3 candidate CSVs ship (34 rows, and no negatives at all),
+  so any stratified split fails until you run `run_all_candidates.py`. Which scripts
+  run on a clean checkout, which are merely slow, and what each failure looks like:
+  `interior_active_learning/code/experiments/README.md`
 
 **Command-line tools you run yourself.** Not imported by the app; these are the
 non-browser way in, and each one is the entry point for a result the repo claims:
