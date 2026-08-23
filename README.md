@@ -49,7 +49,7 @@ exclusively.
 
 ## How it works
 
-![pipeline](docs/img/pipeline.png)
+![The implemented pipeline: load, frame, flatten, candidates, Pass 1, Pass 2, human corrections, merge, SAM 2 refinement, with the authority order and the measured value of refinement](docs/img/pipeline.png)
 
 One shared path. Overlays, measurements, exports, undo and the app all call
 `run_unified_pipeline`, so there is exactly one mask and the thing you paint on is the thing

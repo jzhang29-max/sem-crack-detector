@@ -68,3 +68,13 @@ pixels wide, exactly where JPEG's chroma subsampling fringes worst.
 
 1400 px wide, ~500 KB each. That is roughly 2x GitHub's README column, so they stay
 sharp on retina displays without needing an HTML `width` attribute.
+
+## pipeline.png
+
+The architecture diagram at the top of the top-level README.
+
+    python3 code/generate_pipeline_diagram.py
+
+Generated rather than drawn on purpose: the stage order lives in the `STAGES` list in that
+script, so changing the pipeline and forgetting the picture is a diff someone sees in review
+instead of a diagram that quietly stops being true.
