@@ -762,6 +762,12 @@ isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
 routing, physical-unit calibration, calibration *uncertainty*, instrument metadata,
 right-censoring, the specimen as statistical unit, the batch CLI and its refusals,
 cross-image aggregation, and train/serve parity.
+
+On a **fresh clone** you will see 271, not 281, with one reported as SKIP: overlays and
+per-image measurement CSVs are derived artifacts and are not shipped, so the sections that
+need them have less to run against. A skip is printed with the exact command that builds the
+fixture, and never counts as a pass. `make test` exits 0 on a clean checkout — verified by
+cloning this repo, running `make setup` and `make test`, and reading the result.
 `make test` runs the same thing.
 
 The count is not evidence about the science, and it should not be read as one. Several
