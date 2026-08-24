@@ -442,4 +442,16 @@ def main():
 
 
 if __name__ == "__main__":
+    # --help USED TO TRAIN A MODEL. main() ignored argv, so asking for help fitted the
+    # classifier and could write a candidate bundle. Refuse before any of that happens.
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print(__doc__ or "")
+        print("usage: train_v3_weighted.py\n"
+              "  no arguments. Fits Pass 1 with per-image weighting on the rows\n"
+              "  build_training_data.py produced, and records the held-out AUC the\n"
+              "  retrain gate checks before anything is deployed.")
+        sys.exit(0)
+    if len(sys.argv) > 1:
+        print(f"unknown option {sys.argv[1]!r}. This script takes no arguments. Use --help.")
+        sys.exit(2)
     main()

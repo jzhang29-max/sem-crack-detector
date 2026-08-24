@@ -163,6 +163,17 @@ def process(image_name):
 
 
 if __name__ == "__main__":
+    # --help USED TO BUILD THE TRAINING SET. There was no argument handling, so it fell through
+    # and spun up a 3-worker Pool over every masked image. Same bug the other CLIs had.
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print(__doc__ or "")
+        print("usage: build_training_data.py\n"
+              "  no arguments. Reads every correction mask that has a matching image and\n"
+              "  writes the training rows Retrain and train_v3_weighted.py consume.")
+        sys.exit(0)
+    if len(sys.argv) > 1:
+        print(f"unknown option {sys.argv[1]!r}. This script takes no arguments. Use --help.")
+        sys.exit(2)
     names = labeled_images()
     print(f"{len(names)} images have correction masks AND a local image file\n")
     with Pool(3) as pool:

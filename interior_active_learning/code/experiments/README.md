@@ -80,3 +80,12 @@ Expect one line of harmless churn. Every artifact records the commit it was prod
 re-running at a later commit rewrites `git_commit` and nothing else. `failure_mode_magnitudes`
 and `fragmentation_check` were both re-run at a clean checkout and came back byte-identical
 apart from that one field — so if you see more than `git_commit` change, look at it.
+
+## `--help` on an experiment script runs the experiment
+
+30 of these have no argument handling, so `script.py --help` falls through and does the work
+rather than printing anything. That is deliberate-by-neglect rather than dangerous — they write
+result JSONs, not models — but it will surprise you. The scripts that could overwrite a deployed
+model (`train_v3_weighted.py`, `train_interior_model.py`, `train_unified_model.py`,
+`build_training_data.py`, `build_original_ledger_unified_features.py`) were guarded on
+2026-08-23 and are covered by the suite's `--help` check; the experiment scripts are not.

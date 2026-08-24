@@ -240,4 +240,15 @@ def main(min_per_class=8):
 
 
 if __name__ == "__main__":
+    # --help USED TO DO THE WORK. main() ignored argv, so asking for help ran a fit
+    # and could write a bundle over the deployed one. Refuse before any of that.
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print(__doc__ or "")
+        print("usage: train_interior_model.py\n"
+              "  no arguments. Fits the Pass 2 interior model and writes models/interior_model.joblib.")
+        sys.exit(0)
+    if len(sys.argv) > 1:
+        print(f"unknown option {sys.argv[1]!r}. This script takes no arguments. "
+              f"Use --help.")
+        sys.exit(2)
     main()

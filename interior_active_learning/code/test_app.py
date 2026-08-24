@@ -1871,6 +1871,15 @@ def main():
              "interior_active_learning/code/aggregate.py",
              "interior_active_learning/code/regenerate_templates.py",
              "interior_active_learning/code/run_all_candidates.py",
+             # The retrain loop's own scripts. These were missed the first time because they
+             # are not in the README's command table, and all five did their work when asked
+             # for --help: two of them fit a model and could overwrite the deployed bundle.
+             "interior_active_learning/code/build_training_data.py",
+             "interior_active_learning/code/train_v3_weighted.py",
+             "interior_active_learning/code/train_interior_model.py",
+             "interior_active_learning/code/train_unified_model.py",
+             "interior_active_learning/code/build_original_ledger_unified_features.py",
+             "interior_active_learning/code/active_learning_select.py",
              "interior_active_learning/code/experiments/fragmentation_check.py"]
     _root = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
     _canaries = [os.path.join(_ag2.OUT_DIR, "aggregate.csv"),
