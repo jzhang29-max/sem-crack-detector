@@ -719,19 +719,32 @@ async function flipRegion(x, y) {
       ? `Erased a ${result.area}px region.`
       : `Flipped a ${result.area}px region to ${result.newIsCrack ? 'crack (red)' : 'not-crack (cyan)'}.`);
 
-    // the base template's colors changed server-side -- reload just that
-    // layer, leaving the paint layer (any of the user's own unsaved
-    // strokes) untouched
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = '/api/template/' + requestedImage + '?t=' + Date.now();
-    });
-    if (requestedImage !== currentImage) return;
-    baseCtx.clearRect(0, 0, nativeW, nativeH);
-    baseCtx.drawImage(img, 0, 0);
+    // Draw back ONLY the rectangle that changed. This used to re-fetch /api/template --
+    // the entire 15-31 MB overlay -- and decode a 25-megapixel PNG to show an edit confined
+    // to one region's bounding box, which is most of why a Whole-region click felt slow.
+    // The paint layer is a separate canvas and is untouched either way.
+    if (result.patch_png_b64 && result.bbox) {
+      const [bx, by, bw, bh] = result.bbox;
+      const patch = new Image();
+      await new Promise((resolve, reject) => {
+        patch.onload = resolve; patch.onerror = reject;
+        patch.src = 'data:image/png;base64,' + result.patch_png_b64;
+      });
+      if (requestedImage !== currentImage) return;
+      baseCtx.clearRect(bx, by, bw, bh);
+      baseCtx.drawImage(patch, bx, by);
+    } else {
+      // Fallback if the server sends no patch, so an older build still works.
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        img.onload = resolve; img.onerror = reject;
+        img.src = '/api/template/' + requestedImage + '?t=' + Date.now();
+      });
+      if (requestedImage !== currentImage) return;
+      baseCtx.clearRect(0, 0, nativeW, nativeH);
+      baseCtx.drawImage(img, 0, 0);
+    }
     loadImageList(true);
   } catch (err) {
     if (requestedImage === currentImage) setStatus('Error: ' + err.message, true);

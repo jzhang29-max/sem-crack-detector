@@ -524,7 +524,13 @@ def api_flip_region(image_name):
     mode = data.get("mode", "toggle")
 
     template_path = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
-    old_template_arr = np.array(Image.open(template_path).convert("RGB")) if os.path.exists(template_path) else None
+    # Decode the old template ONLY when _resync_painted_file can actually use it: it returns
+    # immediately unless <image>_painted.png exists, and 58 of the 62 shipped frames have no
+    # painted file. Decoding a 22 MB PNG into a 72 MB array to hand it to a function that
+    # discards it cost 0.28 s of the 1.43 s every Whole-region click took.
+    _painted_exists = os.path.exists(os.path.join(PAINT_DIR, f"{image_name}_painted.png"))
+    old_template_arr = (np.array(Image.open(template_path).convert("RGB"))
+                        if _painted_exists and os.path.exists(template_path) else None)
 
     stage = get_stage(image_name)
     labeled, df = stage["labeled"], stage["df"]
@@ -595,10 +601,22 @@ def api_flip_region(image_name):
         _log_interior_origin_corrections(image_name, stage.get("interior_origin", {}), [label], forced_is_crack)
 
     new_template_img = build_simple_overlay(stage)
-    new_template_arr = np.array(new_template_img)
     if old_template_arr is not None:
-        _resync_painted_file(image_name, old_template_arr, new_template_arr)
+        _resync_painted_file(image_name, old_template_arr, np.array(new_template_img))
     new_template_img.save(template_path)
+
+    # Hand back ONLY the rectangle that changed. The client used to re-fetch
+    # /api/template, which is the whole 15-31 MB overlay, and decode a 25-megapixel PNG, to
+    # show an edit confined to one region's bounding box. A flip of a small region now sends
+    # a few KB. A region spanning the frame sends about what it did before, which is the
+    # honest worst case rather than a hidden one.
+    ys, xs = np.where(label_mask)
+    y0, y1 = int(ys.min()), int(ys.max()) + 1
+    x0, x1 = int(xs.min()), int(xs.max()) + 1
+    import base64, io as _io
+    _buf = _io.BytesIO()
+    new_template_img.crop((x0, y0, x1, y1)).save(_buf, format="PNG")
+    _patch = base64.b64encode(_buf.getvalue()).decode("ascii")
 
     return jsonify({
         "ok": True,
@@ -606,6 +624,9 @@ def api_flip_region(image_name):
         "area": area,
         "erased": mode == "erase",
         "newIsCrack": forced_is_crack,
+        "bbox": [x0, y0, x1 - x0, y1 - y0],
+        "patch_png_b64": _patch,
+        "patch_bytes": len(_patch),
     })
 
 
