@@ -213,6 +213,18 @@ kind of README misleads.
   leave-one-specimen-out), against 0.862 in-sample. A retrain that cannot beat the recorded
   out-of-sample baseline is refused rather than promoted.
 
+> **If you retrain, these three numbers stop agreeing with each other.** The held-out AUC is
+> read live from the deployed bundle, so it updates. The grouped-CV and pixel-level figures come
+> from committed artifacts and describe whatever model was deployed when they were measured. The
+> app now compares them by decision-surface fingerprint and labels each row `· unverified` or
+> `· other model` rather than presenting all three as current — but the fix for a real retrain
+> is to re-run the two experiments and rebuild `docs/img/detection.png` and `review.png`, which
+> also show the model that produced them.
+>
+> Re-measure with:
+> `./.venv/bin/python3 interior_active_learning/code/experiments/naive_baselines.py` and
+> `sam2_hybrid.py`, then the two `build_figures.py` commands in `docs/img/README.md`.
+
 **These numbers are in the app, not just here.** The sidebar model card carries a Performance
 block — held-out AUC, grouped-CV AUC with its spread, pixel f1, and a dash where the false-call
 rate would go — each row with a tooltip giving the protocol behind it. The collapsed line shows

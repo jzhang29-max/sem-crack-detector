@@ -65,7 +65,28 @@ def stamp(mode):
                              timeout=10).stdout.strip() or None
     except Exception:
         sha = None
-    out = {"detector_mode": mode, "git_commit": sha,
+    # A fingerprint of the DECISION SURFACE, not the file. Comparing model mtimes cries
+    # "stale" for a metadata-only rewrite -- recording the held-out baseline rewrites the
+    # bundle without touching a coefficient, which is exactly what happened on 2026-08-20 --
+    # while missing a genuine retrain that happens to leave the file older than an artifact.
+    # Eight coefficients, an intercept and a threshold identify the model that actually ran.
+    fp = None
+    try:
+        import hashlib as _h
+        import joblib as _jl
+        import numpy as _np
+        _b = _jl.load(up.PROD_MODEL_PATH)
+        _e = _b.get("clf") or _b
+        if hasattr(_e, "steps"):
+            _e = _e.steps[-1][1]
+        fp = _h.sha256(
+            _np.round(_np.concatenate([_np.ravel(_e.coef_), _np.ravel(_e.intercept_),
+                                       [float(_b.get("threshold", 0.5))]]), 8).tobytes()
+        ).hexdigest()[:12]
+    except Exception:
+        pass
+
+    out = {"detector_mode": mode, "git_commit": sha, "model_fingerprint": fp,
            "pipeline_default_at_runtime": up.SAM2_MODE,
            # This string is written into every experiment artifact, so a stale claim here
            # outlives any docstring. It read "'refine' is the shipped default" for as long as

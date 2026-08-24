@@ -1346,6 +1346,21 @@ refreshModelInfo = async function () {
       const perfRow = (label, val, tip) =>
         '<div class="row" title="' + String(tip).replace(/"/g, '&quot;') + '">' +
         '<span>' + label + '</span><b>' + val + '</b></div>';
+      // Which model does a static number describe? held-out AUC is read live from the bundle,
+      // so it always matches. grouped CV and pixel f1 come from committed artifacts. Retrain
+      // and those two would keep displaying the previous model's figures with nothing saying
+      // so. false = measured on a different decision surface; null = the artifact predates
+      // fingerprinting, so it is unverifiable rather than wrong.
+      const mark = (d) => d === false
+        ? ' <span style="color:var(--bad)">\u00b7 other model</span>'
+        : (d === null || d === undefined
+           ? ' <span style="color:var(--ink3)">\u00b7 unverified</span>' : '');
+      const markTip = (d) => d === false
+        ? ' MEASURED ON A DIFFERENT MODEL than the one deployed now -- re-run the experiment '
+          + 'before quoting it.'
+        : (d === null || d === undefined
+           ? ' This artifact predates model fingerprinting, so it cannot be confirmed to '
+             + 'describe the deployed model. Re-run the experiment to stamp it.' : '');
       let perf = '';
       if (m.held_out_auc != null)
         perf += perfRow('held out', 'AUC ' + m.held_out_auc.toFixed(3),
@@ -1355,7 +1370,9 @@ refreshModelInfo = async function () {
              m.in_sample_auc.toFixed(3) + '.' : '') +
           ' This is the bar a retrain has to clear before it is deployed.');
       if (g)
-        perf += perfRow('grouped CV', 'AUC ' + g.auc.toFixed(3) + ' \u00b1' + g.auc_sd.toFixed(3),
+        perf += perfRow('grouped CV',
+          'AUC ' + g.auc.toFixed(3) + ' \u00b1' + g.auc_sd.toFixed(3) +
+          mark(g.describes_this_model),
           g.repeats + ' x StratifiedGroupKFold(' + g.repeats + ') over ' + g.n_regions +
           ' candidate regions (' + g.n_pos + ' crack / ' + g.n_neg + ' not) from ' +
           g.n_groups + ' images, grouped so train and test never share an image. ' +
@@ -1363,15 +1380,16 @@ refreshModelInfo = async function () {
           ', worst repeat ' + g.balacc_worst.toFixed(3) + '. Recall ' + g.recall.toFixed(3) +
           ', specificity ' + g.specificity.toFixed(3) + ', precision ' +
           g.precision.toFixed(3) + '. This answers "how will it do on an image it has not ' +
-          'seen"; it scores the region LABEL, not the boundary.');
+          'seen"; it scores the region LABEL, not the boundary.' +
+          markTip(g.describes_this_model));
       if (pxm && pxm.f1 != null)
-        perf += perfRow('pixel f1', pxm.f1.toFixed(3),
+        perf += perfRow('pixel f1', pxm.f1.toFixed(3) + mark(pxm.describes_this_model),
           'Pixel level on adjudicated pixels over ' + pxm.n_frames + ' frames carrying both ' +
           'a crack and a not-crack verdict: recall ' + pxm.recall.toFixed(3) + ', specificity ' +
           pxm.specificity.toFixed(3) + ', precision ' + pxm.precision.toFixed(3) + '. Lower ' +
           'than the region number because drawing a boundary is harder than labelling a ' +
           'region -- about ' + Math.round((1 - pxm.recall) * 100) + '% of crack pixels are ' +
-          'still missed.');
+          'still missed.' + markTip(pxm.describes_this_model));
       if (P.false_calls_reason)
         perf += perfRow('false calls', '\u2014', P.false_calls_reason);
       if (perf)

@@ -510,6 +510,40 @@ def register(app, get_stage, invalidate_stage=None):
         # STATED, not omitted. The sibling TXM app shows false indications per frame on
         # crack-free specimens; this corpus has no frame established as crack-free, so the
         # row would have no denominator. Saying so beats leaving a gap to be noticed.
+        # WHICH MODEL DID THESE DESCRIBE? held_out_auc is read live from the deployed bundle,
+        # but grouped_cv and pixel come from committed artifacts measured against whatever was
+        # deployed then. Retrain and the panel would show one fresh number beside two
+        # describing the previous model, silently -- the exact failure this project refuses.
+        #
+        # Compared by DECISION SURFACE, not by file mtime. An mtime comparison cries stale for
+        # a metadata-only rewrite: recording the held-out baseline rewrote the bundle on
+        # 2026-08-20 without changing a single coefficient. Artifacts written before this
+        # existed carry no fingerprint, and "unknown" is reported as unknown rather than
+        # guessed either way.
+        try:
+            import hashlib as _h
+            import joblib as _jl
+            _bb = _jl.load(PROD_MODEL_PATH)
+            _ee = _bb.get("clf") or _bb
+            if hasattr(_ee, "steps"):
+                _ee = _ee.steps[-1][1]
+            _live_fp = _h.sha256(
+                np.round(np.concatenate([np.ravel(_ee.coef_), np.ravel(_ee.intercept_),
+                                         [float(_bb.get("threshold", 0.5))]]), 8).tobytes()
+            ).hexdigest()[:12]
+            out["model_fingerprint"] = _live_fp
+            for _k, _f in (("grouped_cv", bench), ("pixel", hyb)):
+                if _k not in out:
+                    continue
+                try:
+                    _art = _json.load(open(_f))
+                except Exception:
+                    continue
+                _afp = ((_art.get("detector") or {}).get("model_fingerprint")
+                        or (_art.get("detector_arms") or {}).get("bare", {}).get("model_fingerprint"))
+                out[_k]["describes_this_model"] = (None if not _afp else _afp == _live_fp)
+        except Exception:
+            pass
         out["false_calls"] = None
         out["false_calls_reason"] = (
             "no frame in this corpus is established as crack-free, so a false-call rate has "
