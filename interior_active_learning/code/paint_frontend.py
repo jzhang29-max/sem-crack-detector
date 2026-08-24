@@ -164,6 +164,36 @@ button:disabled{opacity:.4;cursor:default}
   border:1px solid var(--line2);border-radius:10px;padding:12px 14px;font-size:12px;
   color:var(--ink2);box-shadow:var(--shadow)}
 #help.open{display:block}
+
+/* CALIBRATION. Arming used to be announced only by a word in a 250 px readout inside a
+   collapsed panel, while the very next canvas click silently meant something different --
+   measure, not paint. A mode change that invisible is one people trigger by accident. The
+   banner is unmissable and the cursor changes with it. */
+#calibBar{position:fixed;left:50%;transform:translateX(-50%);top:14px;z-index:960;display:none;
+  align-items:center;gap:14px;background:#1d2634;border:1px solid var(--brand);
+  border-radius:10px;padding:11px 16px;box-shadow:var(--shadow);font-size:13px}
+#calibBar.on{display:flex}
+#calibBar b{color:var(--brand)}
+#calibBar .step{font-variant-numeric:tabular-nums;color:var(--ink3);font-size:11.5px}
+#canvasWrap.calib canvas{cursor:col-resize}
+#canvasWrap.calib{outline:2px solid var(--brand);outline-offset:-2px}
+
+/* One form instead of two stacked prompt() boxes. The second prompt appeared unannounced
+   and read like the first had failed, and neither could put an error next to the field that
+   caused it. */
+#calibForm{position:fixed;left:50%;transform:translateX(-50%);top:14px;z-index:961;display:none;
+  background:var(--surface2);border:1px solid var(--line2);border-radius:10px;
+  padding:14px 16px;box-shadow:var(--shadow);width:392px}
+#calibForm.on{display:block}
+#calibForm h4{margin:0 0 3px;font-size:13px}
+#calibForm .sub{font-size:11.5px;color:var(--ink3);margin-bottom:11px}
+#calibForm label{display:block;font-size:11.5px;color:var(--ink2);margin:9px 0 3px}
+#calibForm input{width:100%;padding:7px 9px;font:inherit;font-size:13px;color:var(--ink);
+  background:var(--surface);border:1px solid var(--line2);border-radius:6px}
+#calibForm .hint{font-size:11px;color:var(--ink3);margin-top:3px;line-height:1.45}
+#calibForm .err{display:none;margin-top:9px;font-size:11.5px;color:#ff8080;line-height:1.45}
+#calibForm .err.on{display:block}
+#calibForm .row2{display:flex;gap:9px;justify-content:flex-end;margin-top:14px}
 #help td{padding:3px 8px 3px 0}
 </style>
 </head>
@@ -244,6 +274,28 @@ button:disabled{opacity:.4;cursor:default}
       <button class="ghost" id="helpBtn">?</button>
     </div>
     <div class="note" id="advnote">SAM is switched off: this build runs the archived model on its own. Marks save themselves about a second after you stop drawing &mdash; there is no Save button. <span class="kbd">&#8984;Z</span> undoes strokes, and once those run out it undoes the last saved correction.</div>
+  </div>
+
+  <div id="calibBar">
+    <span id="calibMsg"><b>Set scale</b> &mdash; click the LEFT end of the scale bar</span>
+    <span class="step" id="calibStep">0 of 2 marked</span>
+    <button class="ghost" id="calibCancel" title="Esc also cancels">Cancel</button>
+  </div>
+
+  <div id="calibForm">
+    <h4>Scale bar</h4>
+    <div class="sub">Marked span <b id="calibSpan">0</b> px on <span id="calibImgName"></span></div>
+    <label for="calibUm">Scale bar label, in micrometres</label>
+    <input id="calibUm" type="number" step="any" min="0" placeholder="e.g. 400 for a 400 um bar" autocomplete="off">
+    <label for="calibHfw">Horizontal field width, in micrometres &mdash; optional</label>
+    <input id="calibHfw" type="number" step="any" min="0" placeholder="same info panel; blank to skip" autocomplete="off">
+    <div class="hint">Supplying HFW cross-checks the bar. If the two disagree by more than 5%
+      the calibration is refused rather than stored.</div>
+    <div class="err" id="calibErr"></div>
+    <div class="row2">
+      <button class="ghost" id="calibFormCancel">Cancel</button>
+      <button class="primary" id="calibSave">Save scale</button>
+    </div>
   </div>
 
   <div id="prog"></div>
@@ -626,8 +678,8 @@ paintCanvas.addEventListener('mousedown', (e) => {
   if (calibArm) {
     const [cx] = canvasCoords(e);
     calibMarks.push(cx);
-    setScaleState(`mark ${calibMarks.length} of 2 at x=${Math.round(cx)}`);
-    if (calibMarks.length === 2) { calibArm = false; finishCalibration(); }
+    calibUpdateBanner();
+    if (calibMarks.length === 2) { calibArm = false; calibSetArmed(false); openCalibForm(); }
     return;
   }
   if (tool === 'bucket') {
@@ -1575,28 +1627,46 @@ async function refreshScaleState() {
   } catch (e) { }
 }
 
-async function finishCalibration() {
-  const img = calibImage, imgW = calibW;   // pinned at arm time, not read at POST time
-  if (!img) { setScaleState('cancelled'); return; }
+function openCalibForm() {
   const span = Math.abs(calibMarks[1] - calibMarks[0]);
-  const label = prompt('Scale bar label in micrometres (e.g. 400 for "400 \u00b5m").\n' +
-                       'Marked span: ' + Math.round(span) + ' px', '');
-  if (label === null || label.trim() === '') { setScaleState('cancelled'); return; }
-  const um = parseFloat(label);
-  if (!(um > 0)) { setScaleState('not a number', false); return; }
-  // Offer the cross-check. HFW is printed in the same info panel, so the user can read
-  // it off; supplying it makes the server refuse a pair that disagrees by >5% instead of
-  // storing a calibration that would corrupt every exported length.
-  const hfw = prompt('Optional cross-check \u2014 horizontal field width (HFW) in ' +
-                     'micrometres, from the same info panel. Leave blank to skip.\n' +
-                     'If the two disagree by more than 5% the calibration is refused.', '');
-  const body = {mode: 'scale_bar', label_um: um,
-                x1: calibMarks[0], x2: calibMarks[1]};
-  if (hfw && parseFloat(hfw) > 0) {
-    body.hfw_um = parseFloat(hfw);
-    body.image_width_px = imgW;
+  document.getElementById('calibSpan').textContent = Math.round(span);
+  document.getElementById('calibImgName').textContent = calibImage || '';
+  const err = document.getElementById('calibErr');
+  err.classList.remove('on'); err.textContent = '';
+  document.getElementById('calibUm').value = '';
+  document.getElementById('calibHfw').value = '';
+  document.getElementById('calibForm').classList.add('on');
+  document.getElementById('calibUm').focus();
+}
+
+function calibShowErr(msg) {
+  const err = document.getElementById('calibErr');
+  err.textContent = msg; err.classList.add('on');
+}
+
+// Was two chained prompt() boxes. The second one appeared with no warning and read as though
+// the first had failed, and neither could show a refusal next to the field that caused it --
+// the server's reason went to an alert() and the form state was gone by then.
+async function saveCalibration() {
+  const img = calibImage, imgW = calibW;   // pinned at arm time, not read at POST time
+  if (!img) { calibCancelAll('cancelled'); return; }
+  const span = Math.abs(calibMarks[1] - calibMarks[0]);
+  const um = parseFloat(document.getElementById('calibUm').value);
+  if (!(um > 0)) { calibShowErr('Enter the scale bar\u2019s printed length in micrometres.'); return; }
+  const hfwRaw = document.getElementById('calibHfw').value.trim();
+  const body = {mode: 'scale_bar', label_um: um, x1: calibMarks[0], x2: calibMarks[1]};
+  if (hfwRaw !== '') {
+    const hfw = parseFloat(hfwRaw);
+    if (!(hfw > 0)) { calibShowErr('HFW must be a positive number, or left blank.'); return; }
+    body.hfw_um = hfw; body.image_width_px = imgW;
   }
-  setScaleState('checking\u2026');
+  // Clear any previous refusal FIRST. Without this a stale message from an attempt you have
+  // since fixed stays on screen next to the new one, and it is impossible to tell which
+  // attempt it belongs to -- it cost me a wrong diagnosis while testing this very form.
+  const errEl = document.getElementById('calibErr');
+  errEl.classList.remove('on'); errEl.textContent = '';
+  const btn = document.getElementById('calibSave');
+  btn.disabled = true; setScaleState('checking\u2026');
   let res, j;
   try {
     res = await fetch('/api/calibration/' + img,
@@ -1606,33 +1676,88 @@ async function finishCalibration() {
   } catch (e) {
     // Without this the readout sat on "checking..." forever and the user had no idea
     // whether anything was stored.
+    btn.disabled = false;
     setScaleState('request failed', false);
-    alert('Could not reach the server to store the calibration: ' + e.message);
+    calibShowErr('Could not reach the server: ' + e.message + '. Nothing was stored.');
     return;
   }
+  btn.disabled = false;
   if (res.status === 409) {
     // 409 covers every refusal the server makes, not just a bar-vs-HFW disagreement: a span
     // below the minimum comes back 409 too, and labelling that "readings disagree" sends the
-    // user hunting for an HFW problem they do not have. Use the server's own reason.
+    // user hunting for an HFW problem they do not have. Use the server's own reason, and put
+    // it in the form so the numbers that caused it are still on screen.
     const disagree = /disagreement/.test(j.error || '');
     setScaleState(disagree ? 'refused \u2014 readings disagree' : 'refused', false);
-    alert((j.error || 'the calibration was refused') +
-          '\n\nNothing was stored.' +
-          (disagree ? ' Re-mark the bar ends, or check the label.' : ''));
+    calibShowErr((j.error || 'the calibration was refused') + ' Nothing was stored.' +
+                 (disagree ? ' Re-mark the bar ends, or check the label.' : ''));
     return;
   }
-  if (!j.ok) { setScaleState('failed', false); alert(j.error || 'calibration failed'); return; }
-  setScaleState(j.record.um_per_px.toPrecision(4) + scalePrecisionText(j.record) + ' \u00b5m/px (scale_bar)', true);
+  if (!j.ok) {
+    setScaleState('failed', false);
+    calibShowErr(j.error || 'calibration failed');
+    return;
+  }
+  document.getElementById('calibForm').classList.remove('on');
+  calibMarks = [];
+  setScaleState(j.record.um_per_px.toPrecision(4) + scalePrecisionText(j.record) +
+                ' \u00b5m/px (scale_bar)', true);
+  setStatus('Scale stored: ' + j.record.um_per_px.toPrecision(4) +
+            ' \u00b5m/px \u2014 exported lengths for ' + img + ' are now micrometres');
+}
+
+// ---- calibration: arm, mark twice, then one form ----
+function calibSetArmed(on) {
+  const bar = document.getElementById('calibBar');
+  const wrap = document.getElementById('canvasWrap');
+  if (bar) bar.classList.toggle('on', on);
+  if (wrap) wrap.classList.toggle('calib', on);
+}
+function calibUpdateBanner() {
+  const msg = document.getElementById('calibMsg');
+  const step = document.getElementById('calibStep');
+  if (step) step.textContent = calibMarks.length + ' of 2 marked';
+  if (msg) msg.innerHTML = calibMarks.length === 0
+    ? '<b>Set scale</b> &mdash; click the LEFT end of the scale bar'
+    : '<b>Set scale</b> &mdash; now click the RIGHT end';
+}
+function calibCancelAll(why) {
+  calibArm = false; calibMarks = [];
+  calibSetArmed(false);
+  const f = document.getElementById('calibForm');
+  if (f) f.classList.remove('on');
+  if (why) setScaleState(why); else refreshScaleState();
 }
 
 document.getElementById('setScaleBtn').addEventListener('click', () => {
   if (!currentImage) { alert('Open an image first.'); return; }
-  // Pin the image NOW. finishCalibration blocks on two prompt() dialogs, and currentImage
-  // can change under it -- a click in the sidebar, or the arrow keys -- so reading
-  // currentImage at POST time could store one image's scale bar as another image's
-  // calibration, silently and with full provenance.
+  // Pin the image NOW. The form is modeless and currentImage can change under it -- a click
+  // in the sidebar, or the arrow keys -- so reading currentImage at save time could store
+  // one image's scale bar as another image's calibration, silently and with full provenance.
   calibArm = true; calibMarks = []; calibImage = currentImage; calibW = nativeW;
-  setScaleState('click the LEFT end of the scale bar');
+  calibSetArmed(true); calibUpdateBanner();
+  setScaleState('marking the scale bar\u2026');
+});
+
+document.getElementById('calibCancel').addEventListener('click',
+  () => calibCancelAll('cancelled'));
+document.getElementById('calibSave').addEventListener('click', saveCalibration);
+// Enter submits from either field: a two-field form that needs a mouse to finish is a
+// two-field form people abandon.
+for (const id of ['calibUm', 'calibHfw']) {
+  document.getElementById(id).addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); saveCalibration(); }
+  });
+}
+document.getElementById('calibFormCancel').addEventListener('click',
+  () => calibCancelAll('cancelled'));
+// Esc gets you out of a mode you entered by accident.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const f = document.getElementById('calibForm');
+  if (calibArm || (f && f.classList.contains('on'))) {
+    e.preventDefault(); calibCancelAll('cancelled');
+  }
 });
 
 document.getElementById('installSamBtn').addEventListener('click', async () => {

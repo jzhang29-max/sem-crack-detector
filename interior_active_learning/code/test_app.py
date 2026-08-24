@@ -406,6 +406,34 @@ def main():
           "collapsed via " + ("display" if "display:none" in _advc else "max-height"))
     check("hidden select drives the visual list", 'id="imageSelect" style="display:none"' in html)
 
+    # ---- the scale control: behind Advanced, and no prompt() dialogs ----
+    # "Set scale" arms the canvas so the next two clicks measure instead of paint. That mode
+    # change used to be announced only by a word in a 250 px readout inside a collapsed
+    # panel, and the flow then fired two chained prompt() boxes where the second appeared
+    # unannounced and read as though the first had failed. Neither could put a refusal next
+    # to the field that caused it.
+    _adv_seg = html[html.find('id="adv"'):html.find('id="prog"')]
+    check("the scale control stays behind Advanced",
+          'id="setScaleBtn"' in _adv_seg,
+          "it is setup, not part of the load/look/fix/retrain loop")
+    check("the calibration flow uses no prompt() dialogs",
+          "prompt(" not in html.split("function saveCalibration")[-1].split("function ")[0]
+          if "function saveCalibration" in html else False,
+          "a browser prompt cannot show a refusal beside the field that caused it")
+    check("arming the scale shows an unmissable banner",
+          'id="calibBar"' in html and "#calibBar.on" in html
+          and "#canvasWrap.calib" in html,
+          "banner plus a cursor change, so the mode is visible")
+    check("the scale form asks for the bar label and the optional HFW together",
+          'id="calibUm"' in html and 'id="calibHfw"' in html and 'id="calibSpan"' in html,
+          "one form, with the measured span shown, instead of two sequential prompts")
+    check("a refused calibration is reported in the form, not an alert",
+          'id="calibErr"' in html and "calibShowErr" in html,
+          "the numbers that caused the refusal are still on screen to correct")
+    check("Escape leaves the calibration mode",
+          "Escape" in html and "calibCancelAll" in html,
+          "a mode you can enter by accident needs a way out")
+
     # ---- autosave replaced the two save buttons ----
     check("Save button removed", 'id="saveBtn"' not in html)
     check("Save & Ingest button removed", 'id="ingestBtn"' not in html)
