@@ -406,33 +406,25 @@ def main():
           "collapsed via " + ("display" if "display:none" in _advc else "max-height"))
     check("hidden select drives the visual list", 'id="imageSelect" style="display:none"' in html)
 
-    # ---- the scale control: behind Advanced, and no prompt() dialogs ----
-    # "Set scale" arms the canvas so the next two clicks measure instead of paint. That mode
-    # change used to be announced only by a word in a 250 px readout inside a collapsed
-    # panel, and the flow then fired two chained prompt() boxes where the second appeared
-    # unannounced and read as though the first had failed. Neither could put a refusal next
-    # to the field that caused it.
-    _adv_seg = html[html.find('id="adv"'):html.find('id="prog"')]
-    check("the scale control stays behind Advanced",
-          'id="setScaleBtn"' in _adv_seg,
-          "it is setup, not part of the load/look/fix/retrain loop")
-    check("the calibration flow uses no prompt() dialogs",
-          "prompt(" not in html.split("function saveCalibration")[-1].split("function ")[0]
-          if "function saveCalibration" in html else False,
-          "a browser prompt cannot show a refusal beside the field that caused it")
-    check("arming the scale shows an unmissable banner",
-          'id="calibBar"' in html and "#calibBar.on" in html
-          and "#canvasWrap.calib" in html,
-          "banner plus a cursor change, so the mode is visible")
-    check("the scale form asks for the bar label and the optional HFW together",
-          'id="calibUm"' in html and 'id="calibHfw"' in html and 'id="calibSpan"' in html,
-          "one form, with the measured span shown, instead of two sequential prompts")
-    check("a refused calibration is reported in the form, not an alert",
-          'id="calibErr"' in html and "calibShowErr" in html,
-          "the numbers that caused the refusal are still on screen to correct")
-    check("Escape leaves the calibration mode",
-          "Escape" in html and "calibCancelAll" in html,
-          "a mode you can enter by accident needs a way out")
+    # ---- the scale control is GONE from the UI ----
+    # Calibration was a user-facing choice in Advanced: a "Set scale..." button that armed the
+    # canvas so the next two clicks measured instead of painting, plus an "uncalibrated"
+    # readout. It is not a decision a reviewer should be asked to make while marking cracks,
+    # and 0 of the 62 shipped frames carry instrument scale metadata, so it could never be
+    # answered automatically either. The whole surface was removed; calibration is a
+    # command-line step now. The server API and calibration.py are untouched, which is what
+    # semcrack.py's --um-per-px / --scale-csv / --from-metadata still go through.
+    for _gone in ("setScaleBtn", "scaleState", "calibBar", "calibForm", "calibUm", "calibHfw"):
+        check(f"the UI no longer exposes {_gone}", _gone not in html,
+              "calibration is a CLI step, not a question asked mid-review")
+    check("no calibration JavaScript is left behind",
+          not _re.search(r"calibArm|calibMarks|scalePrecisionText|setScaleState", html),
+          "a removed control that leaves its handlers behind throws on the next click")
+    _cal_imgs = requests.get(f"{BASE}/api/images", timeout=60).json()
+    check("the server calibration API is still there for the CLI",
+          bool(requests.get(f"{BASE}/api/calibration/"
+                            f"{_cal_imgs[0]['name']}", timeout=30).ok) if _cal_imgs else True,
+          "removing the button must not remove the route semcrack.py depends on")
 
     # ---- autosave replaced the two save buttons ----
     check("Save button removed", 'id="saveBtn"' not in html)
@@ -2067,14 +2059,19 @@ def main():
         _cal3.CALIB_PATH = _saved3
         shutil.rmtree(_ud, ignore_errors=True)
 
-    # The UI must never render an uncharacterised scale as +/-0%.
     _fe = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "paint_frontend.py")).read()
-    check("the frontend has a helper for showing scale precision",
-          "function scalePrecisionText" in _fe)
-    check("it guards on the value being a number, so null shows nothing",
-          "typeof rel !== 'number'" in _fe,
-          "an absent uncertainty must render as nothing, never as +/-0%")
+    # These two used to assert the frontend's scalePrecisionText helper existed and guarded
+    # `typeof rel !== 'number'`, so an uncharacterised scale never rendered as +/-0%. The UI
+    # no longer displays a scale figure at all -- the whole calibration control was removed on
+    # 2026-08-24 -- so the helper is gone and those checks would assert the presence of dead
+    # code. The property they protected still matters and is still covered, one layer down, by
+    # the two checks immediately above: an uncharacterised scale reports um_per_px_rel_sd
+    # absent with a "NOT characterised" note, never zero.
+    check("the UI shows no scale figure to get wrong",
+          "scalePrecisionText" not in _fe and "um_per_px_rel_sd" not in _fe,
+          "the +/-0% hazard is gone because the display is gone; the server-side "
+          "absent-not-zero contract is checked above")
     import re as _re3
     _bad_tokens = [t for t in ("--good", "--text-dim", "--text-faint")
                    if f"var({t})" in _re3.sub(r"//[^\n]*", "", _fe)]

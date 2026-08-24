@@ -468,17 +468,27 @@ anything here — see `docs/COMPETITIVE_POSITION.md`.
 
 ## Physical units and cross-image statistics
 
-Exported measurements are in **pixels** until an image is calibrated, and a crack length
-in pixels is not a publishable quantity. Calibrate from the app: **Advanced -> Set
-scale...**, click the two ends of the burned-in scale bar, and type its printed label. The
-span is measured from your two marks, so it does not inherit a hand-drawn line's aiming
-error.
+Exported measurements are in **pixels** until an image is calibrated, and a crack length in
+pixels is not a publishable quantity. **Calibration is a command-line step, not something the
+app asks you about.** It used to be a button in Advanced that armed the canvas so your next two
+clicks measured the scale bar instead of painting — a mode change offered mid-review, for a
+decision that has nothing to do with reviewing. That control was removed on 2026-08-24.
 
-Optionally type HFW from the same info panel as a cross-check. If the two readings
-disagree by more than 5% the calibration is **refused**, with both values shown, rather
-than stored — a wrong scale factor propagates into every exported length and still looks
-plausible. Uncalibrated is a state, not a 1.0 default: those images export pixel columns
-and say `"calibrated": false` in their provenance sidecar.
+```bash
+./.venv/bin/python3 code/semcrack.py --in ./m --out ./r --um-per-px 0.0431   # one scale
+./.venv/bin/python3 code/semcrack.py --in ./m --out ./r --scale-csv scale.csv # per image
+./.venv/bin/python3 code/semcrack.py --in ./m --out ./r --from-metadata       # instrument tags
+```
+
+`--from-metadata` reads FEI/ZEISS TIFF tags, and is the route that needs no measuring at all —
+but **none of the 62 shipped frames carry readable scale tags**, so on this corpus it is
+`--um-per-px` or `--scale-csv`.
+
+The refusals are unchanged and still live in `calibration.py`, which is what those flags go
+through: a scale bar and an HFW disagreeing by more than 5% is **refused** with both values
+shown rather than stored, because a wrong scale factor propagates into every exported length
+and still looks plausible. Uncalibrated is a state, not a 1.0 default — those images export
+pixel columns and say `"calibrated": false` in their provenance sidecar.
 
 ```bash
 ./.venv/bin/python3 interior_active_learning/code/crack_measurements.py --all      # per-crack CSVs
@@ -842,13 +852,13 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 ./.venv/bin/python3 interior_active_learning/code/test_app.py
 ```
 
-287 checks covering upload, detection, exports, correction precedence, region
+288 checks covering upload, detection, exports, correction precedence, region
 isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
 routing, physical-unit calibration, calibration *uncertainty*, instrument metadata,
 right-censoring, the specimen as statistical unit, the batch CLI and its refusals,
 cross-image aggregation, and train/serve parity.
 
-On a **fresh clone** you will see 277, not 287, with one reported as SKIP: overlays and
+On a **fresh clone** you will see 278, not 288, with one reported as SKIP: overlays and
 per-image measurement CSVs are derived artifacts and are not shipped, so the sections that
 need them have less to run against. A skip is printed with the exact command that builds the
 fixture, and never counts as a pass. `make test` exits 0 on a clean checkout — verified by

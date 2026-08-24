@@ -165,35 +165,6 @@ button:disabled{opacity:.4;cursor:default}
   color:var(--ink2);box-shadow:var(--shadow)}
 #help.open{display:block}
 
-/* CALIBRATION. Arming used to be announced only by a word in a 250 px readout inside a
-   collapsed panel, while the very next canvas click silently meant something different --
-   measure, not paint. A mode change that invisible is one people trigger by accident. The
-   banner is unmissable and the cursor changes with it. */
-#calibBar{position:fixed;left:50%;transform:translateX(-50%);top:14px;z-index:960;display:none;
-  align-items:center;gap:14px;background:#1d2634;border:1px solid var(--brand);
-  border-radius:10px;padding:11px 16px;box-shadow:var(--shadow);font-size:13px}
-#calibBar.on{display:flex}
-#calibBar b{color:var(--brand)}
-#calibBar .step{font-variant-numeric:tabular-nums;color:var(--ink3);font-size:11.5px}
-#canvasWrap.calib canvas{cursor:col-resize}
-#canvasWrap.calib{outline:2px solid var(--brand);outline-offset:-2px}
-
-/* One form instead of two stacked prompt() boxes. The second prompt appeared unannounced
-   and read like the first had failed, and neither could put an error next to the field that
-   caused it. */
-#calibForm{position:fixed;left:50%;transform:translateX(-50%);top:14px;z-index:961;display:none;
-  background:var(--surface2);border:1px solid var(--line2);border-radius:10px;
-  padding:14px 16px;box-shadow:var(--shadow);width:392px}
-#calibForm.on{display:block}
-#calibForm h4{margin:0 0 3px;font-size:13px}
-#calibForm .sub{font-size:11.5px;color:var(--ink3);margin-bottom:11px}
-#calibForm label{display:block;font-size:11.5px;color:var(--ink2);margin:9px 0 3px}
-#calibForm input{width:100%;padding:7px 9px;font:inherit;font-size:13px;color:var(--ink);
-  background:var(--surface);border:1px solid var(--line2);border-radius:6px}
-#calibForm .hint{font-size:11px;color:var(--ink3);margin-top:3px;line-height:1.45}
-#calibForm .err{display:none;margin-top:9px;font-size:11.5px;color:#ff8080;line-height:1.45}
-#calibForm .err.on{display:block}
-#calibForm .row2{display:flex;gap:9px;justify-content:flex-end;margin-top:14px}
 #help td{padding:3px 8px 3px 0}
 </style>
 </head>
@@ -265,8 +236,6 @@ button:disabled{opacity:.4;cursor:default}
       <div class="fld">Zoom <input type="range" id="zoom" min="10" max="800" value="100"><span class="num" id="zoomLabel">100%</span>
         <button class="ghost" id="fitBtn">Fit</button></div>
       <button class="ghost" id="installSamBtn" style="display:none" title="Install PyTorch + transformers into this app's virtualenv, no terminal needed">Enable SAM (+6% accuracy)</button>
-      <button class="ghost" id="setScaleBtn" title="Click the two ends of the burned-in scale bar, then type its label. Exported lengths become micrometres instead of pixels.">Set scale&hellip;</button>
-      <span class="num" id="scaleState" style="margin-left:6px">uncalibrated</span>
       <div class="sp"></div>
       <button class="ghost" id="reapplyBtn" title="Re-render every image with the current model">Re-apply model</button>
       <button class="ghost" id="undoBtn">Undo <span class="kbd">&#8984;Z</span></button>
@@ -274,28 +243,6 @@ button:disabled{opacity:.4;cursor:default}
       <button class="ghost" id="helpBtn">?</button>
     </div>
     <div class="note" id="advnote">SAM is switched off: this build runs the archived model on its own. Marks save themselves about a second after you stop drawing &mdash; there is no Save button. <span class="kbd">&#8984;Z</span> undoes strokes, and once those run out it undoes the last saved correction.</div>
-  </div>
-
-  <div id="calibBar">
-    <span id="calibMsg"><b>Set scale</b> &mdash; click the LEFT end of the scale bar</span>
-    <span class="step" id="calibStep">0 of 2 marked</span>
-    <button class="ghost" id="calibCancel" title="Esc also cancels">Cancel</button>
-  </div>
-
-  <div id="calibForm">
-    <h4>Scale bar</h4>
-    <div class="sub">Marked span <b id="calibSpan">0</b> px on <span id="calibImgName"></span></div>
-    <label for="calibUm">Scale bar label, in micrometres</label>
-    <input id="calibUm" type="number" step="any" min="0" placeholder="e.g. 400 for a 400 um bar" autocomplete="off">
-    <label for="calibHfw">Horizontal field width, in micrometres &mdash; optional</label>
-    <input id="calibHfw" type="number" step="any" min="0" placeholder="same info panel; blank to skip" autocomplete="off">
-    <div class="hint">Supplying HFW cross-checks the bar. If the two disagree by more than 5%
-      the calibration is refused rather than stored.</div>
-    <div class="err" id="calibErr"></div>
-    <div class="row2">
-      <button class="ghost" id="calibFormCancel">Cancel</button>
-      <button class="primary" id="calibSave">Save scale</button>
-    </div>
   </div>
 
   <div id="prog"></div>
@@ -430,9 +377,6 @@ let samInstalled = false;
 const USE_SAM = false;
 
 async function loadImage(name) {
-  // Keep the scale readout honest: it is per image, so a stale value from the
-  // previously opened frame would be worse than showing nothing.
-  setTimeout(refreshScaleState, 0);
   // Guards against a slow load (e.g. the largest images need multiple
   // minutes to generate a fresh template) finishing AFTER a later call for
   // a different image has already started -- without this, the slow call
@@ -672,16 +616,6 @@ async function commitStroke() {
 }
 
 paintCanvas.addEventListener('mousedown', (e) => {
-  // Calibration marks come first: while arming, a click measures the scale bar rather
-  // than painting. Without this gate the first mark would also lay down a stroke on the
-  // correction mask, so measuring the scale would silently edit the labels.
-  if (calibArm) {
-    const [cx] = canvasCoords(e);
-    calibMarks.push(cx);
-    calibUpdateBanner();
-    if (calibMarks.length === 2) { calibArm = false; calibSetArmed(false); openCalibForm(); }
-    return;
-  }
   if (tool === 'bucket') {
     const [x, y] = canvasCoords(e);
     flipRegion(x, y);
@@ -1336,9 +1270,12 @@ const expBtn = document.getElementById('exportBtn');
 const expMenu = document.getElementById('expMenu');
 expBtn.addEventListener('click', (e) => {
   e.stopPropagation();
-  const r = expBtn.getBoundingClientRect();
-  expMenu.style.left = r.left + 'px';
-  expMenu.style.top = (r.bottom + 5) + 'px';
+  // NO manual positioning. .menu is position:relative and .pop is position:absolute with
+  // top:calc(100% + 7px); right:0 -- the dropdown already places itself under the button.
+  // Assigning the button's VIEWPORT coordinates to a relative element offsets it by that
+  // much instead of moving it there, so one click displaced the menu by its own position
+  // (x 314 -> 628) and pushed the panel off the bottom of the window. The button worked;
+  // the menu flew away, which is indistinguishable from a dead button.
   expMenu.classList.toggle('open');
 });
 document.addEventListener('click', (e) => {
@@ -1575,23 +1512,6 @@ refreshModelPicker();
 // So the Enable SAM button got no click handler on load, and the code that reveals
 // it (and disables the Use SAM checkbox) never ran -- SAM could not be turned on
 // from the UI at all.
-// ---- physical-unit calibration -------------------------------------------------
-// How precise the scale is, shown beside it. A calibration displayed as a bare number
-// invites the reader to trust every digit; a 200 px bar marked to a pixel or two per end is
-// good to about 1%, and saying so is also the only thing that makes marking a LONGER bar
-// feel worth the extra second. Absent means not characterised -- never shown as 0%.
-function scalePrecisionText(rec) {
-  if (!rec) return '';
-  const rel = rec.um_per_px_rel_sd;
-  if (typeof rel !== 'number' || !(rel >= 0)) return '';
-  const pct = 100 * rel;
-  return ' \u00b1' + (pct < 1 ? pct.toFixed(2) : pct.toFixed(1)) + '%';
-}
-// Exported lengths were pixels, which is not a publishable quantity. Two clicks on the
-// burned-in scale bar plus its printed label give um/px exactly; the span is measured
-// from the marks rather than typed, so it does not inherit a hand-drawn line's aiming
-// error the way ImageJ's Set Scale does.
-let calibArm = false, calibMarks = [], calibImage = null, calibW = 0;
 
 // ---- sidebar density ------------------------------------------------------------
 // The list is the primary navigation for a 62-image corpus, so the chrome above and
@@ -1615,163 +1535,6 @@ function slimSidebar(nImages) {
     });
   }
 }
-
-// `good` picks the colour. NOTE the token is --ok, not --good: --good was never defined,
-// so `color: var(--good)` was invalid at computed-value time and fell back to the inherited
-// text colour. The effect was that a FAILED calibration went red (--bad exists) while a
-// SUCCESSFUL one showed no colour at all -- the confirmation was missing and the failure
-// was not, which is the wrong way round and is invisible unless you measure the DOM.
-function setScaleState(txt, good) {
-  const el = document.getElementById('scaleState');
-  if (!el) return;
-  el.textContent = txt;
-  el.style.color = good === true ? 'var(--ok)' : (good === false ? 'var(--bad)' : '');
-}
-
-async function refreshScaleState() {
-  if (!currentImage) return;
-  try {
-    const r = await (await fetch('/api/calibration/' + currentImage)).json();
-    if (r.calibrated && r.record) {
-      setScaleState(r.record.um_per_px.toPrecision(4) + scalePrecisionText(r.record) + ' \u00b5m/px (' + r.record.source + ')', true);
-    } else {
-      setScaleState('uncalibrated', null);
-    }
-  } catch (e) { }
-}
-
-function openCalibForm() {
-  const span = Math.abs(calibMarks[1] - calibMarks[0]);
-  document.getElementById('calibSpan').textContent = Math.round(span);
-  document.getElementById('calibImgName').textContent = calibImage || '';
-  const err = document.getElementById('calibErr');
-  err.classList.remove('on'); err.textContent = '';
-  document.getElementById('calibUm').value = '';
-  document.getElementById('calibHfw').value = '';
-  document.getElementById('calibForm').classList.add('on');
-  document.getElementById('calibUm').focus();
-}
-
-function calibShowErr(msg) {
-  const err = document.getElementById('calibErr');
-  err.textContent = msg; err.classList.add('on');
-}
-
-// Was two chained prompt() boxes. The second one appeared with no warning and read as though
-// the first had failed, and neither could show a refusal next to the field that caused it --
-// the server's reason went to an alert() and the form state was gone by then.
-async function saveCalibration() {
-  const img = calibImage, imgW = calibW;   // pinned at arm time, not read at POST time
-  if (!img) { calibCancelAll('cancelled'); return; }
-  const span = Math.abs(calibMarks[1] - calibMarks[0]);
-  const um = parseFloat(document.getElementById('calibUm').value);
-  if (!(um > 0)) { calibShowErr('Enter the scale bar\u2019s printed length in micrometres.'); return; }
-  const hfwRaw = document.getElementById('calibHfw').value.trim();
-  const body = {mode: 'scale_bar', label_um: um, x1: calibMarks[0], x2: calibMarks[1]};
-  if (hfwRaw !== '') {
-    const hfw = parseFloat(hfwRaw);
-    if (!(hfw > 0)) { calibShowErr('HFW must be a positive number, or left blank.'); return; }
-    body.hfw_um = hfw; body.image_width_px = imgW;
-  }
-  // Clear any previous refusal FIRST. Without this a stale message from an attempt you have
-  // since fixed stays on screen next to the new one, and it is impossible to tell which
-  // attempt it belongs to -- it cost me a wrong diagnosis while testing this very form.
-  const errEl = document.getElementById('calibErr');
-  errEl.classList.remove('on'); errEl.textContent = '';
-  const btn = document.getElementById('calibSave');
-  btn.disabled = true; setScaleState('checking\u2026');
-  let res, j;
-  try {
-    res = await fetch('/api/calibration/' + img,
-                      {method: 'POST', headers: {'Content-Type': 'application/json'},
-                       body: JSON.stringify(body)});
-    j = await res.json().catch(() => ({}));
-  } catch (e) {
-    // Without this the readout sat on "checking..." forever and the user had no idea
-    // whether anything was stored.
-    btn.disabled = false;
-    setScaleState('request failed', false);
-    calibShowErr('Could not reach the server: ' + e.message + '. Nothing was stored.');
-    return;
-  }
-  btn.disabled = false;
-  if (res.status === 409) {
-    // 409 covers every refusal the server makes, not just a bar-vs-HFW disagreement: a span
-    // below the minimum comes back 409 too, and labelling that "readings disagree" sends the
-    // user hunting for an HFW problem they do not have. Use the server's own reason, and put
-    // it in the form so the numbers that caused it are still on screen.
-    const disagree = /disagreement/.test(j.error || '');
-    setScaleState(disagree ? 'refused \u2014 readings disagree' : 'refused', false);
-    calibShowErr((j.error || 'the calibration was refused') + ' Nothing was stored.' +
-                 (disagree ? ' Re-mark the bar ends, or check the label.' : ''));
-    return;
-  }
-  if (!j.ok) {
-    setScaleState('failed', false);
-    calibShowErr(j.error || 'calibration failed');
-    return;
-  }
-  document.getElementById('calibForm').classList.remove('on');
-  calibMarks = [];
-  setScaleState(j.record.um_per_px.toPrecision(4) + scalePrecisionText(j.record) +
-                ' \u00b5m/px (scale_bar)', true);
-  setStatus('Scale stored: ' + j.record.um_per_px.toPrecision(4) +
-            ' \u00b5m/px \u2014 exported lengths for ' + img + ' are now micrometres');
-}
-
-// ---- calibration: arm, mark twice, then one form ----
-function calibSetArmed(on) {
-  const bar = document.getElementById('calibBar');
-  const wrap = document.getElementById('canvasWrap');
-  if (bar) bar.classList.toggle('on', on);
-  if (wrap) wrap.classList.toggle('calib', on);
-}
-function calibUpdateBanner() {
-  const msg = document.getElementById('calibMsg');
-  const step = document.getElementById('calibStep');
-  if (step) step.textContent = calibMarks.length + ' of 2 marked';
-  if (msg) msg.innerHTML = calibMarks.length === 0
-    ? '<b>Set scale</b> &mdash; click the LEFT end of the scale bar'
-    : '<b>Set scale</b> &mdash; now click the RIGHT end';
-}
-function calibCancelAll(why) {
-  calibArm = false; calibMarks = [];
-  calibSetArmed(false);
-  const f = document.getElementById('calibForm');
-  if (f) f.classList.remove('on');
-  if (why) setScaleState(why); else refreshScaleState();
-}
-
-document.getElementById('setScaleBtn').addEventListener('click', () => {
-  if (!currentImage) { alert('Open an image first.'); return; }
-  // Pin the image NOW. The form is modeless and currentImage can change under it -- a click
-  // in the sidebar, or the arrow keys -- so reading currentImage at save time could store
-  // one image's scale bar as another image's calibration, silently and with full provenance.
-  calibArm = true; calibMarks = []; calibImage = currentImage; calibW = nativeW;
-  calibSetArmed(true); calibUpdateBanner();
-  setScaleState('marking the scale bar\u2026');
-});
-
-document.getElementById('calibCancel').addEventListener('click',
-  () => calibCancelAll('cancelled'));
-document.getElementById('calibSave').addEventListener('click', saveCalibration);
-// Enter submits from either field: a two-field form that needs a mouse to finish is a
-// two-field form people abandon.
-for (const id of ['calibUm', 'calibHfw']) {
-  document.getElementById(id).addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); saveCalibration(); }
-  });
-}
-document.getElementById('calibFormCancel').addEventListener('click',
-  () => calibCancelAll('cancelled'));
-// Esc gets you out of a mode you entered by accident.
-document.addEventListener('keydown', (e) => {
-  if (e.key !== 'Escape') return;
-  const f = document.getElementById('calibForm');
-  if (calibArm || (f && f.classList.contains('on'))) {
-    e.preventDefault(); calibCancelAll('cancelled');
-  }
-});
 
 document.getElementById('installSamBtn').addEventListener('click', async () => {
   if (!confirm('Install PyTorch and transformers into this app\'s virtualenv?\n\n' +
