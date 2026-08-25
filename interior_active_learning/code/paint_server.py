@@ -30,6 +30,7 @@ import threading
 import warnings
 warnings.filterwarnings("ignore")
 import numpy as np
+import template_writer
 from PIL import Image
 from flask import Flask, request, jsonify, send_file, Response
 
@@ -341,6 +342,7 @@ def api_images():
     # loadImageList opens the first image automatically, so the app looked hung
     # on first launch. The frontend uses this flag to run the background
     # detection job instead, which reports progress.
+    template_writer.flush()          # existence is a read too: see template_writer
     for row in info:
         row["has_template"] = os.path.exists(
             os.path.join(PAINT_DIR, f"{row['name']}_paint_template.png"))
@@ -354,7 +356,11 @@ def api_template(image_name):
     # app is broken" rather than "no such image".
     if not os.path.exists(os.path.join(ORIGINAL_DIR, f"{image_name}.tif")):
         return jsonify({"ok": False, "error": "no such image"}), 404
-    template_path = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
+    # Barrier before the mtime comparison below: a deferred write lands a NEWER mtime
+    # later, so an unflushed read here would judge a current template stale and trigger a
+    # needless re-render.
+    template_path = template_writer.path_for_read(
+        os.path.join(PAINT_DIR, f"{image_name}_paint_template.png"))
     model_mtime = _model_mtime()
     is_stale = os.path.exists(template_path) and model_mtime is not None and \
         os.path.getmtime(template_path) < model_mtime
@@ -458,7 +464,8 @@ def api_stroke(image_name):
 
     # Shape from the template header -- PIL is lazy, so .size costs no decode. Falls
     # back to the cached stage only if there is no template yet.
-    tpl = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
+    tpl = template_writer.path_for_read(
+        os.path.join(PAINT_DIR, f"{image_name}_paint_template.png"))
     if os.path.exists(tpl):
         with Image.open(tpl) as im:
             W, H = im.size
@@ -603,7 +610,11 @@ def api_flip_region(image_name):
     new_template_img = build_simple_overlay(stage)
     if old_template_arr is not None:
         _resync_painted_file(image_name, old_template_arr, np.array(new_template_img))
-    new_template_img.save(template_path)
+    # Encoding this 22.8 MB PNG is 0.93 s of the 1.52 s the reviewer waits on, and nothing
+    # in the response needs it -- the patch below is cropped from the in-memory image, and
+    # the correction mask was already committed under mask_lock above. Deferred to the
+    # writer thread; every reader of the file flushes first. See template_writer.
+    template_writer.queue(template_path, new_template_img)
 
     # Hand back ONLY the rectangle that changed. The client used to re-fetch
     # /api/template, which is the whole 15-31 MB overlay, and decode a 25-megapixel PNG, to
@@ -635,7 +646,8 @@ def api_paintlayer(image_name):
     """If a previous painting session exists for this image, return just
     the painted strokes as a transparent-background PNG (diffed against
     the template) so the browser can resume from where it left off."""
-    template_path = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
+    template_path = template_writer.path_for_read(
+        os.path.join(PAINT_DIR, f"{image_name}_paint_template.png"))
     painted_path = os.path.join(PAINT_DIR, f"{image_name}_painted.png")
     if not os.path.exists(template_path) or not os.path.exists(painted_path):
         return ("", 204)
@@ -672,7 +684,8 @@ def api_save(image_name):
     header, b64 = data["dataURL"].split(",", 1)
     layer = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGBA")
 
-    template_path = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
+    template_path = template_writer.path_for_read(
+        os.path.join(PAINT_DIR, f"{image_name}_paint_template.png"))
     if not os.path.exists(template_path):
         _make_template(image_name)
     template = Image.open(template_path).convert("RGB")

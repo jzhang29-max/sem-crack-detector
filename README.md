@@ -165,7 +165,20 @@ The pipeline stage is still built in the background when you open an image (~204
 on the largest, ~25 s on smaller ones), because **Whole region** needs to know which
 connected region you clicked. Brush strokes do not wait for it.
 
-Whole-region clicks are immediate; they never go through this path.
+Whole-region clicks do not go through the stroke path at all. They cost **0.61 s** on a
+25-megapixel frame, down from 1.49 s. Two things were on the critical path that did not
+need to be: the click hands back only the changed rectangle (164 KB for a typical region,
+where it used to re-download the whole 15-31 MB overlay), and the 22.8 MB overlay PNG the
+click invalidates is now re-encoded on a writer thread rather than while you wait --
+0.93 s of the original 1.49 s. A region spanning the whole frame still sends about what
+the full overlay does; that is the honest worst case rather than a hidden one.
+
+The correction mask, which is the only source of truth, is still written synchronously on
+every edit -- nothing you record depends on the deferred write. Every reader of the
+overlay file drains pending writes first, so no part of the app can observe a stale one.
+[`template_writer.py`](interior_active_learning/code/template_writer.py) documents that
+contract, and the suite enforces it: coalescing, write-ordering, atomicity, and a source
+audit that fails if a newly added reader skips the barrier.
 
 ## Exports
 
@@ -864,13 +877,13 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 ./.venv/bin/python3 interior_active_learning/code/test_app.py
 ```
 
-289 checks covering upload, detection, exports, correction precedence, region
+300 checks covering upload, detection, exports, correction precedence, region
 isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
 routing, physical-unit calibration, calibration *uncertainty*, instrument metadata,
 right-censoring, the specimen as statistical unit, the batch CLI and its refusals,
 cross-image aggregation, and train/serve parity.
 
-On a **fresh clone** you will see 279, not 289, with one reported as SKIP: overlays and
+On a **fresh clone** you will see 290, not 300, with one reported as SKIP: overlays and
 per-image measurement CSVs are derived artifacts and are not shipped, so the sections that
 need them have less to run against. A skip is printed with the exact command that builds the
 fixture, and never counts as a pass. `make test` exits 0 on a clean checkout — verified by

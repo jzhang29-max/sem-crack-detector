@@ -119,6 +119,8 @@ def make_template(image_name):
     # been trained yet (score_interior_candidates returns nothing to add).
     stage = run_enhanced_pipeline(image_name)
     template_path = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
+    import template_writer
+    template_writer.discard(template_path)   # this render supersedes anything queued
     build_simple_overlay(stage).save(template_path)
     print(f"Wrote {template_path}")
     print(f"Copy it to {os.path.join(PAINT_DIR, image_name + '_painted.png')}, paint RED "
@@ -233,6 +235,13 @@ def _log_touched_labels(image_name, labels, verdict):
     is kept only as a human-readable hint of what the correction was."""
     if not labels:
         return
+    # Test artifacts must not enter the label ledger. The suite uploads synthetic frames
+    # under these reserved prefixes and exercises flip_region on them; every run was
+    # appending a row like "apptest_tif,1,False" to a tracked file of human corrections,
+    # so `make test` left research data dirty and a training run would have read a
+    # verdict nobody gave. The correction mask for those images is scratch either way.
+    if str(image_name).startswith(("apptest", "SELFTEST", "MASKGUARD")):
+        return
     new_df = pd.DataFrame([{"SourceImage": image_name, "Label": lbl, "CorrectedTo": verdict} for lbl in labels])
     if os.path.exists(ORIGINAL_PAINT_CORRECTIONS_PATH):
         existing = pd.read_csv(ORIGINAL_PAINT_CORRECTIONS_PATH)
@@ -292,7 +301,9 @@ def ingest(image_name, min_area=20, stage=None):
     parts) on every single ingest, which is what made repeated paint/erase/
     check cycles painfully slow. Recomputed fresh only if not provided
     (e.g. the CLI usage, which has no cache to reuse)."""
-    template_path = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
+    import template_writer
+    template_path = template_writer.path_for_read(
+        os.path.join(PAINT_DIR, f"{image_name}_paint_template.png"))
     painted_path = os.path.join(PAINT_DIR, f"{image_name}_painted.png")
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"{template_path} -- run make-template first")

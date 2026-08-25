@@ -28,6 +28,7 @@ import hashlib
 import os
 import re
 import shutil
+import tempfile
 import sys
 import time
 import warnings
@@ -621,7 +622,16 @@ def main():
         # frame, so nothing was painted while the endpoint still returned 200 and recorded an
         # undo entry. Requiring a large frame just turned the failure into a fallback; putting
         # the stroke inside whatever image exists is what the check actually needs.
-        _sn = _im[0]
+        # PREFER A SYNTHETIC TARGET. This picked _im[0], which on a fresh clone is a
+        # synthetic apptest_* upload but on a real working copy is a hand-labelled frame --
+        # so the suite exercised two write endpoints against irreplaceable research data and
+        # trusted undo to put it back. It mostly did: the correction mask came back
+        # byte-identical. What it did not undo was the region-override ledger, where a flip
+        # left a fabricated row (260622_316_H_b2_back_CBS_01,241,False) that would have gone
+        # straight into the next training set as a negative example nobody labelled.
+        _synth = [n for n in _im if n.startswith(("apptest", "SELFTEST", "MASKGUARD"))]
+        _sn = (_synth or _im)[0]
+        _sn_is_real = not _sn.startswith(("apptest", "SELFTEST", "MASKGUARD"))
         try:
             with Image.open(os.path.join(ORIGINAL_DIR, f"{_sn}.tif")) as _imh:
                 _iw, _ih = _imh.width, _imh.height
@@ -671,6 +681,148 @@ def main():
               requests.post(f"{BASE}/api/stroke/{_sn}",
                             json={"mode": "nonsense", "points": [[1, 1]]},
                             timeout=60).status_code == 400)
+
+        # ---- the deferred template write ----------------------------------------
+        # Encoding the 22.8 MB overlay PNG was 0.93 s of the 1.52 s a Whole-region click
+        # cost, and nothing in the response needs it, so it moved to a writer thread. The
+        # contract that makes that safe is that every reader flushes first, and these
+        # checks are the enforcement: the endpoint must still leave a template on disk
+        # reflecting the click by the time anyone can read it.
+        _tplp = os.path.join(PAINT_DIR, f"{_sn}_paint_template.png")
+        _before = hashlib.md5(open(_tplp, "rb").read()).hexdigest() \
+            if os.path.exists(_tplp) else None
+        _LEDGER = os.path.join(os.path.dirname(CODE), "labels",
+                               "original_paint_corrections.csv")
+        _ledger_before = hashlib.md5(open(_LEDGER, "rb").read()).hexdigest() \
+            if os.path.exists(_LEDGER) else None
+        # Pick the click point the way the reviewer does -- off the rendered overlay. The
+        # template tints crack red (R raised) and not-crack cyan (B raised) over a grey
+        # base, so a channel imbalance marks a candidate. There is no endpoint that lists
+        # regions with coordinates, and inventing one for a test would be testing nothing.
+        _pt = None
+        if os.path.exists(_tplp):
+            _ta = np.array(Image.open(_tplp).convert("RGB")).astype(np.int16)
+            for _dy, _dx in ((_ta[:, :, 0] - _ta[:, :, 1], "red"), (_ta[:, :, 2] - _ta[:, :, 0], "cyan")):
+                _ys, _xs = np.where(_dy > 40)
+                if len(_ys):
+                    _mid = len(_ys) // 2
+                    _pt = (int(_xs[_mid]), int(_ys[_mid])); break
+        if _sn_is_real:
+            # A flip writes a row to the region-override ledger, and undo does not remove it.
+            skip("a flip leaves the template current for the next reader",
+                 f"only synthetic targets may be flipped; {_sn} is a labelled frame")
+            _pt = None
+        elif _pt is None:
+            skip("a flip leaves the template current for the next reader",
+                 f"no tinted candidate pixel in the {_sn} overlay to click")
+        else:
+            _t0 = time.time()
+            _fr = requests.post(f"{BASE}/api/flip_region/{_sn}",
+                                json={"x": _pt[0], "y": _pt[1], "mode": "not_crack"},
+                                timeout=300)
+            _fel = time.time() - _t0
+            _fj = _fr.json() if _fr.headers.get("content-type", "").startswith("application/json") else {}
+            if _fr.status_code != 200:
+                skip("a flip leaves the template current for the next reader",
+                     f"no candidate at {_pt}: {_fj.get('error', _fr.status_code)}")
+            else:
+                # The property is "bounded by the region, not the frame" -- NOT an absolute
+                # byte cap. A region spanning the whole image legitimately sends about what
+                # the full overlay does; asserting 4 MB failed on exactly that case (6.7 MB
+                # for a frame-spanning region) which is documented behaviour, not a bug.
+                _fullsz = os.path.getsize(_tplp) if os.path.exists(_tplp) else 1 << 30
+                check("a whole-region flip sends a patch bounded by the region, not the frame",
+                      bool(_fj.get("patch_png_b64")) and _fj.get("patch_bytes", 1 << 30) <= _fullsz,
+                      f"{_fj.get('patch_bytes', 0)/1000:.0f} KB vs {_fullsz/1000:.0f} KB "
+                      f"full overlay, {_fel*1000:.0f} ms")
+                # The read barrier is the point: go through the endpoint a browser uses and
+                # require the bytes on disk to have changed. Without path_for_read this races.
+                _tr = requests.get(f"{BASE}/api/template/{_sn}", timeout=300)
+                _after = hashlib.md5(open(_tplp, "rb").read()).hexdigest() \
+                    if os.path.exists(_tplp) else None
+                check("a flip leaves the template current for the next reader",
+                      _tr.status_code == 200 and _after is not None and _after != _before,
+                      f"template md5 {str(_before)[:8]} -> {str(_after)[:8]}")
+                # And the flip must not have written to the human label ledger: a test
+                # frame is not a labelled observation. Guarded because it silently was.
+                check("flipping a synthetic frame leaves the label ledger untouched",
+                      _ledger_before == (hashlib.md5(open(_LEDGER, "rb").read()).hexdigest()
+                                         if os.path.exists(_LEDGER) else None),
+                      f"md5 {str(_ledger_before)[:8]} before, "
+                      f"{(hashlib.md5(open(_LEDGER, 'rb').read()).hexdigest()[:8] if os.path.exists(_LEDGER) else None)} after")
+                check("the deferred writer leaves no partial .tmp files behind",
+                      not [n for n in os.listdir(PAINT_DIR) if ".tmp" in n],
+                      str([n for n in os.listdir(PAINT_DIR) if ".tmp" in n])[:200])
+                requests.post(f"{BASE}/api/undo_correction/{_sn}", timeout=300)
+
+    print("\n[10c] template_writer: coalescing, ordering, and the read barrier")
+    import template_writer as _tw
+    _tdir = tempfile.mkdtemp(prefix="tplw_")
+    _tp = os.path.join(_tdir, "x_paint_template.png")
+
+    def _solid(v):
+        return Image.fromarray(np.full((8, 8, 3), v, np.uint8))
+
+    def _px():
+        return int(np.array(Image.open(_tp).convert("RGB"))[0, 0, 0])
+
+    _tw.queue(_tp, _solid(10))
+    check("flush() makes a queued write visible",
+          _tw.flush(timeout=60) and os.path.exists(_tp) and _px() == 10)
+    # LATEST WINS. Clicks arrive faster than a 0.9 s encode; if an older render could land
+    # last, the overlay on disk would contradict the correction mask.
+    for _v in (20, 30, 40):
+        _tw.queue(_tp, _solid(_v))
+    _tw.flush(timeout=60)
+    check("queued writes coalesce to the newest render", _px() == 40,
+          f"got {_px()}, wanted 40")
+    # discard() is for WRITE sites (app_undo, hybrid_detect, make-template): a queued write
+    # must not land after their own save and silently revert it.
+    _tw.queue(_tp, _solid(99))
+    _tw.discard(_tp)
+    _solid(55).save(_tp)
+    _tw.flush(timeout=60)
+    check("discard() stops a queued write from clobbering a later save", _px() == 55,
+          f"got {_px()}, wanted 55 (99 means the stale write won)")
+    _tw.queue(_tp, _solid(77))
+    check("path_for_read() drains before handing back the path",
+          int(np.array(Image.open(_tw.path_for_read(_tp)).convert("RGB"))[0, 0, 0]) == 77)
+    check("the writer reports no failures", not _tw.failures(), str(_tw.failures())[:300])
+    check("nothing is left pending", _tw.pending_count() == 0)
+    shutil.rmtree(_tdir, ignore_errors=True)
+
+    # SOURCE AUDIT. A barrier is only as good as the next person remembering it, so require
+    # every template read in server-reachable code to pass through one. Adding a bare
+    # open(os.path.join(PAINT_DIR, ...template.png)) fails this check.
+    _exempt = {"test_app.py", "template_writer.py", "regenerate_templates.py"}
+    _unguarded = []
+    for _fn in sorted(os.listdir(CODE)):
+        if not _fn.endswith(".py") or _fn in _exempt:
+            continue
+        _src = open(os.path.join(CODE, _fn)).read()
+        _lines = _src.splitlines()
+        _barriers = ("path_for_read", "template_writer.discard", "_tw.discard",
+                     "template_writer.flush", "template_writer.queue")
+        for _i, _ln in enumerate(_lines):
+            # Only real path construction, not a docstring or comment mentioning the name.
+            if "_paint_template.png" not in _ln or "os.path.join(PAINT_DIR" not in _ln:
+                continue
+            _win = "\n".join(_lines[max(0, _i - 4):_i + 4])
+            if any(_t in _win for _t in _barriers):
+                continue
+            # The path may be assigned to a variable whose barrier call is further off --
+            # follow the variable through the whole file rather than widening the window
+            # until every violation slips through it.
+            _var = None
+            for _j in range(max(0, _i - 3), _i + 1):
+                _lhs = _lines[_j].split("=")[0].strip()
+                if _lhs.isidentifier():
+                    _var = _lhs
+            if _var and any(f"{_b}({_var}" in _src for _b in _barriers):
+                continue
+            _unguarded.append(f"{_fn}:{_i + 1}")
+    check("every template read in server code passes a writer barrier",
+          not _unguarded, ", ".join(_unguarded))
 
     print("\n[11a] every shipped image still renders")
     _imgs = requests.get(f"{BASE}/api/images", timeout=60).json()

@@ -44,7 +44,11 @@ CODE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def _template(image_name):
-    return os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
+    # Every caller of this helper reads the file, so the barrier belongs here rather than
+    # repeated at each call site. See template_writer.
+    import template_writer
+    return template_writer.path_for_read(
+        os.path.join(PAINT_DIR, f"{image_name}_paint_template.png"))
 
 
 def _crack_mask_from_template(image_name):

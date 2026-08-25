@@ -174,8 +174,12 @@ def register(app, invalidate_stage, get_stage=None):
                 _lab, _df = apply_pixel_corrections(stage["labeled"].copy(),
                                                     stage["df"].copy(), _m)
                 stage = dict(stage, labeled=_lab, df=_df)
-            build_simple_overlay(stage).save(
-                os.path.join(PAINT_DIR, f"{image_name}_paint_template.png"))
+            import template_writer
+            _tp = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
+            # A queued write from the flip we are undoing would land after this one and
+            # restore the state being undone. Drop it first.
+            template_writer.discard(_tp)
+            build_simple_overlay(stage).save(_tp)
             df = stage["df"]
             counts_path = os.path.join(PAINT_DIR, "candidate_counts.json")
             counts = {}

@@ -252,10 +252,12 @@ def _ingest_upload(storage):
     # upload could seize that name and inherit a stranger's hand-marked labels,
     # silently transplanting them onto different pixels.
     from common import _correction_mask_path
+    import template_writer as _tw
     def _taken(nm):
         return (os.path.exists(os.path.join(ORIGINAL_DIR, f"{nm}.tif"))
                 or os.path.exists(_correction_mask_path(nm))
-                or os.path.exists(os.path.join(PAINT_DIR, f"{nm}_paint_template.png")))
+                or os.path.exists(_tw.path_for_read(
+                    os.path.join(PAINT_DIR, f"{nm}_paint_template.png"))))
 
     # Reserve the name under a lock and create the file immediately with O_EXCL.
     # Two uploads of the same filename used to both pass the existence check and

@@ -50,7 +50,9 @@ EXPORT_DIR = os.path.join(PROJECT_ROOT, "figures", "exports")
 
 
 def crack_mask(image_name):
-    p = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
+    import template_writer
+    p = template_writer.path_for_read(
+        os.path.join(PAINT_DIR, f"{image_name}_paint_template.png"))
     if not os.path.exists(p):
         return None
     a = np.array(Image.open(p).convert("RGB")).astype(np.int16)

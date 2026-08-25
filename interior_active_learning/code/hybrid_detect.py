@@ -277,8 +277,10 @@ def render_and_record(image_name, use_sam=False, progress=None):
 
     stage = detect(image_name, use_sam=use_sam, progress=progress)
     n_sam = fold_sam_into_candidates(stage, image_name)
-    build_simple_overlay(stage).save(
-        os.path.join(PAINT_DIR, f"{image_name}_paint_template.png"))
+    import template_writer
+    _tp = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
+    template_writer.discard(_tp)      # this render supersedes anything queued
+    build_simple_overlay(stage).save(_tp)
     df = stage["df"]
     counts_path = os.path.join(PAINT_DIR, "candidate_counts.json")
     counts = {}
