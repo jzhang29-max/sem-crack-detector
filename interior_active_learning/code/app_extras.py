@@ -159,6 +159,22 @@ def register(app, list_images, invalidate_stage):
                 cv = (b.get("cv_results") or {}).get(b.get("model_family", ""), {}) or {}
                 if cv.get("loio_auc_exhaustive_image") is not None:
                     rec["held_out_auc"] = round(float(cv["loio_auc_exhaustive_image"]), 4)
+                elif b.get("loio_out_of_sample") is not None:
+                    # FALL BACK so every row can show a score. The deployed bundle carries
+                    # loio_out_of_sample but no model_family, so the cv lookup above missed and
+                    # the LIVE model displayed no AUC at all -- while a freshly trained
+                    # candidate displayed one. A reviewer deciding whether to try the candidate
+                    # was shown its number and nothing to compare it against.
+                    rec["held_out_auc"] = round(float(b["loio_out_of_sample"]), 4)
+                    rec["held_out_auc_note"] = (
+                        "measured when this model was trained, on the corpus as it stood then; "
+                        "not necessarily the same held-out rows as a newer candidate")
+                # NOT surfacing prod_auc_on_loio_image here, deliberately. It is the model
+                # that was live at training time re-scored on the candidate's held-out image --
+                # an image that model was TRAINED on. train_v3_weighted.py prints it with the
+                # words "optimistic -- it was trained with this image's labels". Putting it in
+                # this list beside two honest out-of-sample figures invites exactly the
+                # in-sample-vs-out-of-sample comparison the promotion gate exists to prevent.
             except Exception as e:
                 rec["error"] = f"{type(e).__name__}"
             out.append(rec)

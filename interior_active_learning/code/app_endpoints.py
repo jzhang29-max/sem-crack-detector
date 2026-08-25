@@ -771,6 +771,28 @@ def register(app, get_stage, invalidate_stage=None):
                                 f"if something on the same image is labelled not-crack.")
                     if _lb.get("warning"):
                         _bits.append(_lb["warning"])
+                    # KEEP THE REFUSED CANDIDATE, UNDER A NAME THAT SAYS WHAT IT IS, AND SAY
+                    # SO. Refusing to deploy is right; discarding the reviewer's work is not.
+                    # The candidate already sat in models/ as crack_classifier_v3_weighted.joblib
+                    # and was already selectable from the model dropdown -- but nothing told the
+                    # reviewer that, the name reads like an internal build artifact, and the NEXT
+                    # retrain overwrites it. Copy it to a stamped CANDIDATE name so it survives,
+                    # and name it in the reason so it can actually be tried.
+                    _kept = None
+                    try:
+                        if os.path.exists(cand):
+                            _cstamp = time.strftime("%Y%m%d-%H%M%S", time.localtime())
+                            _kept = f"crack_classifier_CANDIDATE-{_cstamp}.joblib"
+                            shutil.copy2(cand, os.path.join(PROJECT_ROOT, "models", _kept))
+                    except OSError as _e:
+                        print(f"could not preserve the refused candidate: {_e}")
+                    if _kept:
+                        out["candidate_kept_as"] = _kept
+                        _bits.append(
+                            f"The model it trained is kept as {_kept} and is listed in the model "
+                            f"dropdown (Options -> model), so you can switch to it and look at "
+                            f"the overlays yourself; switching back is one more click and the "
+                            f"current model is untouched either way.")
                     if _bits:
                         reason = reason + ". " + " ".join(_bits)
                 else:

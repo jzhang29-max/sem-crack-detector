@@ -1043,6 +1043,27 @@ def main():
     _ae_src = open(os.path.join(CODE, "app_endpoints.py")).read()
     _refusal = _ae_src[_ae_src.find("_go, _why = promotion_decision"):]
     _refusal = _refusal[:_refusal.find("out[\"promoted\"]")]
+    # A REFUSAL MUST NOT DISCARD THE WORK. Refusing to deploy is right; throwing away the
+    # model the reviewer's labelling produced is not. It was already sitting in models/ as
+    # crack_classifier_v3_weighted.joblib and already selectable, but nothing said so, the name
+    # reads like a build artifact, and the NEXT retrain overwrites it.
+    check("a refused candidate is preserved under a stamped name",
+          "crack_classifier_CANDIDATE-" in _refusal,
+          "otherwise the next retrain destroys it")
+    check("the refusal tells the reviewer where to find it",
+          "model dropdown" in _refusal and "candidate_kept_as" in _refusal,
+          "a model they cannot find is a model they do not have")
+    # And the listing must be able to show a score for EVERY model, including the deployed one,
+    # or there is nothing to compare the candidate against.
+    _ax_src = open(os.path.join(CODE, "app_extras.py")).read()
+    check("the model list can show a score for the deployed model too",
+          "loio_out_of_sample" in _ax_src and "held_out_auc" in _ax_src,
+          "the live model showed no AUC while candidates showed one")
+    # ...but NOT the in-sample one, which would invite the exact comparison the gate forbids.
+    check("the model list does not surface the optimistic in-sample figure",
+          "deployed_auc_on_same_rows" not in _ax_src,
+          "prod_auc_on_loio_image is in-sample for the deployed model")
+
     check("a refusal explains itself, not just the verdict",
           "label_balance" in _refusal and "pooled_auc" in _refusal
           and "reason = reason" in _refusal,
@@ -2143,8 +2164,26 @@ def main():
           os.path.exists(os.path.join(_e_dirty, "run_manifest.json")))
     if os.path.exists(os.path.join(_e_dirty, "run_manifest.json")):
         _md2 = json.load(open(os.path.join(_e_dirty, "run_manifest.json")))
+        # Compare against the DEPLOYED BUNDLE's threshold, not a hardcoded 0.5. This check
+        # asserted == 0.5, which quietly assumed whichever model happened to be deployed when
+        # it was written. The moment a reviewer retrains and applies their own model -- the
+        # documented workflow, one click in the model dropdown -- the deployed threshold moves
+        # (0.5 -> 0.5483 here) and this failed, reporting a defect that does not exist and
+        # blaming the recipient's own labelling work. The property under test is "the manifest
+        # reports the threshold that actually decided, not an inherited SEMCRACK_THRESHOLD",
+        # and that is about provenance, not about any particular number.
+        _dep_thr = 0.5
+        try:
+            import joblib as _jl
+            _dep_thr = float(_jl.load(PROD_MODEL_PATH).get("threshold", 0.5))
+        except Exception:
+            pass
         check("the manifest's threshold is the one that actually decided",
-              _md2.get("threshold") == 0.5 and _md2.get("threshold_as_given") is None)
+              _md2.get("threshold") is not None
+              and abs(float(_md2["threshold"]) - _dep_thr) < 1e-9
+              and _md2.get("threshold_as_given") is None,
+              f"manifest {_md2.get('threshold')} vs deployed bundle {_dep_thr}; "
+              f"the inherited 0.99 must not appear in either")
 
     # A mistyped --corrections path must not be created empty and then reported as applied.
     _typo = os.path.join(_md, "no_such_corrections")
