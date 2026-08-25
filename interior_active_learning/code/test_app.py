@@ -578,6 +578,15 @@ def main():
             check("erase test found a Pass 2 region", True,
                   f"{_n2} has none big enough; nothing to protect, skipped")
         else:
+            # RESTORE BY BYTES, NOT BY PIXELS. This used to re-save the mask through
+            # save_correction_mask in the finally below, which re-encodes the PNG: the pixels
+            # came back exactly, the FILE did not. On macOS the re-encode happened to be
+            # byte-identical so git stayed quiet; on Linux it was not, and CI reported
+            # 260708_316_H_b2_front_CBS_002_correction_mask.png as modified after every run.
+            # This test has to write to a real frame (it needs a genuine Pass 2 region), so the
+            # restore has to be exact -- keep the original file verbatim and put it back.
+            _keep_path = os.path.join(PAINT_DIR, f"{_n2}_correction_mask.png")
+            _keep_bytes = open(_keep_path, "rb").read() if os.path.exists(_keep_path) else None
             _keep = _ld(_n2, _lab.shape)
             _sel = (_lab == _tgt)
             _m = _np.zeros(_lab.shape, dtype=_np.uint8)
@@ -590,12 +599,15 @@ def main():
                 check("erased pixels do not come back as crack", _back == 0,
                       f"{_back}/{int(_sel.sum())} returned; Pass 2 must not re-claim them")
             finally:
-                if _keep is not None:
-                    _sv(_n2, _keep)
-                else:
-                    _p = os.path.join(PAINT_DIR, f"{_n2}_correction_mask.png")
-                    if os.path.exists(_p):
-                        os.remove(_p)
+                if _keep_bytes is not None:
+                    with open(_keep_path, "wb") as _fh:
+                        _fh.write(_keep_bytes)          # byte-exact, not a re-encode
+                elif os.path.exists(_keep_path):
+                    os.remove(_keep_path)
+                _now = open(_keep_path, "rb").read() if os.path.exists(_keep_path) else None
+                check("the erase test restores the real mask it borrowed, byte for byte",
+                      _now == _keep_bytes,
+                      f"{_n2}: {'restored exactly' if _now == _keep_bytes else 'DIFFERS'}")
 
     # An (H,W,3) TIFF must be stored as (H,W) greyscale. `while arr.ndim > 2:
     # arr = arr[0]` treated the colour axis as a page axis, so a 6.3-megapixel RGB
