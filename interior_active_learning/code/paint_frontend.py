@@ -290,6 +290,9 @@ let drawing = false;
 let lastX = 0, lastY = 0;
 let undoStack = [];
 let currentImage = null;
+// Which image the canvas is actually showing. Set only where the draw commits, so
+// canvasImage !== currentImage means "a load is in flight and the pixels are stale".
+let canvasImage = null;
 let tool = 'paint'; // 'paint' (brush) | 'bucket' (click-to-flip a whole region)
 
 const baseCanvas = document.getElementById('baseCanvas');
@@ -459,6 +462,14 @@ async function loadImage(name) {
   // stillCurrent() guard and at the point the draw commits, so whichever load wins a race owns
   // both the canvas and the edit target.
   currentImage = name;
+  // ...and record which image the PIXELS belong to, at the same instant, so the two cannot
+  // drift. The dropdown's change handler assigns currentImage eagerly and then calls loadImage
+  // without awaiting it, so between a click and the draw -- up to ~95 s for an unrendered
+  // 25-megapixel frame, because loadImage runs the detection -- currentImage is the new image
+  // while the canvas still shows the old one. mousedown had no guard for that, so a stroke in
+  // that window committed OLD canvas coordinates into the NEW image's mask: the same
+  // wrong-target write as the upload bug, in the opposite direction.
+  canvasImage = name;
 
   nativeW = img.naturalWidth;
   nativeH = img.naturalHeight;
@@ -627,7 +638,19 @@ async function commitStroke() {
   }
 }
 
+function editableNow() {
+  // Do not let anything be recorded against an image whose pixels are not on screen. This is
+  // the invariant, not a timer: both variables are assigned at the single point the draw
+  // commits, so they agree exactly when what you see is what you would be editing.
+  if (canvasImage !== currentImage) {
+    setStatus('Still loading ' + (currentImage || '') + ' \u2014 wait for it to appear before marking');
+    return false;
+  }
+  return true;
+}
+
 paintCanvas.addEventListener('mousedown', (e) => {
+  if (!editableNow()) return;
   if (tool === 'bucket') {
     const [x, y] = canvasCoords(e);
     flipRegion(x, y);
@@ -744,7 +767,17 @@ document.getElementById('zoom').addEventListener('input', (e) => {
   applyZoomStyle();
 });
 document.getElementById('fitBtn').addEventListener('click', fitZoom);
-document.getElementById('undoBtn').addEventListener('click', undo);
+function undoEverything() {
+  // The BUTTON and Cmd-Z must do the same thing. The button used to call undo() alone, which
+  // only repaints the canvas: the stroke vanished from the screen while the correction stayed
+  // recorded in the mask on disk, so the reviewer believed it was undone and the label went on
+  // to training anyway. The comment on the keyboard path already said why that is wrong -- "the
+  // local canvas undo only repaints, it cannot unsay what the mask already records" -- but only
+  // the keyboard path acted on it. One function now, so they cannot drift apart again.
+  undo();               // repaint the canvas
+  undoCommitted();      // and revert the committed mask
+}
+document.getElementById('undoBtn').addEventListener('click', undoEverything);
 
 // Cmd-Z / Ctrl-Z for undo. The tool had no keyboard shortcuts at all, and
 // reaching for the mouse after every misplaced stroke is the wrong ergonomics
@@ -770,8 +803,7 @@ window.addEventListener('keydown', (e) => {
     // overlay re-download. So pressing Cmd-Z right after a 24 ms stroke dragged the
     // whole 8-second path back into the session, which is exactly what "still saving
     // really slowly" was.
-    undo();                       // repaint the canvas
-    undoCommitted();              // and revert the committed mask
+    undoEverything();             // repaint the canvas AND revert the committed mask
   } else if (!mod && k === 'f') {
     e.preventDefault();
     fitZoom();

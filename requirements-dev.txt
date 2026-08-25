@@ -1,0 +1,18 @@
+# Development and test extras. NOT needed to run the app -- `./run` installs
+# requirements.txt only, and `make test` (326 server-side checks) needs nothing from here.
+#
+# This exists for interior_active_learning/code/test_browser.py, which drives the real UI in a
+# real browser. That test is separate because it is the only way to catch a whole class of
+# defect: the app once passed every server-side check while a brush stroke made straight after
+# an upload was writing into a DIFFERENT image's correction mask, because the bug was in which
+# name the client sent, not in what the server did with it.
+#
+#   ./.venv/bin/python3 -m pip install -r requirements-dev.txt
+#   ./.venv/bin/python3 -m playwright install chromium     # ~150 MB, one-off
+#   make test-browser
+#
+# playwright's floor is where sync_api and the DataTransfer-based drop used by the test are
+# both stable; the pinned version this was last run against is noted so a future failure can
+# be told apart from a playwright change.
+#   tested: playwright 1.62.0, chromium 151.0.7922.34
+playwright>=1.48

@@ -1,5 +1,5 @@
 # So `make` alone starts the app. Nothing else is required.
-.PHONY: run setup test
+.PHONY: run setup test test-browser test-all
 run:
 	@./run
 
@@ -21,3 +21,15 @@ test: setup
 	 BASE=http://127.0.0.1:8799 ./.venv/bin/python3 \
 	   interior_active_learning/code/test_app.py; RC=$$?; \
 	 kill $$SRV 2>/dev/null || true; wait $$SRV 2>/dev/null || true; exit $$RC
+
+# The browser test. Separate from `test` on purpose: it needs playwright plus a ~150 MB
+# chromium download, which is too much to impose on someone who just wants to run the app.
+# It starts its own server against empty scratch directories and touches no repo data.
+#   ./.venv/bin/python3 -m pip install -r requirements-dev.txt
+#   ./.venv/bin/python3 -m playwright install chromium
+test-browser:
+	@./.venv/bin/python3 interior_active_learning/code/test_browser.py
+
+# Everything. test_app.py covers the server, test_browser.py covers what only a browser can
+# see -- a stroke going to the wrong image's mask was invisible to 326 server-side checks.
+test-all: test test-browser

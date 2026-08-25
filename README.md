@@ -952,7 +952,30 @@ fixture, and never counts as a pass. `make test` exits 0 on a clean checkout —
 every tracked file to an empty directory, running `make setup` and `make test` there, and
 reading the result: 315 passed, 0 failed, 1 skipped, 316 total. Both numbers here are
 measured that way rather than derived by subtracting from the full count.
-`make test` runs the same thing.
+
+**The browser test.** `make test` drives the server over HTTP, and that is not enough: it
+passed 326 checks while a brush stroke made straight after an upload was writing into a
+*different* image's correction mask, because the defect was in which name the client sent, not
+in what the server did with it. So there is a second suite that drives the real UI in a real
+browser — upload two frames, paint, and assert **which mask file changed on disk**:
+
+```bash
+./.venv/bin/python3 -m pip install -r requirements-dev.txt
+./.venv/bin/python3 -m playwright install chromium
+make test-browser          # or `make test-all` for both suites
+```
+
+It is separate because it needs playwright and a ~150 MB chromium download, which is too much
+to impose on someone who just wants to run the app. It starts its own server against empty
+scratch directories and every image it uses is one it draws itself, so it cannot touch the
+shipped data even if the bug it guards against were fully reintroduced. Each of its checks was
+confirmed by reverting the corresponding fix and watching it fail: with the upload fix and the
+stale-canvas guard both removed it reports *"edits went to the wrong image"* and names the mask.
+
+What neither suite covers, so nobody over-reads a pass: nothing here has been executed on
+Linux. The Retrain re-render's measured 15.8 GB peak is never reproduced by a test. There is no
+GPU in play, so the CUDA-then-MPS-then-CPU device order stays unverified. And SAM 2 is off by
+default, so its checkpoint is never fetched.
 
 The count is not evidence about the science, and it should not be read as one. Several
 of these tests exist because a check that *could not fail* had already certified
