@@ -100,6 +100,19 @@ def measure_stage(image_name, stage, crack_mask_override=None):
     n_bridge_px = 0
     if bridge is not None:
         bridge = np.asarray(bridge, dtype=bool)
+        # THE HUMAN VETOES A ROUTE, NOT JUST A REGION. merge_large_cracks runs after
+        # apply_pixel_corrections, so a region the reviewer marked not-crack is no longer
+        # IsCrack and cannot be an endpoint. But the Dijkstra route between two legitimate
+        # endpoints is traced through the brightness field alone, so it can still cross
+        # pixels the reviewer explicitly ruled on -- measured at 25 px on
+        # 260708_316_H_b2_front_CBS_012 and 44 px on AS_24hr_BSE_Side_008. Those pixels then
+        # entered the measured crack mask, which is the authority order (human > detector)
+        # being broken quietly in the CSVs while the overlay, which does not draw bridges at
+        # all, looked correct. Erased (3) is excluded for the same reason: it means "remove
+        # from consideration entirely".
+        _cm = load_correction_mask(image_name, crack_mask.shape)
+        if _cm is not None and _cm.shape == bridge.shape:
+            bridge = bridge & ~((_cm == 2) | (_cm == 3))
         if bridge.shape == crack_mask.shape and bridge.any():
             joined = measure.label(crack_mask | bridge, connectivity=2)
             keep = np.unique(joined[crack_mask])

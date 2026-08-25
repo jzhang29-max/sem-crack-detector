@@ -1980,6 +1980,36 @@ def main():
     # An override replaces which pixels are crack without bypassing the measurement rules.
     _rows_o, _ = _cm.measure_stage("SYNTH_SAM2", _stage2,
                                    crack_mask_override=(_lab2 == 1))
+    # A BRIDGE MUST NOT CROSS A PIXEL THE REVIEWER RULED ON. merge_large_cracks runs after
+    # corrections, so a not-crack region cannot be a bridge ENDPOINT -- but the Dijkstra route
+    # between two legitimate endpoints is traced through brightness alone and could still cross
+    # marked pixels on its way. Measured before the fix: 25 px on 260708_316_H_b2_front_CBS_012
+    # and 44 px on AS_24hr_BSE_Side_008 entered the measured crack mask. Synthetic here so it
+    # costs no pipeline run: two crack blobs, a bridge joining them straight through a band the
+    # reviewer marked not-crack.
+    _bl = np.zeros((60, 120), dtype=np.int32)
+    _bl[20:40, 5:35] = 1                      # left blob
+    _bl[20:40, 85:115] = 2                    # right blob
+    _bdf = pd.DataFrame({"Label": [1, 2], "IsCrack": [True, True],
+                         "Area": [600, 600]})
+    _bridge = np.zeros((60, 120), dtype=bool)
+    _bridge[28:32, 35:85] = True              # the connector
+    _bstage = {"labeled": _bl, "df": _bdf, "img8": np.full((60, 120), 120, np.uint8),
+               "bridge_mask": _bridge}
+    _bmask = np.zeros((60, 120), dtype=np.uint8)
+    _bmask[26:34, 55:65] = 2                  # reviewer: NOT crack, right across the route
+    _saved_lcm = _cm.load_correction_mask
+    try:
+        _cm.load_correction_mask = lambda name, shape=None: _bmask
+        _rows_b, _nb = _cm.measure_stage("SYNTH_BRIDGE", _bstage)
+        _crossed = int((_bridge & (_bmask == 2)).sum())
+        check("a bridge route does not cross pixels marked not-crack",
+              _nb > 0 and _nb <= int(_bridge.sum()) - _crossed,
+              f"connector is {int(_bridge.sum())} px, {_crossed} of them vetoed, "
+              f"bridge_px_added={_nb}")
+    finally:
+        _cm.load_correction_mask = _saved_lcm
+
     check("an override still goes through the normal measurement rules",
           _rows_o and all("LengthIsCensored" in r and "NFragmentsMerged" in r
                           for r in _rows_o),
