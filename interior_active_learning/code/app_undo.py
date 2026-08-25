@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import jsonify
 
-from common import PAINT_DIR
+from common import PAINT_DIR, is_test_image
 
 UNDO_ROOT = os.path.join(PAINT_DIR, ".undo")
 MAX_DEPTH = 10
@@ -188,8 +188,11 @@ def register(app, invalidate_stage, get_stage=None):
                     counts = json.load(open(counts_path))
                 except Exception:
                     counts = {}
-            counts[image_name] = {"n_candidates": int(len(df)),
-                                  "n_crack": int(df["IsCrack"].sum())}
+            if is_test_image(image_name):
+                counts.pop(image_name, None)      # never record a fixture here
+            else:
+                counts[image_name] = {"n_candidates": int(len(df)),
+                                      "n_crack": int(df["IsCrack"].sum())}
             json.dump(counts, open(counts_path, "w"), indent=2)
             return {"image": image_name, "message": msg,
                     "n_candidates": int(len(df)), "n_crack": int(df["IsCrack"].sum()),

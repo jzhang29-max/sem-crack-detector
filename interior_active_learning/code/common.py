@@ -232,6 +232,19 @@ def save_json_atomic(obj, path):
 UNUSABLE_MASKS = {}
 
 
+# Names the test suite reserves for its own synthetic uploads. Anything starting with one of
+# these is a throwaway fixture, not data: it must never reach a tracked artifact. The label
+# ledger already refuses them (apply_paint_annotations._log_touched_labels); candidate_counts
+# did not, so `make test` left "apptest_tif" in a tracked file and every run dirtied the repo --
+# which Linux CI caught by asserting a clean tree.
+RESERVED_TEST_PREFIXES = ("apptest", "SELFTEST", "MASKGUARD")
+
+
+def is_test_image(image_name):
+    """True for the suite's own synthetic uploads, which must not enter tracked artifacts."""
+    return str(image_name).startswith(RESERVED_TEST_PREFIXES)
+
+
 _WARNED_MIXED_CASE = set()
 
 

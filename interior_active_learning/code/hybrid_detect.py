@@ -47,7 +47,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 import numpy as np
 
-from common import ORIGINAL_DIR, PROD_MODEL_PATH, contrast_kwargs_for
+from common import ORIGINAL_DIR, PROD_MODEL_PATH, contrast_kwargs_for, is_test_image
 from detect_cracks import region_features_from_labeled
 from unified_pipeline import run_unified_pipeline
 
@@ -294,7 +294,10 @@ def render_and_record(image_name, use_sam=False, progress=None):
             counts = json.load(open(counts_path))
         except Exception:
             counts = {}
-    counts[image_name] = {"n_candidates": int(len(df)), "n_crack": int(df["IsCrack"].sum())}
+    # Test fixtures must not enter this tracked file; see common.is_test_image.
+    if not is_test_image(image_name):
+        counts[image_name] = {"n_candidates": int(len(df)),
+                              "n_crack": int(df["IsCrack"].sum())}
     json.dump(counts, open(counts_path, "w"), indent=2)
     n_interior = len(stage.get("interior_origin", {}))
     return {"image": image_name, "n_candidates": int(len(df)),

@@ -630,7 +630,38 @@ def main():
         # byte-identical. What it did not undo was the region-override ledger, where a flip
         # left a fabricated row (260622_316_H_b2_back_CBS_01,241,False) that would have gone
         # straight into the next training set as a negative example nobody labelled.
+        # NEVER PAINT ON A REAL MASK -- MAKE A TARGET IF THERE ISN'T ONE. The line above used
+        # to fall back to _im[0] when no synthetic image was templated, and that fallback was
+        # not the rare case I assumed: on a working copy all 62 templated images are REAL and
+        # none are synthetic, so this painted on hand-labelled data every run. It looked
+        # harmless on macOS because undo restored the pixels and PIL happened to re-encode the
+        # PNG to identical bytes. Linux CI, on its first run, showed the truth: same pixels,
+        # different bytes, and `git status` flagged
+        # 260708_316_H_b2_front_CBS_002_correction_mask.png as modified. Rewriting a shipped
+        # label file is not something a test suite gets to do, whatever the pixels say.
         _synth = [n for n in _im if n.startswith(("apptest", "SELFTEST", "MASKGUARD"))]
+        if not _synth:
+            # Upload and process a small frame of our own rather than borrowing a real one.
+            _mk = os.path.join(TMP, "apptest_stroke.tif")
+            _a = np.full((360, 520), 150, np.uint8)
+            _a[150:170, 60:460] = 30                     # one dark bar for the detector
+            _a[330:, :] = 28                             # a databar to crop
+            Image.fromarray(_a).save(_mk)
+            try:
+                with open(_mk, "rb") as _fh:
+                    requests.post(f"{BASE}/api/upload",
+                                  files={"files": ("apptest_stroke.tif", _fh)}, timeout=180)
+                requests.post(f"{BASE}/api/process/apptest_stroke",
+                              json={"use_sam": False}, timeout=600)
+                _synth = [n for n in
+                          (i["name"] for i in requests.get(f"{BASE}/api/images", timeout=60).json()
+                           if i.get("has_template"))
+                          if n.startswith(("apptest", "SELFTEST", "MASKGUARD"))]
+            except requests.RequestException as _e:
+                print(f"  could not create a synthetic stroke target: {_e}")
+        check("a synthetic target exists, so no shipped mask is painted on",
+              bool(_synth),
+              "the stroke test must not fall back to a hand-labelled frame")
         _sn = (_synth or _im)[0]
         _sn_is_real = not _sn.startswith(("apptest", "SELFTEST", "MASKGUARD"))
         try:
@@ -678,6 +709,17 @@ def main():
             poll(_ur["job"])
         check("undoing a stroke restores the previous mask", _count(2) == _b4,
               f"not-crack px back to {_b4}? got {_count(2)}")
+        # The invariant, asserted rather than hoped for: after the stroke and its undo, every
+        # correction mask that git tracks must be byte-identical to HEAD. Pixel equality is not
+        # enough -- a re-encode with different bytes is still a rewritten label file, and that
+        # is exactly what Linux CI caught.
+        _dirty = subprocess.run(
+            ["git", "status", "--porcelain", "--", "interior_active_learning/paint"],
+            cwd=os.path.dirname(os.path.dirname(CODE)), capture_output=True, text=True).stdout
+        _dirty_masks = [l[3:] for l in _dirty.splitlines() if "_correction_mask.png" in l]
+        check("the stroke test leaves every shipped correction mask byte-identical",
+              not _dirty_masks,
+              "modified: " + ", ".join(os.path.basename(m) for m in _dirty_masks[:3]))
         check("an unknown stroke mode is rejected",
               requests.post(f"{BASE}/api/stroke/{_sn}",
                             json={"mode": "nonsense", "points": [[1, 1]]},

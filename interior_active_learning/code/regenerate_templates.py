@@ -32,7 +32,7 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "code"))
 
-from common import PAINT_DIR, ORIGINAL_DIR, list_original_names
+from common import PAINT_DIR, ORIGINAL_DIR, list_original_names, is_test_image
 from interior_candidates import build_simple_overlay
 from unified_pipeline import run_unified_pipeline
 
@@ -150,6 +150,8 @@ if __name__ == "__main__":
             counts = {}
     ok = [r for r in results if r[4] is None]
     for name, n_total, n_crack, _n_int, _e in ok:
+        if is_test_image(name):
+            continue          # a synthetic fixture, not data -- see common.is_test_image
         counts[name] = {"n_candidates": n_total, "n_crack": n_crack}
     # drop entries for images that no longer exist
     counts = {k: v for k, v in counts.items()
