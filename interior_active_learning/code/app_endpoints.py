@@ -746,6 +746,33 @@ def register(app, get_stage, invalidate_stage=None):
                 _go, _why = promotion_decision(new_loio, cur_loio)
                 if not _go:
                     reason = _why
+                    # SAY WHY THE CANDIDATE LOST, not just that it did. A refusal that reads
+                    # "held-out AUC 0.39 is worse than 0.89" is true and useless: the reviewer
+                    # has just spent hours labelling and is told only that it was rejected,
+                    # which is indistinguishable from "Retrain is broken" -- and that is exactly
+                    # how it was reported. Everything needed to explain it was already computed
+                    # right here and returned in label_balance, a field the frontend never
+                    # displays; only `reason` reaches the status bar. So fold it in.
+                    _bits = []
+                    _lb = out.get("label_balance") or {}
+                    _pa = out.get("pooled_auc")
+                    if _pa is not None and _pa < 0.6:
+                        _bits.append(
+                            f"Its cross-image AUC is {_pa:.2f} -- at or below chance -- so the "
+                            f"problem is the labels, not the model: on these rows the features "
+                            f"cannot separate crack from not-crack at all.")
+                    if _lb.get("images_with_negatives") is not None and _lb.get("n_images"):
+                        _wo = _lb["n_images"] - _lb["images_with_negatives"]
+                        if _wo:
+                            _bits.append(
+                                f"{_wo} of {_lb['n_images']} labelled images contain no "
+                                f"not-crack marks at all, so most images can teach the "
+                                f"classifier nothing -- a region can only be learned as crack "
+                                f"if something on the same image is labelled not-crack.")
+                    if _lb.get("warning"):
+                        _bits.append(_lb["warning"])
+                    if _bits:
+                        reason = reason + ". " + " ".join(_bits)
                 else:
                     # Keep every superseded model. This used to write one fixed
                     # crack_classifier_PREV.joblib, so a second Retrain overwrote the only

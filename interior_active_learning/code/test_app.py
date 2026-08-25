@@ -1033,6 +1033,32 @@ def main():
               "unexplained: " + ", ".join(_unnamed) if _unnamed
               else f"{len(_core)} core modules all accounted for")
 
+    # A REFUSAL MUST EXPLAIN ITSELF. The gate correctly declined a candidate whose
+    # cross-image AUC was 0.39 against a deployed 0.89, and told the reviewer only "worse than
+    # current; production left unchanged" -- after they had just relabelled 31 masks. That is
+    # indistinguishable from "Retrain is broken", and it was reported as exactly that.
+    # Everything needed to explain it (label_balance: 32 of 45 images with no not-crack marks,
+    # 93% of negatives from one frame) was already computed in the same function and returned
+    # in a JSON field the frontend never displays -- only `reason` reaches the status bar.
+    _ae_src = open(os.path.join(CODE, "app_endpoints.py")).read()
+    _refusal = _ae_src[_ae_src.find("_go, _why = promotion_decision"):]
+    _refusal = _refusal[:_refusal.find("out[\"promoted\"]")]
+    check("a refusal explains itself, not just the verdict",
+          "label_balance" in _refusal and "pooled_auc" in _refusal
+          and "reason = reason" in _refusal,
+          "the reviewer needs to know it is the labels, not that the number lost")
+    check("the refusal names the actionable fix",
+          "not-crack" in _refusal,
+          "otherwise there is nothing to act on after hours of labelling")
+    # and the decision itself still refuses a worse model
+    sys.path.insert(0, CODE)
+    import app_endpoints as _ae
+    _go1, _w1 = _ae.promotion_decision(0.3911, 0.8855)
+    check("a worse candidate is still refused", _go1 is False and "0.3911" in _w1
+          and "0.8855" in _w1, str(_w1)[:110])
+    _go2, _ = _ae.promotion_decision(0.90, 0.8855)
+    check("a better candidate is still promoted", _go2 is True)
+
     _ps_src = open(os.path.join(CODE, "paint_server.py")).read()
     check("the server flushes pending overlay writes on SIGTERM",
           "signal.SIGTERM" in _ps_src and "template_writer.flush" in _ps_src,
