@@ -272,6 +272,42 @@ def main():
                   undone == before_b or (undone or {}).get(2, 0) < after_b.get(2, 0),
                   f"not-crack px: {before_b} -> {after_b} -> {undone}")
 
+            # THE GUARD MUST NOT BLOCK NORMAL WORK. editableNow() refuses edits while the
+            # canvas and the edit target disagree; if those ever drift during ordinary use it
+            # would silently make the app unpaintable. Switch back to the first image through
+            # the sidebar -- the most common interaction there is -- and paint for real.
+            page.evaluate("""n => {
+                const row = [...document.querySelectorAll('.item')]
+                    .find(e => e.textContent.includes(n));
+                if (!row) throw new Error('no sidebar row for ' + n);
+                row.click();
+            }""", a_name)
+            page.wait_for_function(
+                "n => currentImage === n && canvasImage === n", arg=a_name, timeout=240000)
+            a_before = mask_counts(paint, a_name)
+            page.evaluate("""() => {
+                [...document.querySelectorAll('button')]
+                  .find(b => b.textContent.trim() === 'Add crack').click();
+                const pc = document.getElementById('paintCanvas');
+                const r = pc.getBoundingClientRect();
+                const ev = (t, fx, fy) => pc.dispatchEvent(new MouseEvent(t, {
+                    clientX: r.left + r.width * fx, clientY: r.top + r.height * fy,
+                    bubbles: true, cancelable: true, buttons: 1, button: 0}));
+                ev('mousedown', 0.35, 0.55);
+                for (let i = 1; i <= 8; i++) ev('mousemove', 0.35 + i * 0.03, 0.55);
+                window.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
+            }""")
+            for _ in range(40):
+                page.wait_for_timeout(500)
+                if mask_counts(paint, a_name) != a_before:
+                    break
+            a_after = mask_counts(paint, a_name)
+            check("painting still works after switching images through the sidebar",
+                  a_after is not None and a_after != a_before and a_after.get(1, 0) > 0,
+                  f"{a_name} crack px: {a_before} -> {a_after}"
+                  + ("  <-- the stale-canvas guard is blocking normal work"
+                     if a_after == a_before else ""))
+
             check("no uncaught JavaScript errors during the whole sequence",
                   not errors, "; ".join(errors[:3]))
             browser.close()
