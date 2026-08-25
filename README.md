@@ -959,6 +959,17 @@ every tracked file to an empty directory, running `make setup` and `make test` t
 reading the result: 326 passed, 0 failed, 1 skipped, 327 total. Both numbers here are
 measured that way rather than derived by subtracting from the full count.
 
+**On Linux, CI is the evidence.** Everything this README says about Linux was worked out
+without a Linux machine — by resolving the requirements against PyPI with pip's `--platform`
+machinery, and by reading the ELF dependency tables of a downloaded `manylinux` wheel. That is
+strong evidence, not execution. [`.github/workflows/linux.yml`](.github/workflows/linux.yml)
+executes it, in four jobs that each target one previously-inferred claim: the full install and
+all 327 checks on Ubuntu with Python 3.12 (the fresh-clone count); `import cv2` inside a
+`python:3.12-slim` container with **no** `libGL` and no X11, which is what proves or kills the
+headless-OpenCV choice; `make test-browser` in real chromium; and a `debian:12` job asserting
+that `./run` *refuses* that distro's Python 3.11 with a readable message rather than dying later
+inside pip.
+
 **The browser test.** `make test` drives the server over HTTP, and that is not enough: it
 passed every server-side check while a brush stroke made straight after an upload was writing into a
 *different* image's correction mask, because the defect was in which name the client sent, not

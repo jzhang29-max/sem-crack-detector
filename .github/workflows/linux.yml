@@ -1,0 +1,222 @@
+# What this exists to prove, and what it cannot.
+#
+# Everything in the README about Linux was established WITHOUT a Linux machine: by resolving
+# requirements against PyPI with pip's --platform machinery, and by parsing the ELF DT_NEEDED
+# tables of a downloaded manylinux wheel. That is strong evidence, not execution. These three
+# jobs execute it. Each one targets a specific claim that was previously inferred:
+#
+#   suite            -- the install really works and all 327 checks really pass on Linux, on a
+#                       case-sensitive filesystem, with multiprocessing defaulting to fork
+#                       rather than spawn.
+#   headless-import  -- `import cv2` succeeds in a container with no libGL and no X11. This is
+#                       the one that proves or kills the opencv-python-headless change; on the
+#                       plain opencv-python wheel this job is expected to FAIL.
+#   old-python-gate  -- ./run REFUSES Debian 12's system python3 (3.11) with a readable message
+#                       instead of building a venv and dying inside pip on tifffile. A negative
+#                       test: the failure is the pass condition.
+#
+# WHAT THESE JOBS DO NOT COVER, so nobody reads a green tick as more than it is:
+#   - Browser JavaScript beyond what test_browser.py exercises. The `browser` job below closes
+#     the specific hole that mattered -- test_app.py drives the server over HTTP and passed
+#     every check while a stroke after an upload was writing to the wrong image's mask, because
+#     the defect was in which name the client sent -- but it is eight checks over one sequence,
+#     not coverage of the UI.
+#   - Memory. Runners have ~16 GB and the suite never runs a full 62-image re-render, so the
+#     15.8 GB peak measured during a real Retrain is not exercised here.
+#   - CUDA. No GPU on standard runners, so the cuda->mps->cpu device order stays unverified.
+#   - SAM 2. Off by default; the checkpoint download is not fetched.
+#   - Old glibc. ubuntu-24.04 is modern; the documented glibc >= 2.28 floor (which rules out
+#     CentOS 7 and Ubuntu 18.04) is not tested by any of this.
+
+name: linux
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  suite:
+    name: install and full suite (ubuntu, python 3.12)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        # The images are what make this repo reproducible, and the suite needs them, so the
+        # ~1.1 GB working tree is not avoidable. History is, hence depth 1.
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # torch drags ~2.2 GB of CUDA wheels on Linux that macOS never sees. Cache it or every
+      # run re-downloads them.
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-py312-${{ hashFiles('requirements.txt') }}
+
+      # Informational only -- never fail the job because a probe tool is missing.
+      - name: Show the environment the claims are about
+        run: |
+          python3 -VV || true
+          ldd --version | head -1 || true
+          df -h . | tail -1 || true
+          free -g | head -2 || true
+
+      - name: make setup
+        run: make setup
+
+      - name: The install resolved to the headless OpenCV, and cv2 imports
+        run: |
+          ./.venv/bin/python3 -m pip list | grep -i opencv
+          ./.venv/bin/python3 -c "import cv2; print('cv2', cv2.__version__)"
+          # the repo's only OpenCV call
+          ./.venv/bin/python3 -c "
+          import cv2, numpy as np
+          m = np.zeros((40, 60), np.uint8)
+          pts = np.array([[[5, 5]], [[50, 30]]], np.int32)
+          cv2.polylines(m, [pts], isClosed=False, color=1, thickness=3)
+          assert m.sum() > 0, 'polylines drew nothing'
+          print('polylines ok:', int(m.sum()), 'px')"
+
+      - name: make test
+        env:
+          OPEN: '0'
+        run: make test
+
+      - name: Nothing in the working tree was modified by the run
+        run: |
+          git status --porcelain
+          test -z "$(git status --porcelain)" || {
+            echo "::error::the test run left the tree dirty -- see the list above"; exit 1; }
+
+  headless-import:
+    name: import cv2 with no libGL (python 3.12-slim)
+    runs-on: ubuntu-24.04
+    container: python:3.12-slim
+    timeout-minutes: 60
+    steps:
+      # Deliberately NOT installing libgl1 or libglib2.0-0. That is the point: this container
+      # is the headless case, and if requirements ever goes back to the Qt-linked
+      # opencv-python wheel, this job fails on `import cv2` with
+      # "libGL.so.1: cannot open shared object file".
+      - name: Minimal prerequisites only
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends git curl make ca-certificates
+          echo "GUI libraries deliberately absent:"
+          ldconfig -p | grep -c libGL.so.1 || echo "  libGL.so.1 not present (as intended)"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install exactly what requirements.txt asks for
+        run: |
+          python3 -m venv .venv
+          ./.venv/bin/python3 -m pip install -q --upgrade pip
+          ./.venv/bin/python3 -m pip install -q -r requirements.txt
+
+      - name: cv2 imports, and so does the module graph the server needs
+        run: |
+          ./.venv/bin/python3 -c "import cv2; print('cv2', cv2.__version__)"
+          # interior_candidates imports cv2 at module level and paint_server imports
+          # interior_candidates, so this is what decides whether the server can start at all.
+          cd interior_active_learning/code
+          ../../.venv/bin/python3 -c "
+          import sys; sys.path[:0] = ['.', '../../code']
+          import interior_candidates, paint_server
+          print('server module graph imports with no GUI libraries present')"
+
+      - name: The server serves a page
+        env:
+          OPEN: '0'
+          PORT: '8771'        # pinned rather than relying on the 8767 default
+        run: |
+          ./.venv/bin/python3 interior_active_learning/code/paint_server.py &
+          SRV=$!
+          for i in $(seq 1 180); do
+            curl -sf -o /dev/null "http://127.0.0.1:${PORT}/" && break
+            kill -0 $SRV 2>/dev/null || { echo "::error::server exited before serving"; exit 1; }
+            sleep 1
+          done
+          curl -sf -o /dev/null -w 'GET / -> HTTP %{http_code}\n' "http://127.0.0.1:${PORT}/"
+          curl -sf "http://127.0.0.1:${PORT}/api/images" | head -c 200; echo
+          kill $SRV
+
+  browser:
+    name: the real UI in a real browser
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-py312-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+
+      - name: make setup
+        run: make setup
+
+      - name: Install the browser test's extras
+        run: |
+          ./.venv/bin/python3 -m pip install -q -r requirements-dev.txt
+          # --with-deps pulls the system libraries chromium needs on a bare runner
+          ./.venv/bin/python3 -m playwright install --with-deps chromium
+
+      # This is the job that covers what no server-side check can. It starts its own server
+      # against empty scratch directories, uploads two frames it draws itself, paints, and
+      # asserts WHICH mask file changed. With the fixes reverted it reports
+      # "edits went to the wrong image" instead of passing.
+      - name: make test-browser
+        run: make test-browser
+
+      - name: Nothing in the working tree was modified
+        run: |
+          git status --porcelain
+          test -z "$(git status --porcelain)" || {
+            echo "::error::the browser test left the tree dirty"; exit 1; }
+
+  old-python-gate:
+    name: the 3.12 gate refuses Debian 12's python3 (3.11)
+    runs-on: ubuntu-24.04
+    container: debian:12
+    timeout-minutes: 20
+    steps:
+      - name: Prerequisites
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends git python3 python3-venv ca-certificates
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # A NEGATIVE test: ./run must refuse, and must say why. If it ever builds a venv here it
+      # will die inside pip on `tifffile>=2026.7` with a resolver error that names neither the
+      # cause nor the fix -- the exact failure the gate exists to prevent.
+      - name: ./run must exit non-zero and name the requirement
+        run: |
+          python3 -VV
+          set +e
+          OUT=$(./run --setup-only 2>&1); CODE=$?
+          set -e
+          echo "$OUT"
+          test "$CODE" -ne 0 || { echo "::error::./run accepted $(python3 -V) -- the gate did not fire"; exit 1; }
+          echo "$OUT" | grep -qi "3.12 or newer" || {
+            echo "::error::it refused, but without a message naming the required version"; exit 1; }
+          test ! -d .venv || { echo "::error::it left a virtualenv behind after refusing"; exit 1; }
+          echo "gate fired correctly, exit code $CODE, no venv left behind"
