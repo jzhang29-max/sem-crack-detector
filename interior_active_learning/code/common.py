@@ -216,11 +216,19 @@ def save_json_atomic(obj, path):
     os.replace(tmp, path)
 
 
-# Images whose stored mask does not fit the current render. Recorded so the
-# server can report them instead of the condition being invisible: two of the 35
-# shipped masks are in this state (painted against a differently sized render),
-# holding 371,227 hand-marked pixels that contributed nothing to training and
-# that nothing warned about.
+# Images whose stored mask does not fit the current render, recorded so the server can
+# report the condition instead of it being invisible. Empty today, and that is the correct
+# state: all 40 shipped masks load against the current render -- verified by running
+# correction_mask_state over every one against find_field_of_view(load_as_uint8(tif)), which
+# is what the pipeline itself does, giving 40 ok / 0 shape_mismatch, and cross-checked against
+# one full get_stage run (260622_316_H_b2_back_CBS_01: labeled (4096, 6144), mask (4096, 6144),
+# "ok"). If you re-check this, use load_as_uint8 and not a raw PIL read: the databar detector
+# needs the 1/99.5 contrast stretch, and without it find_field_of_view returns the uncropped
+# height and reports 28 of 40 masks as mismatched, which is wrong. This comment used to describe two
+# unusable masks holding 371,227 hand-marked pixels, out of "the 35 shipped masks" -- both
+# numbers were stale, and a reader would have concluded that a large block of their own
+# labels was silently broken. The mechanism is kept because the failure is real when it
+# happens (a mask painted against a differently sized render), not because it is happening.
 UNUSABLE_MASKS = {}
 
 

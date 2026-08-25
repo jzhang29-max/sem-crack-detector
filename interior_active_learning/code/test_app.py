@@ -683,7 +683,7 @@ def main():
                             timeout=60).status_code == 400)
 
         # ---- the deferred template write ----------------------------------------
-        # Encoding the 22.8 MB overlay PNG was 0.93 s of the 1.52 s a Whole-region click
+        # Encoding the 22.8 MB overlay PNG was 0.93 s of the 1.49 s a Whole-region click
         # cost, and nothing in the response needs it, so it moved to a writer thread. The
         # contract that makes that safe is that every reader flushes first, and these
         # checks are the enforcement: the endpoint must still leave a template on disk
@@ -787,7 +787,30 @@ def main():
     _tw.queue(_tp, _solid(77))
     check("path_for_read() drains before handing back the path",
           int(np.array(Image.open(_tw.path_for_read(_tp)).convert("RGB"))[0, 0, 0]) == 77)
-    check("the writer reports no failures", not _tw.failures(), str(_tw.failures())[:300])
+    # A FAILED WRITE MUST NOT REPORT SUCCESS. The first version recorded the exception in a
+    # list nothing in production reads, then cleared _INFLIGHT in its finally -- so flush()
+    # found nothing outstanding and answered True for a file that was never written, and the
+    # reader went on to read a stale overlay. That is the exact failure the barrier exists to
+    # prevent, reintroduced by the error path.
+    class _Boom:
+        def save(self, *_a, **_k):
+            raise OSError("simulated encode failure")
+    # First a genuinely unwritable path, then the same path made writable, so the recovery
+    # check exercises a real success rather than a second failure.
+    _bad = os.path.join(_tdir, "later-created", "z_paint_template.png")
+    _tw.queue(_bad, _Boom())
+    check("flush() reports False when the write failed", _tw.flush(_bad, timeout=30) is False,
+          "a reader would otherwise be told the file is current")
+    check("a failed path does not poison an unrelated one",
+          _tw.flush(_tp, timeout=30) is True, "per-path failure tracking")
+    os.makedirs(os.path.dirname(_bad), exist_ok=True)
+    _tw.queue(_bad, _solid(1))
+    _tw.flush(_bad, timeout=30)
+    check("a later successful write clears the failure", _tw.flush(_bad, timeout=30) is True,
+          "otherwise one transient error marks the path stale forever")
+    _tw.failures().clear() if hasattr(_tw.failures(), "clear") else None
+    check("the writer records the failures it hit", len(_tw.failures()) >= 1,
+          f"{len(_tw.failures())} recorded")
     check("nothing is left pending", _tw.pending_count() == 0)
     shutil.rmtree(_tdir, ignore_errors=True)
 
@@ -801,8 +824,14 @@ def main():
             continue
         _src = open(os.path.join(CODE, _fn)).read()
         _lines = _src.splitlines()
+        # READ barriers only. template_writer.queue was in this tuple and it is a WRITE, so
+        # any read whose path variable was later queued counted as guarded -- which passed the
+        # single genuine violation in the tree (paint_server.py's flip endpoint decoding the
+        # old template). A guard loose enough to pass the one case it exists for is worse than
+        # no guard, because it reports success. discard() stays: it is the correct barrier for
+        # a site that renders and saves the template itself.
         _barriers = ("path_for_read", "template_writer.discard", "_tw.discard",
-                     "template_writer.flush", "template_writer.queue")
+                     "template_writer.flush")
         for _i, _ln in enumerate(_lines):
             # Only real path construction, not a docstring or comment mentioning the name.
             if "_paint_template.png" not in _ln or "os.path.join(PAINT_DIR" not in _ln:

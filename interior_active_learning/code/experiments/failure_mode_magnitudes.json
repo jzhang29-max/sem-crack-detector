@@ -49,9 +49,11 @@
   "images_with_an_empty_mask_file": [
    "MAR_Amb_HIP_CBS_0007"
   ],
-  "images_with_a_mask": 38,
-  "images_contributing_no_rows_now": [],
-  "n_images_contributing_no_rows_now": 0,
+  "images_with_a_mask": 39,
+  "images_contributing_no_rows_now": [
+   "MAR_Amb_HIP_ETD_0006"
+  ],
+  "n_images_contributing_no_rows_now": 1,
   "enumeration_note": "images_contributing_no_rows_now counts images whose mask carries at least one MARKED pixel yet produce no training rows, measured by enumeration against the current files -- the claim this script can actually support. Empty mask files (written when an image is opened and never painted) are excluded and listed separately, because counting them as labelled would manufacture the very failure being looked for. images_recovered below is a subtraction against the frozen snapshot, identifies no image, and describes a historical change; it must not be quoted as a current count.",
   "rows_recovered": 659,
   "images_recovered": 6,
@@ -62,7 +64,8 @@
  },
  "detector": {
   "detector_mode": "off",
-  "git_commit": "3909dd3",
+  "git_commit": "307627c",
+  "model_fingerprint": "eaf0f52ea9f7",
   "pipeline_default_at_runtime": "off",
   "note": "detector_mode is what this experiment PINNED, not what the pipeline defaults to. 'off' is the bare two-pass detector and is what ships; 'refine' is OPT-IN and applies SAM 2 to each accepted candidate's boundary. pipeline_default_at_runtime records what the pipeline would have done had this experiment not pinned anything.",
   "detector_independent": true,

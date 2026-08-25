@@ -17,7 +17,9 @@ painting.
 **First run on a fresh clone:** 39 of the 62 shipped micrographs come with a hand-drawn
 correction mask; the other 23 ship as images only, with nothing marked on them yet. None ship
 with rendered overlays — those are derived and would add hundreds of megabytes to every
-clone. So the first time you open an image, the pipeline runs for it: about 20 seconds on a small frame, up to ~200 seconds at 25 megapixels. To render
+clone. So the first time you open an image, the pipeline runs for it: about 20 seconds
+on a 5.8-megapixel frame and about 95 seconds at 25 megapixels (see the measured pair
+below). To render
 everything up front instead:
 
 ```bash
@@ -116,7 +118,7 @@ can see what is worth opening before anything is rendered.
 
    Left, the micrograph; right, the result after review. This is
    `AS_24hr_BSE_Side_008`, the most heavily adjudicated image in the set — 1,285 of
-   the 4,128 training rows come from it, and 134,039 pixels in it were marked
+   the 4,787 training rows come from it, and 134,039 pixels in it were marked
    not-crack by hand. Red tracks the cracks closely here precisely *because* it was
    reviewed, which is why this figure is labelled "after review" and the one above
    is not: read this one as what a finished image looks like, not as unaided
@@ -133,6 +135,15 @@ can see what is worth opening before anything is rendered.
 
 Corrections are stored per-pixel and **always override the model**. Retraining
 never discards them.
+
+One caveat on the corpus that ships: `training_data/labeled_regions.csv` holds 4,787 rows
+from 38 images, but 39 of the 40 shipped masks carry marked pixels. `MAR_Amb_HIP_ETD_0006`
+has 61,830 hand-marked pixels and contributes no rows, because building a row needs that
+image's candidate features and it has none committed. Its mask fits the current render
+(checked: 40 masks, 0 shape mismatches), so the marks are intact and not lost — they are
+simply not in the shipped corpus yet, and a Retrain on your machine will pick them up once
+its candidates exist. `interior_active_learning/code/experiments/failure_mode_magnitudes.py`
+names it by enumeration rather than leaving the gap as a subtraction.
 
 ### Undo
 
@@ -167,8 +178,10 @@ connected region you clicked. Brush strokes do not wait for it.
 
 Whole-region clicks do not go through the stroke path at all. They cost **0.61 s** on a
 25-megapixel frame, down from 1.49 s. Two things were on the critical path that did not
-need to be: the click hands back only the changed rectangle (164 KB for a typical region,
-where it used to re-download the whole 15-31 MB overlay), and the 22.8 MB overlay PNG the
+need to be: the click hands back only the changed rectangle instead of re-downloading the
+whole 15-31 MB overlay. On a 25-megapixel frame that is **1 KB for a median region, 69 KB
+at the 95th percentile, and 14.7 MB for the one region that spans the frame** -- the last is
+the honest worst case, not a hidden one. And the 22.8 MB overlay PNG the
 click invalidates is now re-encoded on a writer thread rather than while you wait --
 0.93 s of the original 1.49 s. A region spanning the whole frame still sends about what
 the full overlay does; that is the honest worst case rather than a hidden one.
@@ -865,10 +878,14 @@ non-browser way in, and each one is the entry point for a result the repo claims
 | `code/resave_models.py` | re-pickles the shipped models for your sklearn, after a deliberate upgrade |
 | `code/generalisation_probe.py` | runs the detector on outside micrographs, to show it does not travel |
 
-**`archive/` — nothing imports it, and nothing should.** Superseded code, models
+**`archive/` — nothing in the app or pipeline imports it.** Superseded code, models
 kept as counterexamples, and one-off analyses that are the evidence behind the
-numbers above. `archive/README.md` says what each item proved. Safe to delete
-wholesale if you don't care about reproducing the reasoning.
+numbers above. `archive/README.md` says what each item proved. Safe to delete if you
+do not need the reasoning — with one exception, noted above:
+`code/generate_full_workflow_diagram_unified.py` imports from
+`archive/superseded_code/`, so deleting the directory breaks that script. It cannot
+run on a clean clone anyway (it needs a derived input that is not shipped), so this
+costs you nothing unless you have built that input yourself.
 
 ## Testing
 
@@ -877,17 +894,19 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 ./.venv/bin/python3 interior_active_learning/code/test_app.py
 ```
 
-300 checks covering upload, detection, exports, correction precedence, region
+303 checks covering upload, detection, exports, correction precedence, region
 isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
 routing, physical-unit calibration, calibration *uncertainty*, instrument metadata,
 right-censoring, the specimen as statistical unit, the batch CLI and its refusals,
 cross-image aggregation, and train/serve parity.
 
-On a **fresh clone** you will see 290, not 300, with one reported as SKIP: overlays and
+On a **fresh clone** you will see 293, not 303, with one reported as SKIP: overlays and
 per-image measurement CSVs are derived artifacts and are not shipped, so the sections that
 need them have less to run against. A skip is printed with the exact command that builds the
-fixture, and never counts as a pass. `make test` exits 0 on a clean checkout — verified by
-cloning this repo, running `make setup` and `make test`, and reading the result.
+fixture, and never counts as a pass. `make test` exits 0 on a clean checkout — verified by extracting
+every tracked file to an empty directory, running `make setup` and `make test` there, and
+reading the result: 292 passed, 0 failed, 1 skipped, 293 total. Both numbers here are
+measured that way rather than derived by subtracting from the full count.
 `make test` runs the same thing.
 
 The count is not evidence about the science, and it should not be read as one. Several
@@ -914,7 +933,7 @@ Two consequences worth knowing:
   lives in the private `CBS_Crack_Detection_All` repo, which is archived
   (read-only) on GitHub.
 - **`interior_active_learning/paint/candidate_counts.json` is a cached count**,
-  not ground truth. It holds 63 entries of `n_candidates`/`n_crack` and **nothing
+  not ground truth. It holds 62 entries of `n_candidates`/`n_crack` and **nothing
   else** — no record of which detector, threshold, or model produced any of them,
   because the writer stores only those two integers. Entries written at different
   times are therefore not necessarily comparable, and an earlier version of this

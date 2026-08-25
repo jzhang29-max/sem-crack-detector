@@ -1,11 +1,12 @@
 """Deferred, coalescing writer for paint/<image>_paint_template.png.
 
-WHY. A Whole-region click on a 25 MP frame costs 1.52 s, measured on MAR_Amb_AS_ETD_0003:
-0.58 s to render the overlay and 0.93 s to PNG-encode and write 22.8 MB. The reviewer waits
-on all of it, but only the render affects the response -- the client is handed a cropped
-patch of the changed rectangle (9 ms), and the correction mask, the only source of truth,
-was already written synchronously under mask_lock before this point. The 0.93 s encode is
-bookkeeping for the NEXT reader, so it does not belong on the request.
+WHY. A Whole-region click on a 25 MP frame cost 1.49 s end to end, measured on
+MAR_Amb_AS_ETD_0003: 0.58 s to render the overlay and 0.93 s to PNG-encode and write
+22.8 MB. The reviewer waits on all of it, but only the render affects the response -- the
+client is handed a cropped patch of the changed rectangle (9 ms), and the correction mask,
+the only source of truth, was already written synchronously under mask_lock before this
+point. The 0.93 s encode is bookkeeping for the NEXT reader, so it does not belong on the
+request.
 
 WHAT THIS IS NOT. It is not a write-back cache for label data. Every correction is still
 written to disk synchronously on the request thread; nothing a reviewer records can be lost
@@ -35,6 +36,7 @@ _INFLIGHT = set()        # paths currently being encoded
 _COND = threading.Condition()
 _THREAD = None
 _FAILURES = []           # (path, exception) for the last few failed writes
+_FAILED_PATHS = {}       # path -> exception, cleared when that path is written successfully
 
 
 def _write_atomic(path, img):
@@ -55,12 +57,21 @@ def _worker():
             _write_atomic(path, img)
         except Exception as exc:                      # noqa: BLE001
             # A failed template write must not take the server down, and must not be
-            # silent either: the next edit re-queues a fresh render, and flush() reports
-            # what went wrong so a caller can fall back to writing inline.
+            # silent either. Recorded per-path so flush() can return False for it: the
+            # first version only appended to a list nothing in production reads, then
+            # cleared _INFLIGHT in the finally, so flush() found nothing outstanding and
+            # answered True for a file that was never written. A reader was told "drained"
+            # and went on to read a stale overlay -- the failure mode the barrier exists
+            # to prevent, reintroduced by the error path.
             _FAILURES.append((path, exc))
             del _FAILURES[:-5]
+            with _COND:
+                _FAILED_PATHS[path] = exc
             print(f"template write failed for {os.path.basename(path)}: "
                   f"{type(exc).__name__}: {exc}")
+        else:
+            with _COND:
+                _FAILED_PATHS.pop(path, None)
         finally:
             with _COND:
                 _INFLIGHT.discard(path)
@@ -82,9 +93,9 @@ def queue(path, img):
 def flush(path=None, timeout=120.0):
     """Block until pending writes (for `path`, or all of them) are on disk.
 
-    Call this before reading a template file. Returns True if the queue drained,
-    False on timeout -- the caller then knows the file it is about to read may be
-    behind, rather than assuming it is current.
+    Call this before reading a template file. Returns True only if the queue drained
+    AND the last write for that path succeeded. False means the file you are about to
+    read may be behind -- either the queue timed out, or the write raised.
     """
     deadline = time.monotonic() + timeout
     with _COND:
@@ -92,7 +103,8 @@ def flush(path=None, timeout=120.0):
             outstanding = [p for p in list(_PENDING) + list(_INFLIGHT)
                            if path is None or p == path]
             if not outstanding:
-                return True
+                failed = [p for p in _FAILED_PATHS if path is None or p == path]
+                return not failed
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 return False
@@ -107,7 +119,12 @@ def path_for_read(path):
     reader copies `open(path_for_read(p))` and gets it right, where they could easily
     copy `open(p)` and silently reintroduce the stale-read bug.
     """
-    flush(path)
+    if not flush(path):
+        # Do not pretend this is current. The correction mask is authoritative and
+        # unaffected; the overlay may be one edit behind, and saying so beats a reader
+        # silently rendering stale pixels.
+        print(f"WARNING: {os.path.basename(path)} may be stale -- a deferred overlay "
+              f"write did not complete. Re-open the image to re-render it.")
     return path
 
 

@@ -530,11 +530,18 @@ def api_flip_region(image_name):
     x, y = int(round(data["x"])), int(round(data["y"]))
     mode = data.get("mode", "toggle")
 
-    template_path = os.path.join(PAINT_DIR, f"{image_name}_paint_template.png")
+    # path_for_read, not a bare join: the read below is a READ, and deferring the write made
+    # it racy. Two clicks on the same region inside the ~0.93 s encode window would decode a
+    # template from two edits ago, and _resync_painted_file would then diff painted.png
+    # against the wrong baseline. This one line was missed when the barrier went in, and the
+    # source audit passed it because the audit accepted template_writer.queue -- which this
+    # same variable is later handed -- as if a WRITE could satisfy a read.
+    template_path = template_writer.path_for_read(
+        os.path.join(PAINT_DIR, f"{image_name}_paint_template.png"))
     # Decode the old template ONLY when _resync_painted_file can actually use it: it returns
     # immediately unless <image>_painted.png exists, and 58 of the 62 shipped frames have no
     # painted file. Decoding a 22 MB PNG into a 72 MB array to hand it to a function that
-    # discards it cost 0.28 s of the 1.43 s every Whole-region click took.
+    # discards it cost 0.28 s of the 1.49 s every Whole-region click took.
     _painted_exists = os.path.exists(os.path.join(PAINT_DIR, f"{image_name}_painted.png"))
     old_template_arr = (np.array(Image.open(template_path).convert("RGB"))
                         if _painted_exists and os.path.exists(template_path) else None)
@@ -610,7 +617,7 @@ def api_flip_region(image_name):
     new_template_img = build_simple_overlay(stage)
     if old_template_arr is not None:
         _resync_painted_file(image_name, old_template_arr, np.array(new_template_img))
-    # Encoding this 22.8 MB PNG is 0.93 s of the 1.52 s the reviewer waits on, and nothing
+    # Encoding this 22.8 MB PNG is 0.93 s of the 1.49 s the reviewer waits on, and nothing
     # in the response needs it -- the patch below is cropped from the in-memory image, and
     # the correction mask was already committed under mask_lock above. Deferred to the
     # writer thread; every reader of the file flushes first. See template_writer.

@@ -108,7 +108,12 @@ def measure_stage(image_name, stage, crack_mask_override=None):
         # (bridge_px_added): 289 -> 264 on 260708_316_H_b2_front_CBS_012, exactly the 25
         # vetoed pixels; 504 -> 457 on AS_24hr_BSE_Side_008, the 44 vetoed plus 3 more
         # orphaned because cutting that route split the connector into 4 pieces and one no
-        # longer reached a crack. No cascade beyond that. Those pixels had been entering
+        # longer reached a crack. No cascade beyond that in area -- but note it CAN raise the
+        # crack COUNT, because breaking a route splits what was one merged component into two,
+        # and detect_cracks assigns CrackGroupID from the un-vetoed spanning tree before this
+        # runs. So an overlay can number two fragments as one group while the measurement rows
+        # report them separately. The measurement is the one that respects your verdict; the
+        # grouping is cosmetic and is not used for area or length. Those pixels had been entering
         # the measured crack mask, which is the authority order (human > detector)
         # being broken quietly in the CSVs while the overlay, which does not draw bridges at
         # all, looked correct. Erased (3) is excluded for the same reason: it means "remove
