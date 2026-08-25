@@ -23,7 +23,17 @@ Pillow>=12.0
 joblib>=1.5
 Flask>=3.1
 matplotlib>=3.10
-opencv-python>=4.12
+# HEADLESS ON PURPOSE. This repo uses exactly one OpenCV function -- cv2.polylines, at
+# code/detect_cracks.py:824 and interior_active_learning/code/interior_candidates.py:546 --
+# and never opens a window. The plain `opencv-python` wheel is linked against Qt: its
+# cv2.abi3.so has DT_NEEDED entries for libQt5Core/Gui/Widgets, and those need libGL.so.1 and
+# libglib-2.0.so.0 from the host, which manylinux does not vendor. On a headless Linux box --
+# a slim container, an Ubuntu Server minimal install, a cluster node -- `import cv2` therefore
+# dies with "libGL.so.1: cannot open shared object file", and because interior_candidates.py
+# imports cv2 at module level and paint_server.py imports interior_candidates, the app cannot
+# even start. This was invisible on the machine it was built on, where opencv-python-headless
+# happened to be installed as a transitive dependency and won the import.
+opencv-python-headless>=4.12
 tifffile>=2026.7
 
 # Not a pip package -- install via system package manager (e.g. `brew

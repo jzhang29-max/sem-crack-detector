@@ -155,3 +155,46 @@ def failures():
 # A pending template on exit is a re-render for whoever opens the image next, which is
 # recoverable but pointless to inflict. Give the queue a chance to drain.
 atexit.register(lambda: flush(timeout=60.0))
+
+
+def sweep_orphaned_temps(directory):
+    """Delete *_paint_template.png.tmp<pid> files left by processes that no longer exist.
+
+    _write_atomic writes to a temp name and os.replace()s it, so a normal write leaves
+    nothing behind. But the Makefile stops the server with a bare `kill`, i.e. SIGTERM
+    straight to the interpreter, and atexit handlers do not run for a signal that is not
+    caught -- so an encode in flight leaves its temp file. Measured once at 55 MB. Cheap to
+    clean at startup, and keyed on the pid in the name so a temp file belonging to a LIVE
+    process (a second server on another port, or the test suite) is never touched.
+    """
+    removed = 0
+    try:
+        entries = os.listdir(directory)
+    except OSError:
+        return 0
+    for name in entries:
+        if "_paint_template.png.tmp" not in name:
+            continue
+        suffix = name.rsplit(".tmp", 1)[-1]
+        if not suffix.isdigit():
+            continue
+        pid = int(suffix)
+        if pid == os.getpid():
+            continue
+        try:
+            os.kill(pid, 0)          # signal 0 only tests for existence
+        except ProcessLookupError:
+            pass                     # the owner is gone: the file is garbage
+        except PermissionError:
+            continue                 # someone else's live process
+        else:
+            continue                 # still running, leave it alone
+        try:
+            os.remove(os.path.join(directory, name))
+            removed += 1
+        except OSError:
+            pass
+    if removed:
+        print(f"cleaned {removed} orphaned overlay temp file(s) from an earlier run",
+              flush=True)
+    return removed

@@ -77,7 +77,12 @@ def _get_sam():
         return _SAM["gen"]
     import torch
     from transformers import SamModel, SamProcessor, pipeline
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    # cuda -> mps -> cpu. This used to test MPS only, so a Linux machine with an NVIDIA GPU
+    # fell through to CPU with nothing on screen saying so -- the failure mode is "why is this
+    # so slow", which is the hardest kind to diagnose remotely. torch.backends.mps imports
+    # fine on Linux and is_available() simply returns False, so the order is safe on both.
+    device = ("cuda" if torch.cuda.is_available()
+              else "mps" if torch.backends.mps.is_available() else "cpu")
     proc = SamProcessor.from_pretrained("facebook/sam-vit-huge")
     # float32 is required: the mask-generation pipeline hits a float64 op on MPS
     # otherwise, which fails outright.

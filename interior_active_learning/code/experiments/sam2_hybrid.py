@@ -121,7 +121,8 @@ def _load_sam2(model_id):
     from transformers import Sam2Model, Sam2Processor
     proc = Sam2Processor.from_pretrained(model_id)
     model = Sam2Model.from_pretrained(model_id).eval()
-    dev = "mps" if torch.backends.mps.is_available() else "cpu"
+    dev = ("cuda" if torch.cuda.is_available()
+           else "mps" if torch.backends.mps.is_available() else "cpu")
     return proc, model.to(dev), dev, torch
 
 

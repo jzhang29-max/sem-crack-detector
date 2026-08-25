@@ -81,7 +81,9 @@ def _load(model_id):
     from transformers import Sam2Model, Sam2Processor
     proc = Sam2Processor.from_pretrained(model_id)
     model = Sam2Model.from_pretrained(model_id).eval()
-    dev = "mps" if torch.backends.mps.is_available() else "cpu"
+    # cuda -> mps -> cpu; see hybrid_detect for why MPS-only was wrong on Linux.
+    dev = ("cuda" if torch.cuda.is_available()
+           else "mps" if torch.backends.mps.is_available() else "cpu")
     _CACHE[model_id] = (proc, model.to(dev), dev, torch)
     return _CACHE[model_id]
 

@@ -32,7 +32,7 @@ import pandas as pd
 from skimage import measure
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import (EXP_ROOT, MEASUREMENTS_DIR, ORIGINAL_DIR, PROD_MODEL_PATH,
+from common import (EXP_ROOT, MEASUREMENTS_DIR, ORIGINAL_DIR, PROD_MODEL_PATH, list_original_names,
                     load_correction_mask)
 from unified_pipeline import run_unified_pipeline
 from extended_features import crack_shape_measurements
@@ -51,8 +51,7 @@ def all_images():
     """
     if not os.path.isdir(ORIGINAL_DIR):
         return []
-    return sorted(os.path.splitext(f)[0] for f in os.listdir(ORIGINAL_DIR)
-                  if f.lower().endswith(".tif") and not f.startswith("apptest"))
+    return list_original_names(lambda f: not f.startswith("apptest"))
 
 
 

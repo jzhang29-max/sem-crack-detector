@@ -17,33 +17,55 @@ if [ "${1:-}" = "--setup-only" ]; then SETUP_ONLY=1; fi
 PORT="${PORT:-8767}"
 VENV="${VENV:-.venv}"
 
-if [ ! -d "$VENV" ]; then
+# -f bin/activate, not -d "$VENV". If `python3 -m venv` fails partway -- the common Linux
+# case is Debian/Ubuntu splitting ensurepip into a separate python3-venv package, so venv
+# creation dies at the pip stage -- CPython leaves the directory behind with no bin/activate
+# and no cleanup. A -d test then treats that carcass as a working venv on every later run:
+# the `source` below fails with "No such file or directory", which names neither the real
+# cause nor the fix, and the whole block above -- including the Python version check -- is
+# skipped forever.
+if [ ! -f "$VENV/bin/activate" ]; then
   echo "==> creating virtualenv in $VENV (first run only)"
   # Check the interpreter BEFORE building a venv. Without this, an older python3 creates
   # the venv fine, pip churns for minutes, and then dies in resolver backtracking with an
   # error that names numpy rather than the actual cause -- while the README promises
   # "nothing to configure".
   PYV=$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')
-  if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)'; then
-    echo "  This app needs Python 3.11 or newer. Found $PYV at $(command -v python3)."
+  # 3.12, not 3.11. Every tifffile release this pins to (>=2026.7) declares
+  # Requires-Python >=3.12, so a 3.11 interpreter passes a 3.11 gate, gets a venv built, and
+  # then dies inside pip with "Could not find a version that satisfies the requirement
+  # tifffile>=2026.7" -- the opaque resolver error this gate exists to prevent. Debian 12
+  # ships 3.11 as its system python3, so this is the likely case, not a corner one.
+  if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)'; then
+    echo "  This app needs Python 3.12 or newer. Found $PYV at $(command -v python3)."
     echo "  Install a newer Python, or point python3 at one, then run ./run again."
     exit 1
   fi
-  python3 -m venv "$VENV"
+  rm -rf "$VENV"          # clear any half-built carcass from a previous failed attempt
+  if ! python3 -m venv "$VENV"; then
+    echo ""
+    echo "  Could not create a virtualenv. On Debian/Ubuntu this usually means the venv"
+    echo "  module is packaged separately:"
+    echo ""
+    echo "      sudo apt-get install python3-venv"
+    echo ""
+    rm -rf "$VENV"        # do not leave a carcass that makes the next run fail differently
+    exit 1
+  fi
 fi
 
 
 # Rendered overlays are NOT in the repo -- they are derived artifacts and would add
 # hundreds of megabytes to every clone. That means a fresh clone has none, and the first
 # time someone opens one of the 62 shipped images the app runs the whole pipeline for it:
-# roughly 20 s on a small frame and up to ~200 s on a 25-megapixel one, with nothing on
+# roughly 20 s on a small frame and about 95 s on a 25-megapixel one, with nothing on
 # screen explaining the wait. Say so, and give them the batch command.
 if [ -d interior_active_learning/paint ] && \
    [ -z "$(ls interior_active_learning/paint/*_paint_template.png 2>/dev/null)" ]; then
   echo ""
   echo "==> NOTE: no overlays are rendered yet (they are not shipped -- too large)."
   echo "    The first time you open an image the pipeline runs for it: ~20 s for a small"
-  echo "    frame, up to ~200 s at 25 megapixels. To render the whole corpus up front"
+  echo "    frame, about 95 s at 25 megapixels. To render the whole corpus up front"
   echo "    instead, in another terminal:"
   echo ""
   echo "      ./.venv/bin/python3 interior_active_learning/code/regenerate_templates.py"
@@ -98,7 +120,12 @@ echo "==> $URL"
 # address to copy. Backgrounded with a delay so it fires once the server is up.
 if [ "${OPEN:-1}" = "1" ]; then
   ( sleep 2
-    if command -v open        >/dev/null 2>&1; then open "$URL"
+    # xdg-open FIRST on anything that is not macOS. Some Linux distributions ship an
+    # /usr/bin/open (a kbd symlink to openvt), which is not a URL opener -- it would consume
+    # the attempt, fail, and never reach xdg-open. The whole block is backgrounded to
+    # /dev/null, so the only symptom is "the browser never opened" with no explanation.
+    if [ "$(uname -s)" != "Darwin" ] && command -v xdg-open >/dev/null 2>&1; then xdg-open "$URL"
+    elif command -v open      >/dev/null 2>&1; then open "$URL"
     elif command -v xdg-open  >/dev/null 2>&1; then xdg-open "$URL"
     fi ) >/dev/null 2>&1 &
 fi

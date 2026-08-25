@@ -232,6 +232,47 @@ def save_json_atomic(obj, path):
 UNUSABLE_MASKS = {}
 
 
+_WARNED_MIXED_CASE = set()
+
+
+def list_original_names(extra_filter=None):
+    """Names of the images in ORIGINAL_DIR, and a clear warning about ones we skip.
+
+    Every listing site used to accept `f.lower().endswith(".tif")` and then hand back
+    os.path.splitext(f)[0], after which 27 other places rebuild the path as f"{name}.tif".
+    On a case-INSENSITIVE filesystem (macOS default) that round-trip is lossless, so
+    CSPROBE_01.TIF works. On a case-SENSITIVE one (ext4, xfs, and case-sensitive APFS) the
+    rebuilt path does not exist, and the failure surfaces as a FileNotFoundError from deep
+    inside the pipeline naming a lowercase file the user never created. Verified on a real
+    case-sensitive volume: the same command measured 111 cracks on case-insensitive and
+    raised FileNotFoundError on case-sensitive.
+
+    So accept exactly ".tif" -- consistently, everywhere -- and name what is being skipped
+    instead of listing a file that later cannot be opened. /api/upload already lowercases
+    extensions, so dragging files into the app is unaffected; this is about files copied
+    into original/ by hand, which is how instrument output usually arrives (.TIF is common).
+    """
+    try:
+        entries = os.listdir(ORIGINAL_DIR)
+    except FileNotFoundError:
+        return []
+    names, skipped = [], []
+    for f in entries:
+        stem, ext = os.path.splitext(f)
+        if ext == ".tif":
+            if extra_filter is None or extra_filter(f):
+                names.append(stem)
+        elif ext.lower() == ".tif" or ext.lower() == ".tiff":
+            skipped.append(f)
+    if skipped and ORIGINAL_DIR not in _WARNED_MIXED_CASE:
+        _WARNED_MIXED_CASE.add(ORIGINAL_DIR)
+        print(f"NOTE: skipping {len(skipped)} file(s) in {ORIGINAL_DIR} whose extension is not "
+              f"exactly '.tif' (e.g. {', '.join(sorted(skipped)[:3])}). Rename them to .tif, or "
+              f"drag them into the app, which normalises the extension. Listing them here would "
+              f"only fail later on a case-sensitive filesystem.", flush=True)
+    return sorted(names)
+
+
 def correction_mask_state(image_name, shape):
     """('absent'|'ok'|'shape_mismatch', shape_on_disk_or_None).
 
@@ -321,6 +362,4 @@ def save_correction_mask(image_name, mask):
 
 
 def list_original_images():
-    return sorted(
-        os.path.splitext(f)[0] for f in os.listdir(ORIGINAL_DIR) if f.lower().endswith(".tif")
-    )
+    return list_original_names()

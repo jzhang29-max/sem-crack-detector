@@ -35,7 +35,7 @@ from PIL import Image
 from flask import Flask, request, jsonify, send_file, Response
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import (PAINT_DIR, ORIGINAL_DIR, CANDIDATES_DIR, MODELS_DIR,
+from common import (PAINT_DIR, ORIGINAL_DIR, CANDIDATES_DIR, MODELS_DIR, list_original_names,
                     PROD_MODEL_PATH, load_correction_mask, save_correction_mask,
                     mask_lock, save_png_atomic)
 from apply_paint_annotations import (
@@ -47,6 +47,11 @@ from interior_candidates import build_simple_overlay, apply_pixel_corrections
 # unified_pipeline.py's module docstring. Otherwise identical to production.
 from unified_pipeline import run_unified_pipeline as run_enhanced_pipeline
 from paint_frontend import INDEX_HTML
+
+# Clear temp files from a previous run that was killed mid-encode (the Makefile stops the
+# server with a bare SIGTERM, which does not run atexit handlers). Startup is the only safe
+# moment: the pid check makes it a no-op for any live process.
+template_writer.sweep_orphaned_temps(PAINT_DIR)
 
 app = Flask(__name__)
 # Cap the request body. Without this an upload of any size is buffered to disk before
@@ -254,7 +259,7 @@ def get_stage(image_name, force=False):
 
 
 def list_images():
-    return sorted(os.path.splitext(f)[0] for f in os.listdir(ORIGINAL_DIR) if f.lower().endswith(".tif"))
+    return list_original_names()
 
 
 def _png_response(pil_img):

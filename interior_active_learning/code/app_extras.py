@@ -228,7 +228,7 @@ def register(app, list_images, invalidate_stage):
             # renderer, so re-applying after processing images WITH SAM silently
             # threw those regions away and downgraded f1 from 0.776 to 0.715
             # with nothing on screen to say so.
-            cmd = ["python3", "regenerate_templates.py"] + (["--with-sam"] if want_sam else [])
+            cmd = [sys.executable, "regenerate_templates.py"] + (["--with-sam"] if want_sam else [])
             report(stage="reapply", frac=0.05,
                    note=("re-rendering every image WITH SAM (~3 min each)" if want_sam
                          else "re-rendering every image, pipeline only (~40s each)"))

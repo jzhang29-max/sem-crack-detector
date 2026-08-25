@@ -448,6 +448,18 @@ async function loadImage(name) {
   }
   if (!stillCurrent()) return;
 
+  // THE PIXELS AND THE EDIT TARGET MUST NOT DISAGREE. loadImage draws an image but used not to
+  // claim it: the only assignment to currentImage on a user path was the dropdown's change
+  // handler, and setting sel.value from script does NOT fire change. handleFiles did exactly
+  // that, so after an upload the canvas showed the new frame while currentImage still pointed
+  // at whatever loadImageList(false) had selected -- and commitStroke posts to currentImage.
+  // Measured on a scratch copy: one brush stroke after a drag-and-drop upload wrote 2,783
+  // not-crack pixels into 260622_316_H_b2_back_CBS_01, an already-labelled image that was not
+  // on screen, while the uploaded frame never got a mask at all. Assigned here, after the last
+  // stillCurrent() guard and at the point the draw commits, so whichever load wins a race owns
+  // both the canvas and the edit target.
+  currentImage = name;
+
   nativeW = img.naturalWidth;
   nativeH = img.naturalHeight;
   baseCanvas.width = nativeW;
@@ -1020,11 +1032,19 @@ async function handleFiles(fileList) {
       setStatus('processing ' + name + ' failed: ' + e.message);
     }
   }
-  await loadImageList(false);
+  // keepCurrent=true: refresh the dropdown and needsDetect, but do NOT let loadImageList
+  // re-select images[0]. With false it reset currentImage to the first shipped image and then
+  // awaited a full detection of it -- an image the user never asked for, ~95 s on a 25 MP
+  // frame on a fresh clone -- which is what opened the window where the canvas and the edit
+  // target disagreed.
+  await loadImageList(true);
   if (up.added.length) {
     const sel = document.getElementById('imageSelect');
     sel.value = up.added[up.added.length - 1];
-    await loadImage(sel.value);
+    // Dispatch change rather than calling loadImage directly, which is what the sidebar rows
+    // already do (see renderImageList). The handler is what sets currentImage and what flushes
+    // pending marks before switching; calling loadImage behind its back skipped both.
+    sel.dispatchEvent(new Event('change', {bubbles: true}));
   }
 }
 
@@ -1136,8 +1156,14 @@ function renderImageList() {
     // are 6-33 MB, so 62 rows each decoding one full-resolution PNG down to a
     // 38px box would be well over a gigabyte of transfer to draw a sidebar.
     // /api/thumb is ~6 KB and shows the result, so a row is informative.
+    // Gate the thumbnail on has_template, NOT on `ready`. `ready` means "we know this
+    // image's candidate counts", and those ship in the repo for all 62 images, whereas
+    // /api/thumb 404s unless a rendered overlay exists on disk -- and none do on a fresh
+    // clone. So this asked for 62 thumbnails and got 62 404s on EVERY renderImageList call,
+    // which is every search keystroke and every header update. onerror hid them, so it never
+    // looked broken; it just meant hundreds of failing requests and a console full of errors.
     let th;
-    if (ready) {
+    if (info.has_template === true) {
       th = document.createElement('img');
       th.className = 'th'; th.loading = 'lazy';
       th.src = '/api/thumb/' + encodeURIComponent(info.name) + '?w=128';

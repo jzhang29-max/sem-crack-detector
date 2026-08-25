@@ -89,6 +89,37 @@ dependencies, and opens the browser. The first run takes a few minutes to
 install; afterwards it starts in seconds. `make` does the same. Nothing to
 configure, no paths to edit.
 
+**Requirements, and what they are not.** Python **3.12 or newer** — `./run` checks and stops
+with a clear message otherwise. 3.11 is genuinely not enough: every `tifffile` release this
+pins to declares `Requires-Python >=3.12`, so 3.11 gets through a venv build and then dies in
+pip. Also **glibc ≥ 2.28** on Linux, because torch and torchvision publish no older wheel —
+that rules out CentOS/RHEL 7 and Ubuntu 18.04, and `./run` cannot detect it for you. Every
+dependency installs as a prebuilt wheel on macOS arm64 and on Linux x86_64 and aarch64, so no
+compiler is needed; verified by resolving the whole file against each platform.
+
+**On Linux, two things the OS may not give you.** Debian and Ubuntu package the venv module
+separately, so if `./run` cannot create a virtualenv, install it and try again:
+
+```bash
+sudo apt-get install python3-venv
+```
+
+And `rsvg-convert` (`apt-get install librsvg2-bin`, or `brew install librsvg`) is needed
+*only* to re-render the pipeline diagrams. The app, detection, correction and exports never
+touch it.
+
+Not needed, despite what you might expect: any GUI or X11 library. This uses
+`opencv-python-headless` deliberately — the only OpenCV call in the repo is `cv2.polylines` —
+so it runs on a headless server or in a slim container. The plain `opencv-python` wheel is
+linked against Qt and would need `libGL.so.1` and `libglib-2.0.so.0` from the host.
+
+One size warning for Linux: `pip install` pulls torch, which on Linux drags an NVIDIA CUDA
+stack that macOS never sees — roughly **1 GB of extra wheels**, about 2.2 GB for the whole
+closure, against ~0.6 GB on macOS. That is all for SAM 2, which is **off by default**. If you
+never plan to opt in, delete the torch/transformers/torchvision lines from
+`requirements.txt`; the pipeline is unaffected. A Linux box with an NVIDIA GPU will use it
+(the device order is CUDA, then Apple MPS, then CPU).
+
 The clone downloads **~1.2 GB** and occupies **~2.2 GB** on disk once checked out
 (git keeps its own compressed copy alongside the working files). That is because
 the 62 source SEM images ship with it, so the detector and every number below can
@@ -211,6 +242,20 @@ regions it was trained on, and its held-out AUC. The dropdown switches models,
 which is how you **roll back** a retrain you did not want; the model being
 replaced is backed up first. **Advanced → Re-apply model** re-renders every image
 with whichever model is selected.
+
+**What Retrain costs.** Timed end to end on a 36 GB machine against the shipped 62-image
+corpus: about 7 minutes to rebuild the training set and retrain, then a re-render of every
+image that dominates the wall clock (~40 s per frame, three at a time). Budget the better
+part of an hour, and leave it alone while it runs.
+
+That re-render is the memory-hungry part. Measured during a real Retrain, its three worker
+processes held **8.0, 4.7 and 3.6 GB at once — 15.8 GB combined** on 25-megapixel frames. The
+pool is now sized from the memory it can see rather than fixed at three: roughly one worker
+per 6 GB free (or per 8 GB of total RAM when only that is readable), so a 16 GB machine runs
+two and an 8 GB machine runs one. Override with `SEMCRACK_REGEN_WORKERS=N` if you know better.
+This matters because `multiprocessing.Pool` does not raise when the OS kills a worker — it
+waits — and the caller allows 24 hours, so an out-of-memory kill would leave Retrain reporting
+"running" with the button disabled rather than failing.
 
 **Retrain will not deploy a worse model.** The candidate is scored against the
 current one on a held-out image and only promoted if it does at least as well.
@@ -894,18 +939,18 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 ./.venv/bin/python3 interior_active_learning/code/test_app.py
 ```
 
-303 checks covering upload, detection, exports, correction precedence, region
+326 checks covering upload, detection, exports, correction precedence, region
 isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
 routing, physical-unit calibration, calibration *uncertainty*, instrument metadata,
 right-censoring, the specimen as statistical unit, the batch CLI and its refusals,
 cross-image aggregation, and train/serve parity.
 
-On a **fresh clone** you will see 293, not 303, with one reported as SKIP: overlays and
+On a **fresh clone** you will see 316, not 326, with one reported as SKIP: overlays and
 per-image measurement CSVs are derived artifacts and are not shipped, so the sections that
 need them have less to run against. A skip is printed with the exact command that builds the
 fixture, and never counts as a pass. `make test` exits 0 on a clean checkout — verified by extracting
 every tracked file to an empty directory, running `make setup` and `make test` there, and
-reading the result: 292 passed, 0 failed, 1 skipped, 293 total. Both numbers here are
+reading the result: 315 passed, 0 failed, 1 skipped, 316 total. Both numbers here are
 measured that way rather than derived by subtracting from the full count.
 `make test` runs the same thing.
 

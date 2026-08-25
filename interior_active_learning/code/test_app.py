@@ -853,6 +853,157 @@ def main():
     check("every template read in server code passes a writer barrier",
           not _unguarded, ", ".join(_unguarded))
 
+    print("\n[10d] the canvas and the edit target cannot disagree")
+    # WRONG-IMAGE EDIT TARGET. commitStroke posts to currentImage, but loadImage only DREW an
+    # image -- it never claimed it -- and the sole user-path assignment was the dropdown's
+    # change handler, which does not fire when script sets sel.value. handleFiles did exactly
+    # that, so after a drag-and-drop upload the canvas showed the new frame while currentImage
+    # still pointed at whatever loadImageList(false) had selected. Driven in a real browser
+    # against a scratch copy: one stroke wrote 2,783 not-crack pixels into
+    # 260622_316_H_b2_back_CBS_01, which was NOT on screen, and the uploaded frame got no mask.
+    # Static checks, because the defect is in the served JS and no HTTP test can see it.
+    _fe = open(os.path.join(CODE, "paint_frontend.py")).read()
+
+    def _fn_body(src, header):
+        i = src.find(header)
+        if i < 0:
+            return ""
+        depth, j, started = 0, i, False
+        while j < len(src):
+            if src[j] == "{":
+                depth += 1; started = True
+            elif src[j] == "}":
+                depth -= 1
+                if started and depth == 0:
+                    return src[i:j + 1]
+            j += 1
+        return src[i:]
+
+    _load = _fn_body(_fe, "async function loadImage(name)")
+    check("loadImage claims the image it draws",
+          "currentImage = name;" in _load,
+          "without this, whatever drew last does not own the edit target")
+    # and it must be assigned where the draw commits, not before the race guards
+    _pos_assign = _load.find("currentImage = name;")
+    _pos_draw = _load.find("baseCtx.drawImage(")
+    check("it claims it at the point the draw commits, after the race guards",
+          0 < _pos_assign < _pos_draw,
+          f"assign at {_pos_assign}, drawImage at {_pos_draw}")
+
+    _handle = _fn_body(_fe, "async function handleFiles(fileList)")
+    check("the upload path selects the new image through the change event",
+          "dispatchEvent(new Event('change'" in _handle,
+          "setting sel.value from script does not fire change, so currentImage never moved")
+    check("the upload path does not reset the selection to the first image",
+          "loadImageList(false)" not in _handle,
+          "keepCurrent=false re-selects images[0] and awaits a full detection of it")
+
+    # THUMBNAIL STORM. `ready` means "counts are known", and counts ship for all 62 images;
+    # /api/thumb 404s without a rendered overlay, and a fresh clone has none. Gating the <img>
+    # on `ready` fired 62 failing requests on every renderImageList call.
+    _render = _fn_body(_fe, "function renderImageList()")
+    _th = _render[_render.find("let th;"):_render.find("const tx =")] if "let th;" in _render else ""
+    # The regenerate pool must not be a hardcoded 3. Measured: three workers held 15.8 GB at
+    # once on 25 MP frames, and an OOM-killed Pool worker makes pool.map wait forever while the
+    # caller allows 86400 s -- Retrain would sit "running" with the button disabled for a day.
+    _regen = open(os.path.join(CODE, "regenerate_templates.py")).read()
+    check("the re-render pool is sized from system memory, not hardcoded",
+          "Pool(3)" not in _regen and "SEMCRACK_REGEN_WORKERS" in _regen
+          and "SC_PHYS_PAGES" in _regen,
+          "a fixed Pool(3) needs ~16 GB and hangs rather than fails if a worker is killed")
+    # ---- PORTABILITY: things that work here and break on a collaborator's Linux box ----
+    # None of this was executed on Linux (there is no Linux or container runtime on the dev
+    # machine); each check guards a defect established by reading the real Linux artifact --
+    # a downloaded manylinux wheel's ELF DT_NEEDED table, PyPI metadata, or pip's own
+    # cross-platform resolver.
+    _root = os.path.dirname(os.path.dirname(CODE))
+    _reqs = open(os.path.join(_root, "requirements.txt")).read()
+    _run = open(os.path.join(_root, "run")).read()
+
+    # The repo calls exactly one OpenCV function and never opens a window, but the plain
+    # opencv-python wheel links Qt and needs host libGL/libglib, which a headless Linux lacks.
+    # cv2 is imported at module level by interior_candidates, which paint_server imports, so
+    # the server could not even start. It passed here only because opencv-python-headless was
+    # installed as somebody else's transitive dependency and won the import.
+    check("requirements ask for the headless OpenCV",
+          "opencv-python-headless" in _reqs,
+          "the Qt-linked build needs libGL.so.1, absent on headless Linux")
+    check("the OpenCV usage really is headless-safe",
+          not [m for m in re.findall(r"cv2\.(\w+)", open(os.path.join(CODE, "..", "..", "code",
+               "detect_cracks.py")).read() + open(os.path.join(CODE, "interior_candidates.py")).read())
+               if m in ("imshow", "namedWindow", "waitKey", "destroyAllWindows", "createTrackbar")],
+          "a GUI call would make headless the wrong choice")
+
+    # tifffile>=2026.7 has no release for 3.11, so a 3.11 gate admits an interpreter that
+    # then dies in the resolver -- the exact error the gate exists to prevent.
+    check("the interpreter gate matches what the pins actually require",
+          "(3, 12)" in _run and "3.12 or newer" in _run,
+          "tifffile>=2026.7 declares Requires-Python >=3.12; Debian 12 ships 3.11")
+
+    # A venv that dies at the pip stage (Debian splits out python3-venv) leaves a directory
+    # with no bin/activate; a -d test then treats that carcass as valid on every later run
+    # and silently skips the version gate too.
+    check("the launcher detects a half-built virtualenv",
+          '[ ! -f "$VENV/bin/activate" ]' in _run,
+          "a -d test accepts a carcass with no activate script")
+    check("a failed venv creation is cleaned up and explained",
+          "python3-venv" in _run and 'rm -rf "$VENV"' in _run)
+
+    # Retrain and Re-apply shell out; a bare python3 is the venv's only because ./run
+    # activates it first, so starting the server directly broke the retrain step.
+    for _f in ("app_endpoints.py", "app_extras.py"):
+        _src = open(os.path.join(CODE, _f)).read()
+        check(f"{_f} launches helpers with sys.executable",
+              '["python3"' not in _src,
+              "a bare python3 is the system one unless ./run activated the venv")
+
+    # MPS-only device selection sent a Linux NVIDIA box to the CPU silently.
+    for _f in ("hybrid_detect.py", "sam2_refine.py"):
+        _src = open(os.path.join(CODE, _f)).read()
+        check(f"{_f} prefers CUDA before MPS",
+              "torch.cuda.is_available()" in _src,
+              "otherwise a GPU Linux host runs on CPU with nothing saying so")
+
+    # Listing accepted any case of .tif then rebuilt a lowercase path, which does not exist
+    # on a case-sensitive filesystem. Verified on a real case-sensitive volume.
+    for _f in ("paint_server.py", "crack_measurements.py", "regenerate_templates.py"):
+        _src = open(os.path.join(CODE, _f)).read()
+        check(f"{_f} lists images through the shared helper",
+              'lower().endswith(".tif")' not in _src and "list_original_names" in _src,
+              "a lowercase-rebuilt path raises FileNotFoundError on ext4/xfs")
+    _cm = open(os.path.join(CODE, "common.py")).read()
+    check("the listing helper reports what it skipped rather than failing later",
+          "def list_original_names" in _cm and "NOTE: skipping" in _cm)
+
+    # Some distros ship an /usr/bin/open that is not a URL opener.
+    check("the launcher tries xdg-open first away from macOS",
+          'uname -s' in _run and "xdg-open" in _run,
+          "an unrelated /usr/bin/open would consume the attempt and the browser never opens")
+
+    # SIGTERM (how the Makefile stops the server) skips atexit, so an encode in flight leaves
+    # its temp file behind -- measured once at 55 MB.
+    _tw_src = open(os.path.join(CODE, "template_writer.py")).read()
+    check("orphaned overlay temp files are swept at startup",
+          "def sweep_orphaned_temps" in _tw_src
+          and "sweep_orphaned_temps(PAINT_DIR)" in open(os.path.join(CODE, "paint_server.py")).read(),
+          "a killed encode otherwise leaves a large .tmp<pid> file forever")
+    check("the sweep only removes temp files whose owner is gone",
+          "ProcessLookupError" in _tw_src and "os.kill(pid, 0)" in _tw_src,
+          "otherwise it would delete a live second server's in-flight write")
+
+    # Match the CALL, not the name: the source comment names SC_AVPHYS_PAGES precisely to
+    # record why it is not used, and a bare substring test failed on that explanation.
+    check("the memory probe avoids the Linux-only sysconf name",
+          'sysconf("SC_AVPHYS_PAGES")' not in _regen
+          and "SC_AVPHYS_PAGES" in _regen,
+          "SC_AVPHYS_PAGES raises ValueError on macOS; the comment should say so, "
+          "and the code should not call it")
+
+    check("the sidebar thumbnail is gated on has_template, not on known counts",
+          "has_template" in _th and "if (ready)" not in _th,
+          "otherwise a fresh clone requests 62 thumbnails that all 404, on every render")
+
+
     print("\n[11a] every shipped image still renders")
     _imgs = requests.get(f"{BASE}/api/images", timeout=60).json()
     _rendered = [i["name"] for i in _imgs if i.get("has_template")][:5]

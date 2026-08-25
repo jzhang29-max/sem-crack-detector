@@ -32,7 +32,7 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "code"))
 
-from common import PAINT_DIR, ORIGINAL_DIR
+from common import PAINT_DIR, ORIGINAL_DIR, list_original_names
 from interior_candidates import build_simple_overlay
 from unified_pipeline import run_unified_pipeline
 
@@ -95,8 +95,7 @@ if __name__ == "__main__":
     if "--only" in sys.argv:
         names = [sys.argv[sys.argv.index("--only") + 1]]
     else:
-        names = sorted(os.path.splitext(f)[0] for f in os.listdir(ORIGINAL_DIR)
-                        if f.lower().endswith(".tif"))
+        names = list_original_names()
     print(f"regenerating {len(names)} template(s) "
           f"{'WITH SAM (~3 min each)' if USE_SAM else 'pipeline only (~40s each)'}\n")
 
@@ -105,7 +104,41 @@ if __name__ == "__main__":
         # would load three copies and contend for the same device.
         results = [process(n) for n in names]
     else:
-        with Pool(3) as pool:
+        # SIZE THE POOL TO MEMORY, NOT TO A CONSTANT. Measured during a real Retrain on a
+        # 36 GB machine: three workers on 25-megapixel frames held 8.0, 4.7 and 3.6 GB at
+        # once -- 15.8 GB combined. On a 16 GB laptop that swaps hard, and if the OS kills a
+        # worker, multiprocessing.Pool.map does not raise: it waits forever. The caller in
+        # app_endpoints.py runs this with timeout=86400, so a killed worker means the Retrain
+        # button stays disabled for a day with the job stuck reporting "running".
+        # ~6 GB per worker is the conservative figure from that measurement.
+        # Probe order: psutil's *available* memory if it happens to be installed (it is not a
+        # dependency), else total RAM via sysconf -- SC_PHYS_PAGES works on both macOS and
+        # Linux, where SC_AVPHYS_PAGES is Linux-only and raises ValueError on macOS.
+        _basis, _gb = None, None
+        try:
+            import psutil                                    # optional; not a dependency
+            _gb, _basis = psutil.virtual_memory().available / (1024 ** 3), "available"
+        except Exception:
+            try:
+                _gb = (os.sysconf("SC_PHYS_PAGES") *
+                       os.sysconf("SC_PAGE_SIZE")) / (1024 ** 3)
+                _basis = "total"
+            except (ValueError, OSError, AttributeError):
+                _basis = None
+        _env = os.environ.get("SEMCRACK_REGEN_WORKERS")
+        if _env:
+            n_workers = max(1, int(_env))
+            print(f"pool: {n_workers} worker(s) (SEMCRACK_REGEN_WORKERS)", flush=True)
+        elif _basis is None:
+            n_workers = 2
+            print("pool: 2 worker(s) -- could not read system memory", flush=True)
+        else:
+            # ~6 GB per worker against free memory; against total, leave headroom for the OS
+            # and the server process itself, so divide by 8.
+            n_workers = max(1, min(3, int(_gb // (6 if _basis == "available" else 8))))
+            print(f"pool: {n_workers} worker(s) for {_gb:.1f} GB {_basis} "
+                  f"(set SEMCRACK_REGEN_WORKERS to override)", flush=True)
+        with Pool(n_workers) as pool:
             results = pool.map(process, names)
 
     counts = {}

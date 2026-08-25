@@ -665,9 +665,9 @@ def register(app, get_stage, invalidate_stage=None):
             import subprocess
             out = {}
             steps = [("building training data from your corrections",
-                      ["python3", "build_training_data.py"], 0.35),
+                      [sys.executable, "build_training_data.py"], 0.35),
                      ("retraining and calibrating the model",
-                      ["python3", "train_v3_weighted.py"], 0.70)]
+                      [sys.executable, "train_v3_weighted.py"], 0.70)]
             for note, cmd, frac in steps:
                 report(stage="retrain", frac=frac, note=note)
                 r = subprocess.run(cmd, cwd=CODE_DIR, capture_output=True, text=True,
@@ -771,7 +771,14 @@ def register(app, get_stage, invalidate_stage=None):
                 report(stage="regenerate", frac=0.85,
                        note=("re-rendering every image with the new model"
                              + (" WITH SAM (~3 min each)" if regen_sam else " (~40s each)")))
-                cmd = ["python3", "regenerate_templates.py"] + (["--with-sam"] if regen_sam else [])
+                # sys.executable, not a bare "python3". These helpers need numpy/skimage, and
+                # a bare python3 resolves to whatever is first on PATH -- which is the venv's
+                # only because ./run activates it before exec. A collaborator who starts the
+                # server directly (./.venv/bin/python3 .../paint_server.py, which is a perfectly
+                # reasonable thing to do) would get the system interpreter here, and on most
+                # Linux distros that has no numpy: Retrain would fail on the correct-then-retrain
+                # step that is the whole point of the app.
+                cmd = [sys.executable, "regenerate_templates.py"] + (["--with-sam"] if regen_sam else [])
                 r = subprocess.run(cmd, cwd=CODE_DIR,
                                    capture_output=True, text=True, timeout=86400)
                 out["regenerate_templates.py"] = (r.stdout or "")[-2000:]
