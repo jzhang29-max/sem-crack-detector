@@ -24,6 +24,7 @@ interior_active_learning/paint/.undo/
 # dropdown showed three names for one identical file.
 models/crack_classifier_v3_weighted.joblib
 models/crack_classifier_PREV.joblib
+models/crack_classifier_replaced_*.joblib
 models/crack_classifier_PRE_V3_BACKUP.joblib
 
 # original/ IS tracked here, unlike in the research project: without the images a

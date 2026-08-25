@@ -102,6 +102,11 @@ MODELS = {
 }
 
 
+# An image needs this many labelled regions before it carries a full unit of weight. Below
+# it, mass scales with how much of the image is actually labelled. See image_weights().
+FLOOR_ROWS = 50
+
+
 def image_weights(src, y=None):
     """Per-image weights: every IMAGE contributes total mass 1.0.
 
@@ -128,9 +133,45 @@ def image_weights(src, y=None):
 
     22 of 32 images carry no not-crack label at all, which is the real constraint. No
     weighting invents a negative; marking not-crack regions on more images does.
+
+    ---- 2026-08-25: the table above was re-run, as it instructs, and a FLOOR was added ----
+
+    1/count gives every image total mass 1.0 no matter how little of it is labelled. That was
+    harmless while every image carried hundreds of rows. It stopped being harmless: a
+    relabelling pass added images with 1, 4, 5, 7 and 12 rows, and a ONE-ROW image was then
+    carrying the same influence as AS_24hr_BSE_Side_008's 1295 rows. Seven images of <=15 rows
+    each held a full unit of mass. The pooled cross-image AUC fell to 0.39 and the retrain gate
+    -- correctly -- refused to deploy anything.
+
+    Re-run on the 7505-row / 45-image corpus, same protocol as above (refit on all but
+    AS_24hr_BSE_Side_008, score on it, at the deployed threshold 0.5483):
+
+        per-image + balanced  (the old default)   AUC 0.8415  recall  92.1%  spec 32.4%  FP  687
+        corpus 1:1 + balanced                     AUC 0.4967  recall  15.4%  spec 91.9%  FP   82
+        per-image, no class_weight                AUC 0.8578  recall 100.0%  spec  0.0%  FP 1016
+        within-image balanced, no cw              AUC 0.5440  recall 100.0%  spec  0.0%  FP 1016
+        within-image balanced + balanced          AUC 0.6223  recall  97.5%  spec 10.9%  FP  905
+        per-image FLOORED at 25 rows + balanced   AUC 0.8794  recall  86.4%  spec 68.6%  FP  319
+        per-image FLOORED at 50 rows + balanced   AUC 0.8840  recall  78.1%  spec 80.6%  FP  197
+        per-image FLOORED at 100 rows + balanced  AUC 0.8072  recall  55.9%  spec 87.9%  FP  123
+        per-image FLOORED at 200 rows + balanced  AUC 0.6654  recall  26.9%  spec 94.6%  FP   55
+
+    The original finding survives: the two no-class-weight schemes are still degenerate (spec
+    0.0%, ~1016 false positives on one frame) and the within-image schemes are still worst on
+    AUC. What changed is that flooring beats all of them. FLOOR_ROWS = 50 is the best AUC and
+    cuts false positives on the held-out frame by 71% (687 -> 197). Recall falls 92.1% -> 78.1%
+    at THIS threshold, but the threshold is re-derived downstream at matched recall, so the AUC
+    gain is what carries: a better-ranked model reaches the same recall with fewer false calls.
+
+    The semantics are "an image gets an equal say once it has enough labels to have a say":
+    mass = min(1, rows/50), so a 1-row image gets 0.02 instead of 1.0 and a 50+-row image is
+    unchanged from before. Nothing about the well-labelled images moves.
+
+    Same instruction as before, and it now has two data points behind it: do not change this
+    without re-running the table on the corpus as it actually stands.
     """
     counts = pd.Series(src).value_counts()
-    return np.array([1.0 / counts[s] for s in src], dtype=float)
+    return np.array([1.0 / max(counts[s], FLOOR_ROWS) for s in src], dtype=float)
 
 
 def main():
@@ -281,6 +322,30 @@ def main():
         print(f"\nthreshold transferred by quantile: {thr_match_rec:.3f} on the "
               f"held-out-trained model sits at q={_q:.4f}, which is "
               f"{DEPLOY_THR:.3f} on the deployed model's out-of-fold scores")
+        # VERIFY THE TRANSFER RATHER THAN TRUSTING IT. A quantile preserves the PROPORTION
+        # FLAGGED, not the recall, and the two populations differ: the held-out frame is
+        # negative-heavy (1016 of 1295 regions not-crack) while the corpus is 85% crack. So a
+        # quantile measured on that frame lands too high when applied to the corpus's
+        # out-of-fold scores. Observed 2026-08-25: it produced 0.6257 -- above matched_recall
+        # 0.571, youden 0.579 and the 0.500 default, i.e. outside every operating point the
+        # same run had just computed -- and cost 14 points of recall corpus-wide for
+        # specificity nobody asked for. Enforce the stated intent ("matched recall") on the
+        # out-of-fold scores, which are out-of-sample for every row and cover all images.
+        _fin = np.isfinite(_oof_best)
+        _target_rec = at(thr_match_rec)[0]
+        def _oof_recall(t):
+            _pr = _oof_best[_fin] >= t
+            return float((_pr & y[_fin]).sum()) / max(int(y[_fin].sum()), 1)
+        if _oof_recall(DEPLOY_THR) < _target_rec - 0.02:
+            _grid = np.unique(np.quantile(_oof_best[_fin], np.linspace(0, 1, 401)))
+            _ok = [t for t in _grid if _oof_recall(t) >= _target_rec]
+            if _ok:
+                _fixed = float(max(_ok))          # highest threshold still meeting the target
+                print(f"  transfer did not hold: at {DEPLOY_THR:.3f} out-of-fold recall is "
+                      f"{_oof_recall(DEPLOY_THR):.1%} against a target of {_target_rec:.1%}. "
+                      f"Using {_fixed:.3f}, the highest threshold that meets the target on the "
+                      f"out-of-fold scores.")
+                DEPLOY_THR = _fixed
     else:
         DEPLOY_THR = thr_match_rec
         print(f"\nWARNING: no out-of-fold scores for {best}; deploying "

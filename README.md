@@ -282,7 +282,11 @@ kind of README misleads.
   From `sam2_hybrid_report.json`.
 - **The retrain gate's own bar: AUC 0.885** on a held-out specimen (`AS_24hr_BSE_Side_008`,
   leave-one-specimen-out), against 0.862 in-sample. A retrain that cannot beat the recorded
-  out-of-sample baseline is refused rather than promoted.
+  out-of-sample baseline is refused rather than promoted. That 0.885 is the figure for the
+  model this README was written against; the bar is whatever the *deployed* bundle records, so
+  it moves when you promote a retrain — the sidebar reads it live and is the authority. (For
+  reference, a relabelling pass here took it to 0.884 on the same held-out specimen, with 45
+  images in the corpus instead of 38.)
 
 > **If you retrain, these three numbers stop agreeing with each other.** The held-out AUC is
 > read live from the deployed bundle, so it updates. The grouped-CV and pixel-level figures come
