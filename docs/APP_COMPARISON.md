@@ -88,10 +88,12 @@ worth: moving it across 0.3–0.7 changes crack count by 1.28–1.41× while lea
 the ordering of conditions intact. If a slider is wanted later, the honest version
 ships that curve beside it.
 
-**A model registry with history.** This app keeps one backup
-(`crack_classifier_PREV.joblib`) plus the pre-deployment
-`crack_classifier_PRE_V3_BACKUP.joblib`, and the retrain gate refuses to deploy a
-model that scores worse on held-out data. That covers the failure this would
+**A model registry with history.** Every retrain that promotes writes two backups --
+`crack_classifier_PREV.joblib` and a timestamped `crack_classifier_PREV-<stamp>.joblib`
+(app_endpoints.py, the promote path) -- and the retrain gate refuses to deploy a model that
+scores worse on held-out data. (An earlier `crack_classifier_PRE_V3_BACKUP.joblib` was a
+one-off manual backup from the v3 deployment; like the other retrain artifacts it is
+gitignored on purpose, so a clone will not have it. Nothing writes it any more.) That covers the failure this would
 protect against; a full registry is a nice-to-have, not a gap.
 
 ## Where this app is ahead

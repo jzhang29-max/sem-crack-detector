@@ -28,6 +28,7 @@ import hashlib
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 import sys
 import time
@@ -991,6 +992,47 @@ def main():
     # server -- so an overlay encode in flight was abandoned mid-write. Verified end to end by
     # starting a server against scratch dirs, processing an image and SIGTERMing it: 0 orphan
     # .tmp files, 1 template written.
+    # THE README'S MODULE INVENTORY MUST STAY TRUE. It claims "Every .py in this repo is in
+    # exactly one of three categories. Nothing is left unexplained" and heads a table with a
+    # module count -- and nothing enforced either half. Both had drifted: the count said 20
+    # while the table listed 22, and template_writer.py (imported by 8 modules, and the owner
+    # of the overlay write barrier) plus test_browser.py were named nowhere in the section, 71
+    # commits after template_writer arrived. A promise of completeness that nothing checks is
+    # the kind that goes stale silently, so check it.
+    _readme = open(os.path.join(os.path.dirname(os.path.dirname(CODE)), "README.md")).read()
+    _rl = _readme.splitlines()
+    _tstart = next((i for i, l in enumerate(_rl) if l.startswith("**The app \u2014")), None)
+    if _tstart is None:
+        check("the README still has an app-module inventory", False, "heading not found")
+    else:
+        _m = re.search(r"(\d+) modules", _rl[_tstart])
+        _i = _tstart
+        while not _rl[_i].startswith("| file |"):
+            _i += 1
+        _i += 2
+        _named = []
+        while _i < len(_rl) and _rl[_i].startswith("|"):
+            _named += re.findall(r"`([^`]*\.py)`", _rl[_i])
+            _i += 1
+        check("the README's module count matches the table it heads",
+              _m and int(_m.group(1)) == len(_named),
+              f"header says {_m.group(1) if _m else '?'}, table lists {len(_named)}")
+
+        # and the completeness claim: every core .py named somewhere in that whole section
+        _send = next((i for i in range(_tstart, len(_rl)) if _rl[i].startswith("## Testing")),
+                     len(_rl))
+        _section = "\n".join(_rl[max(0, _tstart - 12):_send])
+        _core = sorted({os.path.basename(f) for f in subprocess.run(
+            ["git", "ls-files", "*.py"], cwd=os.path.dirname(os.path.dirname(CODE)),
+            capture_output=True, text=True).stdout.split()
+            if "/archive/" not in f and not f.startswith("archive/")
+            and "/experiments/" not in f})
+        _unnamed = [f for f in _core if f not in _section]
+        check("every shipped module is named in the README's inventory",
+              not _unnamed,
+              "unexplained: " + ", ".join(_unnamed) if _unnamed
+              else f"{len(_core)} core modules all accounted for")
+
     _ps_src = open(os.path.join(CODE, "paint_server.py")).read()
     check("the server flushes pending overlay writes on SIGTERM",
           "signal.SIGTERM" in _ps_src and "template_writer.flush" in _ps_src,

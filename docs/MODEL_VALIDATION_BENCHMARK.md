@@ -500,7 +500,9 @@ grouped CV report a number worth quoting.
 
 ### 9.7 Applying the retrained model to all 63 images
 
-`interior_active_learning/code/apply_v3_all_images.py`. Both models were run over the
+`archive/analysis_scripts/apply_v3_all_images.py` (the script has since been superseded and
+moved there; `archive/README.md` says what it proved). The heading's "63 images" is the count
+as measured at the time — the corpus ships 62 `.tif` files today. Both models were run over the
 **same candidate set** per image — identical segmentation, identical features, only the
 classifier differs — so every difference below is attributable to the model alone. This was
 a measurement pass: the production model was not replaced and no paint template was

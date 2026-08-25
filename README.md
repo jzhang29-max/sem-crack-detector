@@ -215,7 +215,7 @@ at the 95th percentile, and 14.7 MB for the one region that spans the frame** --
 the honest worst case, not a hidden one. And the 22.8 MB overlay PNG the
 click invalidates is now re-encoded on a writer thread rather than while you wait --
 0.93 s of the original 1.49 s. A region spanning the whole frame still sends about what
-the full overlay does; that is the honest worst case rather than a hidden one.
+the full overlay does.
 
 The correction mask, which is the only source of truth, is still written synchronously on
 every edit -- nothing you record depends on the deferred write. Every reader of the
@@ -855,7 +855,7 @@ deleting it, and keeps its corrections, so a misclick is recoverable.
 Every `.py` in this repo is in exactly one of three categories. Nothing is left
 unexplained, and nothing that the app does not use sits next to code that it does.
 
-**The app — 20 modules, this is the whole live path:**
+**The app — 24 modules, this is the whole live path:**
 
 | file | what it is |
 |---|---|
@@ -865,6 +865,7 @@ unexplained, and nothing that the app does not use sits next to code that it doe
 | `…/app_exports.py` | mask / overlay / region CSV / zip |
 | `…/app_extras.py` | thumbnails, model picker, re-apply, remove, SAM install |
 | `…/app_undo.py` | the server-side correction-mask undo stack |
+| `…/template_writer.py` | defers the overlay PNG write off the click, and the read barrier that makes that safe |
 | `…/apply_paint_annotations.py` | painted PNG → per-pixel correction mask |
 | `…/build_training_data.py` | correction masks → training rows |
 | `…/train_v3_weighted.py` | trains Pass 1 with per-image weighting |
@@ -878,7 +879,8 @@ unexplained, and nothing that the app does not use sits next to code that it doe
 | `…/calibration.py` | per-image µm/px with provenance, and the 5% cross-check |
 | `…/external_mask.py` | imports a mask from ilastik / micro-sam / anything |
 | `…/labeling_overlay.py`, `…/active_learning_select.py` | overlay drawing, image ranking |
-| `…/test_app.py` | the test suite |
+| `…/test_app.py` | the server-side test suite |
+| `…/test_browser.py` | the browser suite — drives the real UI and checks which mask an edit lands in |
 | `code/detect_cracks.py` | Pass 1 segmentation and the 8 features |
 
 **Kept because they regenerate something that ships here.** Not imported by the
