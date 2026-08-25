@@ -987,6 +987,34 @@ def main():
           "def sweep_orphaned_temps" in _tw_src
           and "sweep_orphaned_temps(PAINT_DIR)" in open(os.path.join(CODE, "paint_server.py")).read(),
           "a killed encode otherwise leaves a large .tmp<pid> file forever")
+    # atexit does not run for an uncaught signal, and SIGTERM is how the Makefile stops the
+    # server -- so an overlay encode in flight was abandoned mid-write. Verified end to end by
+    # starting a server against scratch dirs, processing an image and SIGTERMing it: 0 orphan
+    # .tmp files, 1 template written.
+    _ps_src = open(os.path.join(CODE, "paint_server.py")).read()
+    check("the server flushes pending overlay writes on SIGTERM",
+          "signal.SIGTERM" in _ps_src and "template_writer.flush" in _ps_src,
+          "otherwise `kill` abandons an encode and leaves a large .tmp orphan")
+    check("SIGINT is handled the same way as SIGTERM",
+          "signal.SIGINT" in _ps_src, "Ctrl-C should not lose a queued overlay either")
+
+    # Figure labels fell through to ImageFont.load_default(), which IGNORES the requested size:
+    # "Quality-Control" measures 173 px at truetype 26 and 70 px bare, inside a LABEL_H of 26,
+    # and no error is raised. Only the macOS font paths were listed.
+    _figdir = os.path.join(os.path.dirname(os.path.dirname(CODE)), "code")
+    for _fig in ("build_figures.py", "generate_pipeline_diagram.py",
+                 "generate_full_workflow_diagram_unified.py"):
+        _fsrc = open(os.path.join(_figdir, _fig)).read()
+        check(f"{_fig} can find a font on Linux",
+              "dejavu" in _fsrc.lower() or "liberation" in _fsrc.lower(),
+              "only macOS font paths were listed, so labels silently collapsed")
+        check(f"{_fig} asks load_default for a size",
+              "load_default(size=size)" in _fsrc,
+              "the bare call ignores size and renders labels 2.5x too small")
+        check(f"{_fig} survives load_default raising",
+              "(TypeError, OSError)" in _fsrc,
+              "load_default(size=) raises OSError when it cannot find its own font")
+
     check("the sweep only removes temp files whose owner is gone",
           "ProcessLookupError" in _tw_src and "os.kill(pid, 0)" in _tw_src,
           "otherwise it would delete a live second server's in-flight write")

@@ -23,6 +23,7 @@ rather than recoloring it -- for when a region is neither a real crack
 nor a meaningful artifact.
 """
 import os
+import signal
 import sys
 import io
 import base64
@@ -809,4 +810,25 @@ if __name__ == "__main__":
     # tweaks. 8767 stays the default: the steel/MAR project's historical port,
     # distinct from the unrelated TXM project's 8766.
     port = int(os.environ.get("PORT", "8767"))
+
+    # Flush queued overlay writes on SIGTERM. atexit does NOT run for an uncaught signal, and
+    # SIGTERM is exactly how this server gets stopped -- the Makefile's test target ends with a
+    # bare `kill`. Without this, an encode in flight was abandoned mid-write, leaving a
+    # *_paint_template.png.tmp<pid> orphan (measured once at 55 MB) and an overlay one edit
+    # behind. sweep_orphaned_temps() at startup cleans up after the ungraceful cases that
+    # remain (SIGKILL, power loss); this removes the common one at the source.
+    def _graceful(signum, _frame):
+        pending = template_writer.pending_count()
+        if pending:
+            print(f"\nsignal {signum}: finishing {pending} pending overlay write(s)...",
+                  flush=True)
+            template_writer.flush(timeout=60.0)
+        raise SystemExit(0)
+
+    for _sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            signal.signal(_sig, _graceful)
+        except (ValueError, OSError):
+            pass          # not the main thread, or a platform without it: not worth failing over
+
     app.run(host="127.0.0.1", port=port, debug=False, threaded=True)

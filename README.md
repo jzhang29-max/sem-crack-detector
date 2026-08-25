@@ -939,22 +939,22 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 ./.venv/bin/python3 interior_active_learning/code/test_app.py
 ```
 
-326 checks covering upload, detection, exports, correction precedence, region
+337 checks covering upload, detection, exports, correction precedence, region
 isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
 routing, physical-unit calibration, calibration *uncertainty*, instrument metadata,
 right-censoring, the specimen as statistical unit, the batch CLI and its refusals,
 cross-image aggregation, and train/serve parity.
 
-On a **fresh clone** you will see 316, not 326, with one reported as SKIP: overlays and
+On a **fresh clone** you will see 327, not 337, with one reported as SKIP: overlays and
 per-image measurement CSVs are derived artifacts and are not shipped, so the sections that
 need them have less to run against. A skip is printed with the exact command that builds the
 fixture, and never counts as a pass. `make test` exits 0 on a clean checkout — verified by extracting
 every tracked file to an empty directory, running `make setup` and `make test` there, and
-reading the result: 315 passed, 0 failed, 1 skipped, 316 total. Both numbers here are
+reading the result: 326 passed, 0 failed, 1 skipped, 327 total. Both numbers here are
 measured that way rather than derived by subtracting from the full count.
 
 **The browser test.** `make test` drives the server over HTTP, and that is not enough: it
-passed 326 checks while a brush stroke made straight after an upload was writing into a
+passed every server-side check while a brush stroke made straight after an upload was writing into a
 *different* image's correction mask, because the defect was in which name the client sent, not
 in what the server did with it. So there is a second suite that drives the real UI in a real
 browser — upload two frames, paint, and assert **which mask file changed on disk**:
@@ -972,10 +972,11 @@ shipped data even if the bug it guards against were fully reintroduced. Each of 
 confirmed by reverting the corresponding fix and watching it fail: with the upload fix and the
 stale-canvas guard both removed it reports *"edits went to the wrong image"* and names the mask.
 
-What neither suite covers, so nobody over-reads a pass: nothing here has been executed on
-Linux. The Retrain re-render's measured 15.8 GB peak is never reproduced by a test. There is no
-GPU in play, so the CUDA-then-MPS-then-CPU device order stays unverified. And SAM 2 is off by
-default, so its checkpoint is never fetched.
+What none of this covers, so nobody over-reads a green tick: runners have ~16 GB and never
+run a full 62-image re-render, so the 15.8 GB peak measured during a real Retrain is not
+exercised. There is no GPU, so the CUDA-then-MPS-then-CPU device order stays unverified. SAM 2
+is off by default and its checkpoint is never fetched. And `ubuntu-24.04` has modern glibc, so
+the documented **glibc >= 2.28** floor is not tested by any of it.
 
 The count is not evidence about the science, and it should not be read as one. Several
 of these tests exist because a check that *could not fail* had already certified

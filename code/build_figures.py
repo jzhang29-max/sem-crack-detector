@@ -39,16 +39,37 @@ LABEL_H = 26
 FOOT_H = 24
 
 
+# Linux font candidates as well as the macOS ones. Without them every label on a Linux box
+# fell through to ImageFont.load_default(), which IGNORES the requested size: measured on this
+# repo's own labels, "Quality-Control" renders 173 px wide at truetype 26 and 70 px with the
+# bare default -- inside a LABEL_H of 26, with no error raised, so figures came out with tiny
+# unreadable text and nothing said why. load_default(size=) honours it (180 px) in modern
+# Pillow, so that is the last resort rather than the sized-blind call.
+_MAC_FONTS = ("/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+              "/System/Library/Fonts/Supplemental/Arial.ttf",
+              "/System/Library/Fonts/Helvetica.ttc")
+_LINUX_BOLD = ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+              "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+              "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
+              "/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf")
+_LINUX_REG = ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+              "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+              "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+              "/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf")
+
+
 def font(size, bold=False):
-    for p in (("/System/Library/Fonts/Supplemental/Arial Bold.ttf" if bold
-               else "/System/Library/Fonts/Supplemental/Arial.ttf"),
-              "/System/Library/Fonts/Helvetica.ttc"):
+    mac = (_MAC_FONTS[0] if bold else _MAC_FONTS[1], _MAC_FONTS[2])
+    for p in mac + (_LINUX_BOLD if bold else _LINUX_REG):
         if os.path.exists(p):
             try:
                 return ImageFont.truetype(p, size)
             except Exception:
                 pass
-    return ImageFont.load_default()
+    try:
+        return ImageFont.load_default(size=size)
+    except (TypeError, OSError):   # no size arg (Pillow < 10.1), or no font to load
+        return ImageFont.load_default()
 
 
 def overlay_masks(tpl_rgb):

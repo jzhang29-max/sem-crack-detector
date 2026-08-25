@@ -60,13 +60,28 @@ PART2_COLORS = ["#7A4C9E", "#C1272D"]
 
 FONT_PATH = "/System/Library/Fonts/Supplemental/Arial.ttf"
 FONT_BOLD_PATH = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
+# Fallbacks for a machine without the macOS fonts; see the note in build_figures.font().
+FONT_FALLBACKS = ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                  "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                  "/usr/share/fonts/dejavu/DejaVuSans.ttf")
+FONT_BOLD_FALLBACKS = ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                       "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+                       "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf")
 
 
 def _font(size, bold=False):
     try:
         return ImageFont.truetype(FONT_BOLD_PATH if bold else FONT_PATH, size)
     except Exception:
-        return ImageFont.load_default()
+        for _fb in (FONT_BOLD_FALLBACKS if bold else FONT_FALLBACKS):
+            try:
+                return ImageFont.truetype(_fb, size)
+            except Exception:
+                pass
+        try:
+            return ImageFont.load_default(size=size)
+        except (TypeError, OSError):   # no size arg (Pillow < 10.1), or no font to load
+            return ImageFont.load_default()
 
 
 def crop_center(img, cx_frac, cy_frac, w_frac, h_frac):

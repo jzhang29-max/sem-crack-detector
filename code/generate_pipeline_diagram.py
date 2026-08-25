@@ -34,7 +34,10 @@ VIOLET = (150, 118, 235)
 FONTS = ["/System/Library/Fonts/Supplemental/Helvetica.ttc",
          "/System/Library/Fonts/Helvetica.ttc",
          "/Library/Fonts/Arial.ttf",
-         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
+         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+         "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+         "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+         "/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf"]
 
 
 def font(size, bold=False):
@@ -47,7 +50,10 @@ def font(size, bold=False):
                     return ImageFont.truetype(p, size)
                 except Exception:
                     continue
-    return ImageFont.load_default()
+    try:
+        return ImageFont.load_default(size=size)
+    except (TypeError, OSError):   # no size arg (Pillow < 10.1), or no font to load
+        return ImageFont.load_default()
 
 
 #: THE PIPELINE, in order. (title, detail lines, accent, tag)
