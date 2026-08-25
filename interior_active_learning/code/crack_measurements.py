@@ -104,9 +104,12 @@ def measure_stage(image_name, stage, crack_mask_override=None):
         # apply_pixel_corrections, so a region the reviewer marked not-crack is no longer
         # IsCrack and cannot be an endpoint. But the Dijkstra route between two legitimate
         # endpoints is traced through the brightness field alone, so it can still cross
-        # pixels the reviewer explicitly ruled on -- measured at 25 px on
-        # 260708_316_H_b2_front_CBS_012 and 44 px on AS_24hr_BSE_Side_008. Those pixels then
-        # entered the measured crack mask, which is the authority order (human > detector)
+        # pixels the reviewer explicitly ruled on. Measured effect on the counted total
+        # (bridge_px_added): 289 -> 264 on 260708_316_H_b2_front_CBS_012, exactly the 25
+        # vetoed pixels; 504 -> 457 on AS_24hr_BSE_Side_008, the 44 vetoed plus 3 more
+        # orphaned because cutting that route split the connector into 4 pieces and one no
+        # longer reached a crack. No cascade beyond that. Those pixels had been entering
+        # the measured crack mask, which is the authority order (human > detector)
         # being broken quietly in the CSVs while the overlay, which does not draw bridges at
         # all, looked correct. Erased (3) is excluded for the same reason: it means "remove
         # from consideration entirely".
