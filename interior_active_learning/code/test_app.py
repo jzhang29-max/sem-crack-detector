@@ -1167,6 +1167,28 @@ def main():
           '"verification": THR_CORRECTED' in _tv_src,
           "provenance claiming a plain quantile transfer reproduces a different number")
 
+    # CI MUST COVER BOTH PLATFORMS. It was Linux-only at first, on the reasoning that macOS was
+    # already covered locally -- and the first two bugs it found were byte-level divergences
+    # between the two, invisible on one and obvious on the other. A one-platform matrix cannot
+    # see that class at all, in either direction.
+    _wf_dir = os.path.join(os.path.dirname(os.path.dirname(CODE)), ".github", "workflows")
+    _wfs = [os.path.join(_wf_dir, f) for f in os.listdir(_wf_dir)] if os.path.isdir(_wf_dir) else []
+    _wf_src = "".join(open(f).read() for f in _wfs)
+    check("CI exists at all", bool(_wfs), _wf_dir)
+    check("CI runs the suite on Linux", "ubuntu-" in _wf_src)
+    check("CI runs the suite on macOS too", "macos-" in _wf_src,
+          "byte-level platform divergence is invisible to a one-platform matrix")
+    check("both platforms assert the working tree is left clean",
+          _wf_src.count("the test run left the tree dirty") >= 2,
+          "this assertion is what caught the suite rewriting shipped masks")
+    # Match the runs-on VALUE, not the string: the workflow's own comment explains why it does
+    # not use macos-latest, and a bare substring test failed on that explanation -- the same
+    # too-loose-guard mistake as the template-barrier audit.
+    _runners = re.findall(r"^\s*runs-on:\s*(\S+)", _wf_src, re.M)
+    check("runner images are pinned, not -latest",
+          _runners and not any(r.endswith("-latest") for r in _runners),
+          f"runners: {sorted(set(_runners))}")
+
     # The performance block reports a model fingerprint; caching it on artifact mtimes alone
     # froze it at whatever model was live when the process started.
     _ae_src2 = open(os.path.join(CODE, "app_endpoints.py")).read()

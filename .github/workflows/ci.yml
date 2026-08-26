@@ -1,5 +1,13 @@
 # What this exists to prove, and what it cannot.
 #
+# BOTH PLATFORMS, on every push. That is not how this started: it was Linux-only, on the
+# reasoning that macOS was already covered by running the suite locally. The reasoning had a
+# hole, and the first two bugs this workflow found were sitting in it -- a PNG re-encode that
+# produced byte-identical output on macOS and different bytes on Linux, which is why the suite
+# had been quietly rewriting hand-labelled masks. That divergence runs both ways, so anything
+# that passes on Linux and breaks on macOS would otherwise be caught only when someone happened
+# to run make test by hand.
+#
 # Everything in the README about Linux was established WITHOUT a Linux machine: by resolving
 # requirements against PyPI with pip's --platform machinery, and by parsing the ELF DT_NEEDED
 # tables of a downloaded manylinux wheel. That is strong evidence, not execution. These three
@@ -27,8 +35,10 @@
 #   - SAM 2. Off by default; the checkpoint download is not fetched.
 #   - Old glibc. ubuntu-24.04 is modern; the documented glibc >= 2.28 floor (which rules out
 #     CentOS 7 and Ubuntu 18.04) is not tested by any of this.
+#   - Windows, and any Linux that is not Ubuntu/Debian-shaped. Two platforms is not all
+#     platforms, and the macOS job is one arm64 runner image, not "macOS".
 
-name: linux
+name: ci
 
 on:
   push:
@@ -89,6 +99,59 @@ jobs:
           OPEN: '0'
         run: make test
 
+      - name: Nothing in the working tree was modified by the run
+        run: |
+          git status --porcelain
+          test -z "$(git status --porcelain)" || {
+            echo "::error::the test run left the tree dirty -- see the list above"; exit 1; }
+
+  macos-suite:
+    name: install and full suite (macos, python 3.12)
+    # macos-14 is arm64, which is what this was developed on -- the point is to catch DIVERGENCE
+    # from Linux, so the pair has to be a real pair. Pinned rather than macos-latest for the same
+    # reason ubuntu-24.04 is pinned: a runner image rolling forward should not silently become
+    # the variable under test.
+    runs-on: macos-14
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/pip
+          key: pip-macos-py312-${{ hashFiles('requirements.txt') }}
+
+      # Informational only -- never fail the job because a probe tool is missing.
+      - name: Show the environment the claims are about
+        run: |
+          python3 -VV || true
+          sw_vers || true
+          uname -m || true
+          df -h . | tail -1 || true
+
+      - name: make setup
+        run: make setup
+
+      - name: cv2 imports here too
+        run: |
+          ./.venv/bin/python3 -m pip list | grep -i opencv
+          ./.venv/bin/python3 -c "import cv2; print('cv2', cv2.__version__)"
+
+      - name: make test
+        env:
+          OPEN: '0'
+        run: make test
+
+      # THE ASSERTION THAT EARNED ITS KEEP. Both mask-rewriting bugs were invisible in the test
+      # output and visible only here -- the suite passed and then the tree was dirty. It has to
+      # run on both platforms, because byte-level divergence is exactly what it catches.
       - name: Nothing in the working tree was modified by the run
         run: |
           git status --porcelain
