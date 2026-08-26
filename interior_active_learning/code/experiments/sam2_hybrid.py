@@ -55,7 +55,7 @@ from PIL import Image
 
 import detector_config as _dc
 import unified_pipeline as up
-from common import load_correction_mask
+from common import load_correction_mask, pick_torch_device
 from scoring_convention_bias import eligible
 
 Image.MAX_IMAGE_PIXELS = None
@@ -121,8 +121,7 @@ def _load_sam2(model_id):
     from transformers import Sam2Model, Sam2Processor
     proc = Sam2Processor.from_pretrained(model_id)
     model = Sam2Model.from_pretrained(model_id).eval()
-    dev = ("cuda" if torch.cuda.is_available()
-           else "mps" if torch.backends.mps.is_available() else "cpu")
+    dev = pick_torch_device(torch)
     return proc, model.to(dev), dev, torch
 
 

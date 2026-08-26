@@ -237,6 +237,39 @@ UNUSABLE_MASKS = {}
 # ledger already refuses them (apply_paint_annotations._log_touched_labels); candidate_counts
 # did not, so `make test` left "apptest_tif" in a tracked file and every run dirtied the repo --
 # which Linux CI caught by asserting a clean tree.
+def pick_torch_device(torch):
+    """cuda -> mps -> cpu, but PROVING each choice works before committing to it.
+
+    is_available() is not the same as usable. GitHub's macOS runners are virtualised: MPS
+    reports available and then the first allocation dies with "MPS backend out of memory (MPS
+    allocated: 0 bytes ... Tried to allocate 1024 bytes on shared pool)". The same is true of
+    any constrained or virtualised Mac, so this is not a CI quirk to paper over -- a user on a
+    VM would have hit exactly the same crash, and the previous code offered no fallback because
+    it treated availability as proof.
+
+    A one-element tensor is enough to tell the difference, and costs nothing.
+    """
+    def _usable(dev):
+        try:
+            torch.zeros(1, device=dev) + 1
+            return True
+        except Exception:
+            return False
+
+    for dev in ("cuda", "mps"):
+        try:
+            avail = (torch.cuda.is_available() if dev == "cuda"
+                     else torch.backends.mps.is_available())
+        except Exception:
+            avail = False
+        if avail and _usable(dev):
+            return dev
+        if avail:
+            print(f"note: {dev} reports available but cannot allocate; falling back",
+                  flush=True)
+    return "cpu"
+
+
 RESERVED_TEST_PREFIXES = ("apptest", "SELFTEST", "MASKGUARD")
 
 

@@ -946,18 +946,18 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 ./.venv/bin/python3 interior_active_learning/code/test_app.py
 ```
 
-365 checks covering upload, detection, exports, correction precedence, region
+367 checks covering upload, detection, exports, correction precedence, region
 isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
 routing, physical-unit calibration, calibration *uncertainty*, instrument metadata,
 right-censoring, the specimen as statistical unit, the batch CLI and its refusals,
 cross-image aggregation, and train/serve parity.
 
-On a **fresh clone** you will see 355, not 365, with one reported as SKIP: overlays and
+On a **fresh clone** you will see 357, not 367, with one reported as SKIP: overlays and
 per-image measurement CSVs are derived artifacts and are not shipped, so the sections that
 need them have less to run against. A skip is printed with the exact command that builds the
 fixture, and never counts as a pass. `make test` exits 0 on a clean checkout — verified by extracting
 every tracked file to an empty directory, running `make setup` and `make test` there, and
-reading the result: 354 passed, 0 failed, 1 skipped, 355 total. Both numbers here are
+reading the result: 356 passed, 0 failed, 1 skipped, 357 total. Both numbers here are
 measured that way rather than derived by subtracting from the full count.
 
 **On Linux, CI is the evidence.** Everything this README says about Linux was worked out
@@ -966,7 +966,7 @@ machinery, and by reading the ELF dependency tables of a downloaded `manylinux` 
 strong evidence, not execution. [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 executes it, in five jobs on every push. Four target a previously-inferred claim about
 Linux: the full install and
-all 355 checks on Ubuntu with Python 3.12 (the fresh-clone count); `import cv2` inside a
+all 357 checks on Ubuntu with Python 3.12 (the fresh-clone count); `import cv2` inside a
 `python:3.12-slim` container with **no** `libGL` and no X11, which is what proves or kills the
 headless-OpenCV choice; `make test-browser` in real chromium; and a `debian:12` job asserting
 that `./run` *refuses* that distro's Python 3.11 with a readable message rather than dying later

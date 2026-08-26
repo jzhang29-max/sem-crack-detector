@@ -82,8 +82,8 @@ def _load(model_id):
     proc = Sam2Processor.from_pretrained(model_id)
     model = Sam2Model.from_pretrained(model_id).eval()
     # cuda -> mps -> cpu; see hybrid_detect for why MPS-only was wrong on Linux.
-    dev = ("cuda" if torch.cuda.is_available()
-           else "mps" if torch.backends.mps.is_available() else "cpu")
+    from common import pick_torch_device
+    dev = pick_torch_device(torch)
     _CACHE[model_id] = (proc, model.to(dev), dev, torch)
     return _CACHE[model_id]
 

@@ -1016,9 +1016,18 @@ def main():
     # MPS-only device selection sent a Linux NVIDIA box to the CPU silently.
     for _f in ("hybrid_detect.py", "sam2_refine.py"):
         _src = open(os.path.join(CODE, _f)).read()
-        check(f"{_f} prefers CUDA before MPS",
-              "torch.cuda.is_available()" in _src,
+        check(f"{_f} picks its device through the shared probe",
+              "pick_torch_device(torch)" in _src,
               "otherwise a GPU Linux host runs on CPU with nothing saying so")
+    # is_available() is not usable. GitHub's macOS runners report MPS available and then die on
+    # the first allocation ("MPS allocated: 0 bytes"), which is true of any virtualised Mac --
+    # so the picker proves the device with a one-element tensor before committing to it.
+    _cm_src = open(os.path.join(CODE, "common.py")).read()
+    check("the device picker proves the device works before using it",
+          "def pick_torch_device" in _cm_src and "torch.zeros(1, device=dev)" in _cm_src,
+          "trusting is_available() crashed on a runner where MPS exists but has no memory")
+    check("and it prefers CUDA, then MPS, then CPU",
+          '("cuda", "mps")' in _cm_src and 'return "cpu"' in _cm_src)
 
     # Listing accepted any case of .tif then rebuilt a lowercase path, which does not exist
     # on a case-sensitive filesystem. Verified on a real case-sensitive volume.

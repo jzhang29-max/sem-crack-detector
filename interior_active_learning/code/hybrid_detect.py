@@ -47,7 +47,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 import numpy as np
 
-from common import ORIGINAL_DIR, PROD_MODEL_PATH, contrast_kwargs_for, is_test_image
+from common import ORIGINAL_DIR, PROD_MODEL_PATH, contrast_kwargs_for, is_test_image, pick_torch_device
 from detect_cracks import region_features_from_labeled
 from unified_pipeline import run_unified_pipeline
 
@@ -81,8 +81,7 @@ def _get_sam():
     # fell through to CPU with nothing on screen saying so -- the failure mode is "why is this
     # so slow", which is the hardest kind to diagnose remotely. torch.backends.mps imports
     # fine on Linux and is_available() simply returns False, so the order is safe on both.
-    device = ("cuda" if torch.cuda.is_available()
-              else "mps" if torch.backends.mps.is_available() else "cpu")
+    device = pick_torch_device(torch)
     proc = SamProcessor.from_pretrained("facebook/sam-vit-huge")
     # float32 is required: the mask-generation pipeline hits a float64 op on MPS
     # otherwise, which fails outright.
