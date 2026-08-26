@@ -131,7 +131,10 @@ def comparable_baseline(bundle, candidate_image):
         return None, "ignored: the recorded baseline is not a number"
 
 
-def promotion_decision(new_loio, cur_loio):
+MIN_PROMOTE_SPECIFICITY = 0.20
+
+
+def promotion_decision(new_loio, cur_loio, new_spec=None):
     """Should a freshly trained candidate replace production? (promote, reason)
 
     Pulled out of the retrain closure so it can be tested without a 10-minute training
@@ -152,6 +155,19 @@ def promotion_decision(new_loio, cur_loio):
             "comparing against its in-sample score would bias every retrain toward "
             "refusal. Run `python3 code/establish_baseline.py` once to measure and "
             "record it, then retrain again. Production left unchanged.")
+    # AUC IS THRESHOLD-INVARIANT, so everything above is blind to the operating point. A
+    # candidate that flags every region has the same AUC as one that flags them well, and this
+    # gate would have promoted it with a clean report. That is not hypothetical: the threshold
+    # calibration had a rule that, chasing a high recall target, could pick a threshold with
+    # 1.3% specificity. The calibration is bounded now; this is the second line of defence,
+    # because a gate that cannot see a degenerate operating point is not a gate against one.
+    if new_spec is not None and new_spec < MIN_PROMOTE_SPECIFICITY:
+        return False, (
+            f"NOT deployed: the candidate ranks well (held-out AUC {new_loio:.4f}) but its "
+            f"operating point is degenerate -- specificity {new_spec:.1%} on the held-out "
+            f"specimen, below the {MIN_PROMOTE_SPECIFICITY:.0%} floor, which means it calls "
+            f"almost everything a crack. AUC cannot see this, so it is checked separately. "
+            f"Production left unchanged.")
     if new_loio >= cur_loio - 1e-9:
         return True, None       # caller fills in the reason, it names the backup file
     return False, (f"NOT deployed: held-out AUC {new_loio:.4f} is worse than "
@@ -469,6 +485,20 @@ def register(app, get_stage, invalidate_stage=None):
             key = (os.path.getmtime(bench), os.path.getmtime(hyb))
         except OSError:
             return None
+        # KEY ON THE MODEL TOO. This block's output includes model_fingerprint and a
+        # describes_this_model flag per artifact -- both properties of the DEPLOYED MODEL, not of
+        # the artifacts. Keying only on artifact mtimes meant that promoting a retrain, or
+        # switching model from the dropdown, left the fingerprint and both flags frozen at
+        # whatever model was live when the process first computed them. Observed: the app served
+        # model_fingerprint eaf0f52ea9f7 for a bundle that had been replaced hours earlier. The
+        # mechanism that exists to say "this figure may not describe your model" was itself the
+        # thing going stale.
+        try:
+            key = key + (os.path.getmtime(PROD_MODEL_PATH),)
+        except OSError:
+            key = key + (None,)          # no model on disk: still report the artifacts
+        if _PERF_CACHE.get("key") == key:
+            return _PERF_CACHE.get("val")
         if _PERF_CACHE.get("key") == key:
             return _PERF_CACHE.get("val")
         out = {}
@@ -743,7 +773,17 @@ def register(app, get_stage, invalidate_stage=None):
                     "quote. The deployed model is refit on all rows including the held-out "
                     "image, so neither figure is a property of the shipped model.")
                 out["label_balance"] = label_balance()
-                _go, _why = promotion_decision(new_loio, cur_loio)
+                # Pass the candidate's operating point too: the bundle records the
+                # specificity it actually achieves at the threshold it will ship with.
+                _new_spec = None
+                try:
+                    _cb = joblib.load(cand)
+                    _new_spec = (None if _cb.get("loio_spec") is None
+                                 else float(_cb["loio_spec"]))
+                except Exception:
+                    pass
+                out["loio_spec_new"] = _new_spec
+                _go, _why = promotion_decision(new_loio, cur_loio, _new_spec)
                 if not _go:
                     reason = _why
                     # SAY WHY THE CANDIDATE LOST, not just that it did. A refusal that reads

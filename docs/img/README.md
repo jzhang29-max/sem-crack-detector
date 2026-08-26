@@ -34,7 +34,7 @@ half a pixel, so the figure has to be a crop and the crop has to come from the d
 ## review.png
 
 `AS_24hr_BSE_Side_008`, same pipeline, but this image **is** human-reviewed and **is**
-in the training set — 1,285 of the 4,787 training rows come from it. Built with
+in the training set — 1,285 of the 7,505 training rows come from it. Built with
 `--reviewed`, which labels the right panel "after review" and its cyan "marked
 not-crack" rather than "rejected". Mislabelling this one as model output would
 present corrected pixels as unaided accuracy.

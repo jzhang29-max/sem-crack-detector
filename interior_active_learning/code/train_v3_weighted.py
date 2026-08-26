@@ -258,22 +258,33 @@ def main():
     print(f"\nselected: {best} -- LOIO AUC {results[best]['loio_auc_exhaustive_image']:.4f}, "
           f"and calibrated stably enough for a fixed threshold")
 
-    # ---------- production baseline on the same held-out image ----------
-    held = df[df.SourceImage == HELD]
-    yb = held["IsCrack"].astype(bool).values
-    pb = joblib.load(PROD_MODEL_PATH)
-    pp = pb["clf"].predict_proba(pb["scaler"].transform(held[pb["feature_names"]].values))[:, 1]
-    prod_auc = roc_auc_score(yb, pp)
-    print(f"production model on that same image: AUC {prod_auc:.4f} "
-          f"(optimistic -- it was trained with this image's labels)")
-
-    # ---------- pick an operating threshold on the held-out image ----------
-    # The default 0.5 is not sacred; it is just where the retrained model's
-    # score happens to fall. Sweep it on the held-out image and quote the
-    # comparison at MATCHED recall, which is the only way to say "fewer false
-    # positives" without secretly trading away sensitivity.
+    # ---------- pick the held-out rows ONCE, and score everything on them ----------
+    # The holdout is a SPECIMEN, which may be several images. This block used to build the
+    # production baseline over `df[df.SourceImage == HELD]` -- a single image -- while the
+    # candidate was scored over `te`, the whole specimen. `at(PROD_THR, pp)` then evaluated
+    # `yt & pr` across the two, which works only while the held specimen happens to contain
+    # exactly one image. It does today (AS_24hr_BSE_Side_008 is the sole AS_24hr frame), so
+    # nothing has failed; upload one more AS_24hr_* frame and Retrain dies with a bare numpy
+    # broadcast error (verified: 1610 vs 842). The docstring on held_out_images claims to
+    # prevent exactly that, and the check for it only exercised held_out_images itself, never
+    # these two call sites. Both sides are now built from `te`.
     _held_imgs, _held_how = held_out_images(groups)
     te = np.isin(groups, _held_imgs)
+
+    # ---------- production baseline on the same held-out rows ----------
+    pb = joblib.load(PROD_MODEL_PATH)
+    pp = pb["clf"].predict_proba(
+        pb["scaler"].transform(df.loc[te, pb["feature_names"]].values))[:, 1]
+    prod_auc = roc_auc_score(y[te], pp)
+    print(f"production model on the held-out specimen ({len(_held_imgs)} image(s), "
+          f"{int(te.sum())} rows): AUC {prod_auc:.4f} "
+          f"(optimistic -- it was trained with these labels)")
+
+    # ---------- pick an operating threshold on the held-out rows ----------
+    # The default 0.5 is not sacred; it is just where the retrained model's
+    # score happens to fall. Sweep it on the held-out rows and quote the
+    # comparison at MATCHED recall, which is the only way to say "fewer false
+    # positives" without secretly trading away sensitivity.
     scH = StandardScaler().fit(X[~te])
     clfH = MODELS[best]()
     clfH.fit(scH.transform(X[~te]), y[~te], sample_weight=W[~te])
@@ -331,22 +342,60 @@ def main():
         # same run had just computed -- and cost 14 points of recall corpus-wide for
         # specificity nobody asked for. Enforce the stated intent ("matched recall") on the
         # out-of-fold scores, which are out-of-sample for every row and cover all images.
+        #
+        # 2026-08-25, second pass: the first version of this correction inherited the very bug
+        # it was written to remove, in three ways worth naming so they are not reintroduced.
+        #   (a) ONE-SIDED. It fired only when recall came out BELOW target, so the opposite
+        #       error -- a threshold so low the model flags everything -- was never corrected.
+        #   (b) UNBOUNDED. The grid's 0-quantile is the minimum out-of-fold score, so a
+        #       high-recall incumbent could walk the deployed threshold down toward
+        #       flag-everything with no floor at all.
+        #   (c) IT AIMED AT THE FLOOR, NOT THE TARGET. `max(_ok)` takes the HIGHEST threshold
+        #       that still clears the target, i.e. the least recall that passes. The incumbent
+        #       at the time was the 0.6257 overshoot, so the target was its 50.2% and the
+        #       shipped model was pinned at exactly 50.2% -- the minimum that beat a
+        #       miscalibrated predecessor.
+        # Now: two-sided, aimed AT the target rather than its floor, and refused outright if the
+        # result is degenerate. A threshold is degenerate when it flags almost everything;
+        # specificity is the honest way to say that, and it is what AUC cannot see.
+        THR_CORRECTED = None
         _fin = np.isfinite(_oof_best)
         _target_rec = at(thr_match_rec)[0]
-        def _oof_recall(t):
+
+        def _oof_rates(t):
             _pr = _oof_best[_fin] >= t
-            return float((_pr & y[_fin]).sum()) / max(int(y[_fin].sum()), 1)
-        if _oof_recall(DEPLOY_THR) < _target_rec - 0.02:
+            _yy = y[_fin]
+            _tp = int((_pr & _yy).sum()); _fn = int((~_pr & _yy).sum())
+            _tn = int((~_pr & ~_yy).sum()); _fp = int((_pr & ~_yy).sum())
+            return (_tp / max(_tp + _fn, 1), _tn / max(_tn + _fp, 1))
+
+        def _oof_recall(t):
+            return _oof_rates(t)[0]
+
+        MIN_OOF_SPEC = 0.30      # below this the model is flagging nearly everything
+        if abs(_oof_recall(DEPLOY_THR) - _target_rec) > 0.02:
             _grid = np.unique(np.quantile(_oof_best[_fin], np.linspace(0, 1, 401)))
-            _ok = [t for t in _grid if _oof_recall(t) >= _target_rec]
+            # candidates that are not degenerate, ranked by how close they land to the target
+            _ok = [t for t in _grid if _oof_rates(t)[1] >= MIN_OOF_SPEC]
             if _ok:
-                _fixed = float(max(_ok))          # highest threshold still meeting the target
+                _fixed = float(min(_ok, key=lambda t: abs(_oof_recall(t) - _target_rec)))
+                _fr, _fs = _oof_rates(_fixed)
                 print(f"  transfer did not hold: at {DEPLOY_THR:.3f} out-of-fold recall is "
                       f"{_oof_recall(DEPLOY_THR):.1%} against a target of {_target_rec:.1%}. "
-                      f"Using {_fixed:.3f}, the highest threshold that meets the target on the "
-                      f"out-of-fold scores.")
+                      f"Using {_fixed:.3f}, the non-degenerate threshold whose out-of-fold "
+                      f"recall lands closest to the target: {_fr:.1%} recall, "
+                      f"{_fs:.1%} specificity.")
+                THR_CORRECTED = {"from": float(DEPLOY_THR), "to": _fixed,
+                                 "target_recall": float(_target_rec),
+                                 "oof_recall": float(_fr), "oof_specificity": float(_fs),
+                                 "min_oof_specificity": MIN_OOF_SPEC}
                 DEPLOY_THR = _fixed
+            else:
+                print(f"  transfer did not hold, and no threshold on the out-of-fold grid "
+                      f"reaches specificity {MIN_OOF_SPEC:.0%}. Leaving {DEPLOY_THR:.3f} "
+                      f"in place rather than deploying a flag-everything operating point.")
     else:
+        THR_CORRECTED = None
         DEPLOY_THR = thr_match_rec
         print(f"\nWARNING: no out-of-fold scores for {best}; deploying "
               f"{DEPLOY_THR:.3f} straight from the held-out-trained model, whose "
@@ -461,10 +510,18 @@ def main():
                   "model_family": best,
                   "per_image_weights": True, "threshold": DEPLOY_THR,
                   "threshold_provenance": {
-                      "method": "quantile transfer of matched-recall threshold",
+                      # Record whether the quantile transfer SURVIVED verification. It used to
+                      # say "quantile transfer" unconditionally, so a bundle whose threshold had
+                      # actually been corrected still claimed a method that reproduces a
+                      # different number -- 0.7113 where 0.5538 shipped.
+                      "method": ("quantile transfer of matched-recall threshold, corrected "
+                                 "against out-of-fold recall"
+                                 if THR_CORRECTED else
+                                 "quantile transfer of matched-recall threshold"),
                       "production_threshold_compared": PROD_THR,
                       "held_out_model_threshold": thr_match_rec,
-                      "quantile": _q, "held_out_image": HELD},
+                      "quantile": _q, "held_out_image": HELD,
+                      "verification": THR_CORRECTED},
                   "operating_points": ops, "n_train": len(df),
                   "n_pos": int(y.sum()), "n_neg": int((~y).sum()),
                   "images": sorted(df.SourceImage.unique().tolist()),

@@ -14,8 +14,8 @@
 Drop SEM images into a browser window, see cracks detected, fix what's wrong by
 painting.
 
-**First run on a fresh clone:** 39 of the 62 shipped micrographs come with a hand-drawn
-correction mask; the other 23 ship as images only, with nothing marked on them yet. None ship
+**First run on a fresh clone:** 45 of the 62 shipped micrographs come with a hand-drawn
+correction mask; the other 17 ship as images only, with nothing marked on them yet. None ship
 with rendered overlays — those are derived and would add hundreds of megabytes to every
 clone. So the first time you open an image, the pipeline runs for it: about 20 seconds
 on a 5.8-megapixel frame and about 95 seconds at 25 megapixels (see the measured pair
@@ -149,7 +149,7 @@ can see what is worth opening before anything is rendered.
 
    Left, the micrograph; right, the result after review. This is
    `AS_24hr_BSE_Side_008`, the most heavily adjudicated image in the set — 1,285 of
-   the 4,787 training rows come from it, and 134,039 pixels in it were marked
+   the 7,505 training rows come from it, and 134,039 pixels in it were marked
    not-crack by hand. Red tracks the cracks closely here precisely *because* it was
    reviewed, which is why this figure is labelled "after review" and the one above
    is not: read this one as what a finished image looks like, not as unaided
@@ -167,13 +167,14 @@ can see what is worth opening before anything is rendered.
 Corrections are stored per-pixel and **always override the model**. Retraining
 never discards them.
 
-One caveat on the corpus that ships: `training_data/labeled_regions.csv` holds 4,787 rows
-from 38 images, but 39 of the 40 shipped masks carry marked pixels. `MAR_Amb_HIP_ETD_0006`
-has 61,830 hand-marked pixels and contributes no rows, because building a row needs that
-image's candidate features and it has none committed. Its mask fits the current render
-(checked: 40 masks, 0 shape mismatches), so the marks are intact and not lost — they are
-simply not in the shipped corpus yet, and a Retrain on your machine will pick them up once
-its candidates exist. `interior_active_learning/code/experiments/failure_mode_magnitudes.py`
+One caveat on the corpus that ships: `training_data/labeled_regions.csv` holds 7,505 rows
+from 45 images, and 45 of the 46 shipped masks carry marked pixels. The one that does not is
+`MAR_Amb_HIP_CBS_0007` — an empty mask, written when the image was opened and never painted —
+and it is also the only mask contributing no training rows. (`MAR_Amb_HIP_ETD_0006` was the
+exception here previously, with 61,830 marked pixels and no rows; it now contributes 52.)
+Every mask fits the current render — checked with `correction_mask_state` over all 46 against
+`find_field_of_view(load_as_uint8(tif))`, which is what the pipeline itself does: 46 ok, 0
+shape mismatches. `interior_active_learning/code/experiments/failure_mode_magnitudes.py`
 names it by enumeration rather than leaving the gap as a subtraction.
 
 ### Undo
@@ -945,18 +946,18 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 ./.venv/bin/python3 interior_active_learning/code/test_app.py
 ```
 
-337 checks covering upload, detection, exports, correction precedence, region
+360 checks covering upload, detection, exports, correction precedence, region
 isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
 routing, physical-unit calibration, calibration *uncertainty*, instrument metadata,
 right-censoring, the specimen as statistical unit, the batch CLI and its refusals,
 cross-image aggregation, and train/serve parity.
 
-On a **fresh clone** you will see 327, not 337, with one reported as SKIP: overlays and
+On a **fresh clone** you will see 350, not 360, with one reported as SKIP: overlays and
 per-image measurement CSVs are derived artifacts and are not shipped, so the sections that
 need them have less to run against. A skip is printed with the exact command that builds the
 fixture, and never counts as a pass. `make test` exits 0 on a clean checkout — verified by extracting
 every tracked file to an empty directory, running `make setup` and `make test` there, and
-reading the result: 326 passed, 0 failed, 1 skipped, 327 total. Both numbers here are
+reading the result: 349 passed, 0 failed, 1 skipped, 350 total. Both numbers here are
 measured that way rather than derived by subtracting from the full count.
 
 **On Linux, CI is the evidence.** Everything this README says about Linux was worked out
@@ -964,7 +965,7 @@ without a Linux machine — by resolving the requirements against PyPI with pip'
 machinery, and by reading the ELF dependency tables of a downloaded `manylinux` wheel. That is
 strong evidence, not execution. [`.github/workflows/linux.yml`](.github/workflows/linux.yml)
 executes it, in four jobs that each target one previously-inferred claim: the full install and
-all 327 checks on Ubuntu with Python 3.12 (the fresh-clone count); `import cv2` inside a
+all 350 checks on Ubuntu with Python 3.12 (the fresh-clone count); `import cv2` inside a
 `python:3.12-slim` container with **no** `libGL` and no X11, which is what proves or kills the
 headless-OpenCV choice; `make test-browser` in real chromium; and a `debian:12` job asserting
 that `./run` *refuses* that distro's Python 3.11 with a readable message rather than dying later

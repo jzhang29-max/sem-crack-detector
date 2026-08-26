@@ -36,8 +36,8 @@ same path.) It now
 MERGES: rows for images present locally are recomputed, rows for absent images are
 carried over. A user who clones, adds their own images and corrects them now ADDS
 to the shipped labels instead of destroying them. Verified on a clone with zero
-images: all 4,787 rows carried, training completes. (The check was first run when
-the corpus held 4,128 rows; the number here tracks the shipped file, which grew.)
+images: all rows carried, training completes. (The check was first run when
+the corpus held 4,128 rows, then 4,787; it is 7,505 today. The point is that the count carried equals the count shipped, whatever that number is.)
 
 ## Adopted from TXM
 

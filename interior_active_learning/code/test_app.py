@@ -24,6 +24,7 @@ be inspected.
 import io
 import json
 import glob
+import atexit
 import hashlib
 import os
 import re
@@ -1134,6 +1135,45 @@ def main():
     _go2, _ = _ae.promotion_decision(0.90, 0.8855)
     check("a better candidate is still promoted", _go2 is True)
 
+    # AUC IS THRESHOLD-INVARIANT, so the promotion gate could not see a degenerate operating
+    # point: a model that flags every region scores the same AUC as one that flags them well.
+    # The threshold calibration had a rule that, chasing a high recall target, could pick a
+    # threshold with 1.3% specificity -- and the gate would have promoted it with a clean report.
+    sys.path.insert(0, CODE)
+    import app_endpoints as _ae2
+    _g, _w = _ae2.promotion_decision(0.99, 0.86, 0.013)
+    check("a flag-everything candidate is refused despite a great AUC",
+          _g is False and "degenerate" in (_w or ""),
+          str(_w)[:110])
+    check("a healthy operating point still promotes",
+          _ae2.promotion_decision(0.90, 0.86, 0.55)[0] is True)
+    check("an absent specificity does not block promotion",
+          _ae2.promotion_decision(0.90, 0.86, None)[0] is True,
+          "an older bundle carries no loio_spec; that must not brick retraining")
+
+    # The threshold correction had to be bounded and two-sided: it fired only when recall came
+    # out BELOW target, aimed at the FLOOR of what passed, and its grid reached the minimum
+    # out-of-fold score, so a high-recall incumbent could walk it toward flag-everything.
+    _tv_src = open(os.path.join(CODE, "train_v3_weighted.py")).read()
+    check("the threshold correction is two-sided",
+          "abs(_oof_recall(DEPLOY_THR) - _target_rec) > 0.02" in _tv_src,
+          "a one-sided check cannot catch the overshoot it was written for")
+    check("the threshold correction refuses a degenerate operating point",
+          "MIN_OOF_SPEC" in _tv_src and "_oof_rates(t)[1] >= MIN_OOF_SPEC" in _tv_src)
+    check("it aims AT the target rather than the floor that passes",
+          "min(_ok, key=lambda t: abs(_oof_recall(t) - _target_rec))" in _tv_src,
+          "max(_ok) pinned the shipped model at the least recall that beat its predecessor")
+    check("the bundle records whether the correction ran",
+          '"verification": THR_CORRECTED' in _tv_src,
+          "provenance claiming a plain quantile transfer reproduces a different number")
+
+    # The performance block reports a model fingerprint; caching it on artifact mtimes alone
+    # froze it at whatever model was live when the process started.
+    _ae_src2 = open(os.path.join(CODE, "app_endpoints.py")).read()
+    check("the performance cache invalidates when the model changes",
+          "key + (os.path.getmtime(PROD_MODEL_PATH),)" in _ae_src2,
+          "otherwise the staleness warning is itself stale")
+
     _ps_src = open(os.path.join(CODE, "paint_server.py")).read()
     check("the server flushes pending overlay writes on SIGTERM",
           "signal.SIGTERM" in _ps_src and "template_writer.flush" in _ps_src,
@@ -1378,6 +1418,32 @@ def main():
     # hand-corrected images including every MAR frame.
     # The endpoints, because the refusal is the feature: a cross-check failure must reach
     # the UI as a 409 with both numbers, not be swallowed into a success.
+    # THIS SECTION DRIVES CALIBRATION OVER HTTP, so the server owns the file and the test
+    # process cannot redirect CALIB_PATH the way the in-process sections do. paint/calibration.json
+    # is TRACKED, and these calls write to it against a real image name with no try/finally -- so
+    # an assertion failure anywhere below used to leave a calibration record in a shipped file.
+    # It has been harmless only because the file happens to be "{}". Snapshot the bytes and put
+    # them back unconditionally, for the same reason the mask restores are byte-exact: for a file
+    # the owner ships, "the values are unchanged" is not the property that matters.
+    _calfile = os.path.join(PAINT_DIR, "calibration.json")
+    _cal_before = open(_calfile, "rb").read() if os.path.exists(_calfile) else None
+
+    def _restore_calibration(_path=_calfile, _bytes=_cal_before):
+        # atexit rather than try/finally: check() records a failure without raising, so the
+        # realistic risk is an unexpected exception (a timeout, a 500) aborting the run --
+        # and atexit covers that as well as the normal path, with no re-indentation of the
+        # thirty lines below.
+        try:
+            if _bytes is None:
+                if os.path.exists(_path):
+                    os.remove(_path)
+            elif open(_path, "rb").read() != _bytes:
+                with open(_path, "wb") as _fh:
+                    _fh.write(_bytes)
+        except OSError:
+            pass
+    atexit.register(_restore_calibration)
+
     _n = "260708_316_H_b2_front_CBS_001"
     requests.post(f"{BASE}/api/calibration/{_n}", json={"clear": True}, timeout=30)
     _g = requests.get(f"{BASE}/api/calibration/{_n}", timeout=30).json()
@@ -1399,6 +1465,11 @@ def main():
     requests.post(f"{BASE}/api/calibration/{_n}", json={"clear": True}, timeout=30)
     check("the version is reported so an export can name a release",
           bool(requests.get(f"{BASE}/api/pipeline_info", timeout=30).json().get("version")))
+    _restore_calibration()
+    _cal_now = open(_calfile, "rb").read() if os.path.exists(_calfile) else None
+    check("the calibration section leaves the tracked calibration file byte-identical",
+          _cal_now == _cal_before,
+          "paint/calibration.json is shipped; a test must not leave a record in it")
 
     import crack_measurements as _cm
     _all = _cm.all_images()
@@ -1440,6 +1511,14 @@ def main():
 
     # The unit guard, end to end: one calibrated image among uncalibrated ones must NOT
     # produce a micrometre statistic for the group.
+    # Redirect CALIB_PATH for this whole section, the way the vendor-metadata section already
+    # does. These calls use REAL image names from all_images(), so without the redirect they
+    # write calibration records for shipped frames into the tracked paint/calibration.json.
+    _saved_calib_path = _cal.CALIB_PATH
+    _calib_tmp = tempfile.mkdtemp(prefix="calib_agg_")
+    _cal.CALIB_PATH = os.path.join(_calib_tmp, "calibration.json")
+    atexit.register(lambda: setattr(_cal, "CALIB_PATH", _saved_calib_path))
+    atexit.register(lambda: shutil.rmtree(_calib_tmp, ignore_errors=True))
     _cal_img = None
     for _n in _ag.__dict__ and _cm.all_images():
         if os.path.exists(os.path.join(_ag.MEAS_DIR, f"{_n}_crack_measurements.csv")):
@@ -1454,7 +1533,7 @@ def main():
                    if n != _cal_img and os.path.exists(os.path.join(
                        _ag.MEAS_DIR, f"{n}_crack_measurements.csv"))]
         if _others:
-            _cal.set_manual(_cal_img, 0.168, "mixed-units probe")
+            _cal.set_manual(_cal_img, 0.168, "mixed-units probe")   # CALIB_PATH redirected below
             _cal.clear(_others[0])
             _mixed = _ag.aggregate([_cal_img, _others[0]], by=("family", "condition"),
                                    require_calibrated=False)
@@ -1485,7 +1564,8 @@ def main():
                   for k in _g2["metrics"]),
               str(list(_g2["metrics"].keys())))
         _cal.clear(_cal_img)
-    else:
+    _cal.CALIB_PATH = _saved_calib_path          # back to normal for anything downstream
+    if not _cal_img:
         skip("aggregate a measurement CSV",
              "no per-image measurement CSV exists yet -- these are derived and not shipped. "
              "Build one with: ./.venv/bin/python3 "
