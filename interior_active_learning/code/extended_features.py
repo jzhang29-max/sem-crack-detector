@@ -12,14 +12,21 @@ assumption. Two uses:
    independent of whether they're used for classification at all.
 
 Kept in one module so both call sites can never define "branch point" or
-"roughness" two different ways.
+"roughness" two different ways. Skeleton LENGTH is in that same category and
+was the one that got away: three quantities here divided by the skeleton, and
+all three divided by a pixel count rather than a path length. See
+skeleton_path_length.
 """
+import math
+
 import numpy as np
 from scipy import ndimage as ndi
 from skimage import measure, morphology
 
 # 8-connected neighbor-count kernel for skeleton branch-point detection.
 _NEIGHBOR_KERNEL = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]])
+
+_SQRT2 = math.sqrt(2.0)
 
 
 def _local_crop(mask_bool, margin=2):
@@ -56,9 +63,96 @@ def boundary_roughness(mask_bool):
     return float(perim / convex_perim)
 
 
+def skeleton_path_length(skel):
+    """Skeleton length as a sum of EUCLIDEAN STEP LENGTHS, not a pixel count.
+
+    A PIXEL COUNT IS NOT A PATH LENGTH. A diagonal step advances sqrt(2) in
+    space but counts as one pixel, so counting pixels understates the length of
+    any path that is not axis-aligned -- by up to 1/sqrt(2) for a 45-degree
+    crack. That count used to be divided by a Euclidean endpoint distance to
+    get Tortuosity, and 819 of the 1503 uncensored cracks in the exported
+    measurement CSVs came out BELOW 1.0, which is geometrically impossible: a
+    path cannot be shorter than the straight line between its own endpoints.
+    The measured floor was 0.759, against the 0.707 the bug allows. The same
+    count was the denominator of MeanWidth_px (width OVERstated by up to
+    sqrt(2) for a diagonal crack) and of branch-point density, so all three
+    quantities were partly reporting crack DIRECTION: Spearman between the old
+    Tortuosity and the angular offset from the nearest pixel axis was -0.648.
+
+    Summed over the skeleton's ADJACENCY EDGES rather than along one ordered
+    path, so one measure serves a branching crack network and a single
+    unbranched crack alike -- MeanWidth_px and branch density are emitted for
+    both, and a length that changed definition with topology would put a
+    discontinuity in the headline length column. For an unbranched skeleton the
+    two agree exactly, not approximately: such a skeleton has exactly 2 pixels
+    of degree 1 and the rest of degree 2, so it has n-1 edges over n pixels,
+    so it is a tree, so it is a single path -- the edge set IS the path's step
+    set. Checked against the ordered-path reference implementation
+    (crack_export/tools/skeleton_metrics.py, order_path + polyline_length): bit
+    for bit identical on 1052 skeleton branches, and agreeing to 3e-14 px on
+    the straight-crack probes in the regression test, where the two sum the
+    same steps in a different order.
+
+    A DIAGONAL EDGE WHOSE TWO PIXELS SHARE AN ORTHOGONAL NEIGHBOUR IN THE
+    SKELETON IS NOT COUNTED. That neighbour is one of the other two corners of
+    the same 2x2 window, so the diagonal cuts across a staircase corner or a
+    4-connected junction and runs parallel to a route already counted. These
+    are not rare and are not a theoretical worry: measured, one per 20
+    skeleton pixels on long wandering crack-like ridges and one per 7 on dense
+    branching networks -- they cluster at junctions, which is exactly where a
+    plain sum over every 8-neighbour pair would invent sqrt(2) of length per
+    arm pair that no path traverses. A 4-armed junction reads 4.0 with the
+    pruning and 9.66 without it. The pruning can never fire on an unbranched
+    skeleton: it would require a 3-cycle, and a path has none. Enumerated
+    rather than argued -- over all 65536 patterns in a 4x4 window plus 120000
+    random 6x6 patterns, pruning never disconnected a set that 8-connectivity
+    had joined, and of the 12411 patterns that satisfy the emit condition for
+    Tortuosity not one produced a value below 1 (minimum exactly 1.0).
+
+    RESIDUAL BIAS, LEFT IN PLACE AND BOUNDED. This is a chain-code length, and
+    a digital straight line at angle t to the pixel axes is a staircase of
+    (cos t - sin t) orthogonal and (sin t) diagonal steps per unit length, so
+    the measure reads cos t + (sqrt(2) - 1) sin t. Exact at 0 and 45 degrees,
+    +8.24% at worst (22.5 degrees). So a dead-straight crack at 20 degrees
+    still reports a tortuosity near 1.08 rather than 1.00, and lengths at
+    intermediate angles are overstated by the same factor. Two things make
+    that a different class of defect from the one this replaces: it is bounded
+    by a known constant instead of scaling to 29%, and it errs in the
+    direction that KEEPS Tortuosity >= 1 rather than the direction that
+    produces impossible values. Removing it needs either a corner-count
+    estimator (Vossepoel-Smeulders and friends), which is unbiased to well
+    under a percent but multiplies orthogonal runs by 0.98 and so gives a
+    straight axis-aligned crack a tortuosity of 0.98 -- surrendering the
+    invariant that motivated this fix -- or polyline simplification, which
+    works (0.7% residual at 20 degrees, and >= 1 survives because a simplified
+    polyline keeps the same two endpoints) but makes tortuosity a function of a
+    chosen length scale. Neither is adopted without a decision on that
+    trade-off; see the tortuosity regression test, which asserts the >= 1
+    invariant unconditionally and the straight-line reading against the bound
+    above rather than against 1.00.
+    """
+    S = np.asarray(skel, dtype=bool)
+    if S.ndim != 2 or S.size == 0 or S.sum() < 2:
+        return 0.0
+    n_orth = int((S[:, :-1] & S[:, 1:]).sum()) + int((S[:-1, :] & S[1:, :]).sum())
+    # Both diagonals of every 2x2 window, each kept only when neither of the
+    # window's other two corners is skeleton -- i.e. only when the diagonal is
+    # the sole route between its endpoints.
+    main = S[:-1, :-1] & S[1:, 1:] & ~(S[:-1, 1:] | S[1:, :-1])
+    anti = S[:-1, 1:] & S[1:, :-1] & ~(S[:-1, :-1] | S[1:, 1:])
+    return float(n_orth + _SQRT2 * int(main.sum() + anti.sum()))
+
+
 def skeleton_stats(mask_bool):
-    """Skeletonize the region and return (skeleton_length_px, branch_point_count,
-    endpoint_count, skeleton_mask_local, local_crop_mask). Branch points are
+    """Skeletonize the region and return (skeleton_path_length, branch_point_count,
+    endpoint_count, skeleton_mask_local, local_crop_mask, skeleton_pixel_count).
+
+    The first element is a LENGTH in pixel units (see skeleton_path_length --
+    diagonal steps carry sqrt(2)); the last is the raw pixel COUNT, kept only
+    for the degeneracy guards that ask "are there enough skeleton pixels for
+    this to mean anything", which is a question about pixels and not about
+    length. Everything that divides BY the skeleton -- tortuosity, mean width,
+    branch density -- must use the length. Branch points are
     skeleton pixels with >=3 skeleton neighbors (8-connectivity) -- a fork in
     the medial axis, which happens where a crack branches or where two
     candidates' shapes merge into one blob. Endpoints have exactly 1
@@ -67,13 +161,14 @@ def skeleton_stats(mask_bool):
     (or two blobs fused into one candidate) show >=1 branch point."""
     local = _local_crop(mask_bool)
     skel = morphology.skeletonize(local)
-    skel_len = int(skel.sum())
-    if skel_len == 0:
-        return 0, 0, 0, skel, local
+    skel_px = int(skel.sum())
+    if skel_px == 0:
+        return 0.0, 0, 0, skel, local, 0
+    skel_len = skeleton_path_length(skel)
     neighbor_count = ndi.convolve(skel.astype(int), _NEIGHBOR_KERNEL, mode="constant", cval=0)
     branch_points = int(((neighbor_count >= 3) & skel).sum())
     endpoints = int(((neighbor_count == 1) & skel).sum())
-    return skel_len, branch_points, endpoints, skel, local
+    return skel_len, branch_points, endpoints, skel, local, skel_px
 
 
 def branch_point_density(mask_bool):
@@ -85,9 +180,18 @@ def branch_point_density(mask_bool):
     network scores higher. General topological property -- doesn't depend
     on brightness, contrast, or which material/instrument produced the
     image, so it should transfer to other SEM crack-detection datasets
-    better than the brightness-based features do."""
-    skel_len, branch_points, _, _, _ = skeleton_stats(mask_bool)
-    if skel_len < 3:
+    better than the brightness-based features do.
+
+    Per 100px of skeleton LENGTH, which is what the name says and what this
+    now divides by. It used to divide by the skeleton PIXEL COUNT, so the same
+    branching topology scored up to sqrt(2) higher when the crack happened to
+    run diagonally -- an orientation term in a feature whose whole claim is
+    that it is topological and therefore transferable."""
+    skel_len, branch_points, _, _, _, skel_px = skeleton_stats(mask_bool)
+    # Guarded on the PIXEL COUNT: this is the "too small to skeletonize into
+    # anything meaningful" test the feature has always applied, and it is a
+    # statement about how many pixels there are, not about how long they run.
+    if skel_px < 3 or skel_len <= 0:
         return 0.0
     return float(branch_points / skel_len * 100)
 
@@ -104,14 +208,20 @@ def crack_shape_measurements(mask_bool):
     props = props_list[0] if props_list else None
     area = int(mask_bool.sum())
 
-    skel_len, branch_points, endpoints, skel, skel_local = skeleton_stats(mask_bool)
+    skel_len, branch_points, endpoints, skel, skel_local, skel_px = skeleton_stats(mask_bool)
+    # area / LENGTH, not area / pixel count. Dividing by the count overstated the
+    # width of a diagonal crack by up to sqrt(2), because the count is the shorter
+    # of the two numbers for exactly the cracks whose skeleton runs off-axis.
     mean_width = (area / skel_len) if skel_len > 0 else float(np.sqrt(area))
 
     # Max width: 2x the largest distance-to-background value found ON the
     # skeleton (medial-axis radius) -- more robust to a jagged boundary than
     # measuring width at one arbitrary cross-section.
     max_width = float(np.sqrt(area))  # fallback for a to-degenerate-to-skeletonize region
-    if skel_len > 0:
+    # PIXEL COUNT, not length: this reads the distance transform AT the skeleton
+    # pixels, so what it needs is at least one pixel to read. A one-pixel
+    # skeleton has a well-defined medial-axis radius and a path length of zero.
+    if skel_px > 0:
         # The distance transform MUST be computed on the same crop the skeleton
         # was built from. skeleton_stats() uses _local_crop() with its DEFAULT
         # margin, so passing margin=0 here produced a differently-shaped array,
@@ -125,7 +235,7 @@ def crack_shape_measurements(mask_bool):
                 max_width = float(on_skel.max() * 2)
 
     tortuosity = float("nan")
-    if endpoints == 2 and branch_points == 0 and skel_len > 1:
+    if endpoints == 2 and branch_points == 0 and skel_px > 1:
         ys, xs = np.where(skel)
         # endpoints are the 2 skeleton pixels with exactly 1 neighbor
         neighbor_count = ndi.convolve(skel.astype(int), _NEIGHBOR_KERNEL, mode="constant", cval=0)
@@ -133,11 +243,22 @@ def crack_shape_measurements(mask_bool):
         if len(ey) == 2:
             straight_dist = float(np.hypot(ey[0] - ey[1], ex[0] - ex[1]))
             if straight_dist > 0:
+                # BOTH SIDES OF THIS RATIO ARE NOW EUCLIDEAN. The numerator was a
+                # pixel count and the denominator a Euclidean distance, so the
+                # units did not match and the result was biased down by up to
+                # 1/sqrt(2) for a diagonal crack -- which is how 819 exported
+                # values ended up below the geometric floor of 1. Here the
+                # skeleton is unbranched (2 endpoints, 0 branch points), so
+                # skel_len is the length of the single path between exactly these
+                # two endpoints and the triangle inequality makes the ratio >= 1
+                # by construction rather than by luck.
                 tortuosity = float(skel_len / straight_dist)
 
     return {
         "Area_px": area,
-        "SkeletonLength_px": skel_len,
+        # A LENGTH, so it is no longer an integer. Was int(skel.sum()); a count of
+        # pixels is not the distance travelled through them.
+        "SkeletonLength_px": round(skel_len, 2),
         "MeanWidth_px": round(mean_width, 2),
         "MaxWidth_px": round(max_width, 2),
         "Tortuosity": round(tortuosity, 3) if tortuosity == tortuosity else "",  # "" not nan, for clean CSV

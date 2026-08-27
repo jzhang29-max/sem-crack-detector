@@ -2837,6 +2837,218 @@ def main():
           "this must be inert unless a caller deliberately sets it")
 
 
+    # ---------- 26. skeleton length is a length, not a pixel count ----------
+    # Tortuosity is path length / straight-line endpoint distance, and it was computing the
+    # numerator as int(skel.sum()) -- a COUNT. A diagonal step advances sqrt(2) in space and
+    # counts as one pixel, so the ratio was biased down by up to 1/sqrt(2) purely by which way
+    # the crack happened to run. It produced values BELOW 1, which cannot happen to a real
+    # tortuosity: a path is never shorter than the straight line between its own endpoints.
+    # 819 of the 1503 uncensored cracks with a skeleton of 50px or more were below 1, floor
+    # 0.759 against the 0.707 the bug allows, and the column correlated with orientation at
+    # Spearman -0.648 -- it was reporting crack DIRECTION. MeanWidth_px (area / count) and
+    # branch-point density (count in the denominator) shared the same mistake.
+    print("\n[26] skeleton length is a length, not a pixel count")
+    from skimage import morphology as _morph
+    from scipy import ndimage as _ndi
+    import extended_features as _ef
+
+    _K8 = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]])
+
+    def _straight_crack(angle_deg, length=200, width=5, canvas=400):
+        """A dead-straight crack of known width, rasterised at a given angle. True
+        tortuosity is exactly 1.000 by construction, whatever the angle -- which is the
+        whole point: nothing about turning the same crack may move the number."""
+        m = np.zeros((canvas, canvas), bool)
+        th = np.radians(angle_deg)
+        cy = cx = canvas // 2
+        t = np.linspace(-length / 2.0, length / 2.0, length * 8)
+        ys, xs = cy + t * np.sin(th), cx + t * np.cos(th)
+        for d in np.linspace(-width / 2.0, width / 2.0, width * 4):
+            yy = np.rint(ys + d * np.cos(th)).astype(int)
+            xx = np.rint(xs - d * np.sin(th)).astype(int)
+            ok = (yy >= 0) & (yy < canvas) & (xx >= 0) & (xx < canvas)
+            m[yy[ok], xx[ok]] = True
+        return m
+
+    # THE BOUND IS DERIVED, NOT PICKED. What is left after the fix is the digitisation bias
+    # inherent to any chain-code length: a digital straight line at angle t is a staircase of
+    # (cos t - sin t) orthogonal and (sin t) diagonal steps per unit length, so a sum of
+    # Euclidean steps reads cos t + (sqrt(2) - 1) sin t -- exact at 0 and 45 degrees, +8.24%
+    # at worst (22.5), plus a little skeletonisation wiggle. So a straight crack reads 1.00
+    # within +9% at ANY angle, where the pixel count read it 29% LOW at 45 and produced
+    # impossible values. The residual is bounded and one-directional; the bug it replaces was
+    # neither. See extended_features.skeleton_path_length for why removing it costs either
+    # the >= 1 invariant or a free length-scale parameter.
+    _CHAIN_CODE_BOUND = 1.10
+
+    _rows = {}
+    for _a in range(0, 91, 5):
+        _m = _straight_crack(_a)
+        _r = _ef.crack_shape_measurements(_m)
+        _sk = _morph.skeletonize(_ef._local_crop(_m))
+        _nc = _ndi.convolve(_sk.astype(int), _K8, mode="constant", cval=0)
+        _ey, _ex = np.where((_nc == 1) & _sk)
+        _rows[_a] = (_r, float(np.hypot(_ey[0] - _ey[1], _ex[0] - _ex[1]))
+                     if len(_ey) == 2 else None)
+
+    # The three angles the bug was characterised at. 0 is the axis-aligned case it got right,
+    # 45 the pure-diagonal worst case, 20 an intermediate one.
+    for _a in (0, 20, 45):
+        _t = _rows[_a][0]["Tortuosity"]
+        check(f"a straight crack at {_a} deg reads tortuosity 1.00, not its direction",
+              _t != "" and 1.0 <= float(_t) <= _CHAIN_CODE_BOUND,
+              f"got {_t!r}; true value is exactly 1.000, and on THIS probe the old "
+              f"pixel-count formula gave 1.005 / 0.948 / 0.712 at 0 / 20 / 45 "
+              f"(1.003 / 0.943 / 0.710 as originally reported, on a different rasteriser)")
+
+    # EVERY angle, not just three: the defect was an orientation dependence, so the assertion
+    # has to sweep orientation. Skeletons with a spur (10, 15, 25, 30, 60, 65 deg) emit no
+    # tortuosity at all -- it needs exactly 2 endpoints and 0 branch points -- and are not
+    # evidence either way.
+    _got = {a: float(r["Tortuosity"]) for a, (r, _c) in _rows.items() if r["Tortuosity"] != ""}
+    _bad = {a: t for a, t in _got.items() if not (1.0 <= t <= _CHAIN_CODE_BOUND)}
+    check("no straight crack at any angle reads outside [1.00, 1.10]",
+          not _bad and len(_got) >= 10,
+          f"{len(_got)} angles emit tortuosity, {len(_bad)} outside the band: {_bad}"
+          if _bad else f"{len(_got)} angles measured, worst {max(_got.values()):.4f} "
+          f"at {max(_got, key=_got.get)} deg, spread "
+          f"{max(_got.values()) - min(_got.values()):.4f}")
+
+    # THE GEOMETRIC FLOOR, unconditionally. This is the one that cannot be traded away: a
+    # value below 1 is not a bad estimate, it is an impossible measurement.
+    # `_got` is required NON-EMPTY explicitly: all() over an empty collection is True, so
+    # without that clause this check would pass loudest exactly when the probe had silently
+    # stopped producing any measurement to check.
+    check("no tortuosity this module can emit is below 1",
+          bool(_got) and all(t >= 1.0 for t in _got.values()),
+          f"minimum {min(_got.values()):.4f} over {len(_got)} angles; the old formula's "
+          f"floor was 1/sqrt(2) = 0.707 and it reached 0.759 on real data"
+          if _got else "no angle emitted a tortuosity at all -- probe is broken")
+
+    # NOT VACUOUS. Recompute the ratio the OLD way -- pixel count over the same chord -- and
+    # require that it still fails, so this section cannot keep passing if the fix is reverted
+    # or if the synthetic crack stops being a good probe.
+    _old = {}
+    for _a, (_r, _chord) in _rows.items():
+        if _chord is None or _r["Tortuosity"] == "":
+            continue
+        _sk = _morph.skeletonize(_ef._local_crop(_straight_crack(_a)))
+        _old[_a] = int(_sk.sum()) / _chord
+    check("the old pixel-count ratio still fails this same probe",
+          len(_old) >= 10 and min(_old.values()) < 0.75
+          and sum(1 for t in _old.values() if t < 1.0) >= 5,
+          f"pixel-count formula on the same masks: min {min(_old.values()):.3f}, "
+          f"{sum(1 for t in _old.values() if t < 1.0)}/{len(_old)} angles below 1"
+          if _old else "the probe produced nothing to compare")
+
+    # Length and tortuosity must be the SAME length. If Tortuosity used a corrected path
+    # length while SkeletonLength_px kept the count, a reader could not divide one column by
+    # the chord and get the other, and would have no way to tell which was wrong.
+    _cmp = [(a, r, c) for a, (r, c) in _rows.items() if r["Tortuosity"] != "" and c]
+    _incons = [(a, r["Tortuosity"], r["SkeletonLength_px"], c) for a, r, c in _cmp
+               if abs(float(r["Tortuosity"]) - r["SkeletonLength_px"] / c) > 0.002]
+    check("Tortuosity is exactly SkeletonLength_px divided by the endpoint chord",
+          len(_cmp) >= 10 and not _incons,
+          f"{len(_incons)} of {len(_cmp)} angles disagree: {_incons[:3]}")
+
+    # MeanWidth_px = area / skeleton, so the same count overstated width by up to sqrt(2) for
+    # a diagonal crack. Measured on this 5px-wide probe: 9.20 before, 6.55 after -- a ratio
+    # of 1.404, the sqrt(2) coming out. Compare the diagonal against the axis-aligned case,
+    # which the bug never touched, rather than against the nominal width: the rasteriser
+    # itself lays down a little more area per unit length at 45 degrees.
+    _w0, _w45 = _rows[0][0]["MeanWidth_px"], _rows[45][0]["MeanWidth_px"]
+    check("MeanWidth_px no longer carries a sqrt(2) penalty for running diagonally",
+          _w45 / _w0 < 1.32,
+          f"45 deg / 0 deg = {_w45:.2f} / {_w0:.2f} = {_w45 / _w0:.3f}; the pixel-count "
+          f"denominator made this 9.20 / 5.08 = 1.81, and sqrt(2) of it was the bug")
+
+    # Agreement with the independent ordered-path implementation in
+    # crack_export/tools/skeleton_metrics.py (order_path + polyline_length), reimplemented
+    # here so the test does not depend on a directory outside this repo. That one walks the
+    # skeleton end to end and sums step lengths; this module sums over adjacency edges so the
+    # measure also works on a BRANCHED skeleton, where MeanWidth_px and branch density are
+    # still emitted and there is no single path to walk. On an unbranched skeleton the two
+    # must agree exactly, and "exactly" is the assertion -- a tolerance here would hide a
+    # systematic difference as rounding.
+    def _ordered_path_length(skel):
+        S = {(int(y), int(x)) for y, x in np.argwhere(skel)}
+        def _nbrs(p):
+            y, x = p
+            return [(y + dy, x + dx) for dy in (-1, 0, 1) for dx in (-1, 0, 1)
+                    if (dy or dx) and (y + dy, x + dx) in S]
+        _ends = [p for p in S if len(_nbrs(p)) <= 1]
+        if not _ends:
+            return None
+        _cur = min(_ends); _path = [_cur]; _seen = {_cur}
+        while True:
+            _n = [q for q in _nbrs(_cur) if q not in _seen]
+            if not _n:
+                break
+            _n.sort(key=lambda q: (abs(q[0] - _cur[0]) + abs(q[1] - _cur[1]), q))
+            _cur = _n[0]; _path.append(_cur); _seen.add(_cur)
+        if len(_path) != len(S):
+            return None
+        _p = np.array(_path, float)
+        return float(np.hypot(*(np.diff(_p, axis=0).T)).sum())
+
+    _diffs = []
+    for _a in range(0, 91, 5):
+        _sk = _morph.skeletonize(_ef._local_crop(_straight_crack(_a)))
+        _ref = _ordered_path_length(_sk)
+        if _ref is None:
+            continue                     # branched or looped: no single path to compare to
+        _diffs.append((_a, abs(_ef.skeleton_path_length(_sk) - _ref)))
+    check("skeleton_path_length matches the ordered-path reference exactly",
+          _diffs and max(d for _, d in _diffs) < 1e-9,
+          f"{len(_diffs)} unbranched skeletons, max |difference| "
+          f"{max((d for _, d in _diffs), default=float('nan')):.3g} px")
+
+    # A CURVED crack must still read above 1, or the fix would have replaced a floor bug with
+    # a ceiling bug -- a measure that reports 1.00 for everything is no more useful than one
+    # that reports direction.
+    _arc = np.zeros((400, 400), bool)
+    _th = np.linspace(np.pi * 0.15, np.pi * 0.85, 4000)
+    for _d in np.linspace(-2, 2, 12):
+        _yy = np.rint(200 + (150 + _d) * np.sin(_th)).astype(int)
+        _xx = np.rint(200 + (150 + _d) * np.cos(_th)).astype(int)
+        _arc[_yy, _xx] = True
+    _ta = _ef.crack_shape_measurements(_arc)["Tortuosity"]
+    check("a genuinely curved crack still reads well above 1",
+          _ta != "" and float(_ta) > 1.15,
+          f"a {int(np.degrees(_th[-1] - _th[0]))}-degree circular arc reads {_ta!r}; "
+          f"the exact value for this arc is "
+          f"{(_th[-1] - _th[0]) / (2 * np.sin((_th[-1] - _th[0]) / 2)):.3f}")
+
+    # AND THE SHIPPED OUTPUT. The checks above test the function; this tests the CSVs the
+    # project actually exports, which is where the 819 impossible values were found. Derived
+    # and not shipped, so absent on a fresh clone -- skipped, not failed, per this suite's
+    # convention.
+    _meas = os.path.join(os.path.dirname(os.path.dirname(CODE)),
+                         "interior_active_learning", "measurements")
+    _csvs = sorted(glob.glob(os.path.join(_meas, "*_crack_measurements.csv")))
+    if not _csvs:
+        skip("no exported tortuosity is below 1",
+             "no per-image measurement CSV exists yet -- these are derived and not "
+             "shipped. Generate with: ./.venv/bin/python3 "
+             "interior_active_learning/code/crack_measurements.py --all")
+    else:
+        _all = pd.concat([pd.read_csv(_f) for _f in _csvs], ignore_index=True)
+        _tt = pd.to_numeric(_all["Tortuosity"], errors="coerce").dropna()
+        _under = _tt[_tt < 1.0]
+        check("no exported tortuosity is below 1",
+              len(_under) == 0 and len(_tt) > 0,
+              f"{len(_under)} of {len(_tt)} rows below 1 across {len(_csvs)} CSVs"
+              + (f", min {_under.min()}" if len(_under) else
+                 f"; min {_tt.min()}, median {_tt.median():.3f}"))
+        # SkeletonLength_px is a length now, so a column of whole numbers means some
+        # regenerated CSV was written by the old counting code.
+        _sl = pd.to_numeric(_all["SkeletonLength_px"], errors="coerce").dropna()
+        check("exported SkeletonLength_px is a path length, not a count",
+              len(_sl) > 0 and float((_sl % 1 != 0).mean()) > 0.5,
+              f"{float((_sl % 1 != 0).mean()) * 100:.1f}% of {len(_sl)} values are "
+              f"non-integer; a count would be 0%")
+
+
     print("\n[cleanup]")
     removed = 0
     for n in created:
