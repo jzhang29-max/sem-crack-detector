@@ -1,0 +1,88 @@
+# CrackTrace — prototype
+
+**Status: synthetic validation only. Not run on a real SEM frame. Not compared to the
+shipped pipeline.** Every design claim is a hypothesis with a feasibility check.
+
+## The idea
+
+Every pixel method (U-Net, SAM) represents a crack as an **area** and recovers
+connectivity afterwards. A crack is a 1-D curve in 2-D. The two pathologies measured in
+this corpus are artefacts of that choice — fragmentation (the shipped pipeline needs a
+Dijkstra merge as *cleanup*) and width confusion (area fraction tracks detected width at
+ρ = +0.86; "crack" widths run 5–520 px). CrackTrace predicts the **centreline graph**
+directly, so connectivity is a property of the output.
+
+Four design claims:
+
+1. **Curve output, not area.** Connectivity by construction.
+2. **Global.** A minimum spanning forest over a geodesic cost field, solved on the whole
+   frame. Cracks here run to the frame diagonal (~7,385 px); a tiled CNN cannot link
+   fragments 5,000 px apart. (Note: MegaSeg, *Med. Image Anal.* Jan 2026, does 67 MP
+   end-to-end, so "no tiling" alone is no longer a differentiator — the *curve output* is.)
+3. **Scale-native.** Every filter is parameterised in **microns**, converted per frame
+   via µm/px = HFW/width. σ = 0.4 µm means the same thing across the corpus's 249×
+   magnification range; σ = 3 px does not.
+4. **It consumes superset labels natively** — the one gap the 2026 sweep found unoccupied.
+   91% of this corpus's 70 M marked pixels are brush strokes of median 59 px (max 413 px)
+   asserting a region containing a ~3 px crack. Useless as a pixel target; near-exact as a
+   **corridor constraint on a path**. Every 2026 weak-supervision method assumes the weak
+   label is a *subset* of the object (scribbles inside, points on, boxes around). Here it
+   is a *superset*, and a path model is its natural consumer. Implemented as multiple-
+   instance learning: each corridor is a positive bag scored by its top-quantile crackness.
+
+## Measured baseline it must now beat (added 2026-09-15)
+
+SAM 3 was run on 16 hand-labelled tiles from this corpus
+(`../analysis/sam3/SAM3_ON_SEM_CRACKS.md`). It is **not** weak here, which raises the bar
+for this prototype:
+
+- recall **0.969–1.000 on 10/16 tiles**, IoU **0.59–0.74** where the hand label is most complete;
+- but **0.000 on 6/16**, failing silently with no distinguishing signal;
+- and only the bare prompt `crack` works — "fracture" returns nothing on 16/16 tiles.
+
+So the honest positioning is narrower than design claim 1 above implies. CrackTrace should
+not be pitched as "pixel methods can't do this". Its remaining case is: **a curve-native
+output with connectivity by construction, a resolution-invariant physical parameterisation,
+and native consumption of superset labels — plus it does not fail silently**, because a
+minimum-spanning-forest with a refused-edge criterion reports when it declined to link.
+That last point is the one SAM 3 measurably lacks, and it is worth testing directly.
+
+## What was measured (synthetic only)
+
+| check | result |
+|---|---|
+| scale-native features at 0.05 µm/px | crack:background crackness ratio 14.0× |
+| same at 0.20 µm/px (coarser) | 438×; the 0.15 µm scale correctly **dropped** as unresolvable |
+| curve coverage, two sinusoidal cracks | 95.8 % and 98.0 % |
+| bright decoy scratch (must be ignored) | 5 px picked up |
+| runtime, 900×900, 60 terminals | 2.7 s, 44 edges |
+| corridor as a **pixel** label | **96.8 % false-negative** |
+| corridor as a **path** constraint | network stays inside it |
+| paired metric, identical networks | F = 1.000 |
+| paired metric, 0.5 µm shift at 2 µm tolerance | F = 1.000 |
+| paired metric, perpendicular networks | F = 0.405 |
+
+## To take this further
+
+1. Fit `fit_weights()` on real corridors from `interior_active_learning/paint/`.
+2. Run on the 8 registration-confirmed CBS/ETD pairs
+   (`analysis/paired_detector.csv`, Jaccard ≥ 0.5) using per-frame HFW from
+   `analysis/scale_hfw.csv`.
+3. Compare `centreline_agreement()` against the **raw** (pre-correction) pipeline output —
+   generate it with `SEMCRACK_PAINT_DIR` pointed at an empty directory, and pass frame
+   names as **separate** shell arguments (zsh does not word-split an unquoted variable,
+   which is why the first attempt silently produced nothing while exiting 0).
+
+The paired metric is the point: it needs **no ground truth**, which this corpus does not
+have. Two detectors on one field must contain the same cracks, so higher cross-detector
+agreement means the method is measuring the material rather than the instrument.
+
+## API
+
+```python
+import cracktrace as ct
+upp = ct.um_per_px(hfw_um=319.0, width_px=6144)      # 0.0519 µm/px
+r   = ct.trace(img_float01, upp, pool=4)             # -> net, length_um, edges, ...
+ag  = ct.centreline_agreement(rA["net"], rA["upp_eff"],
+                              rB["net"], rB["upp_eff"], tol_um=2.0)
+```
