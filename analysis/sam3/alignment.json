@@ -1,0 +1,137 @@
+{
+ "260622_316_H_b2_front_CBS_01": {
+  "ok": true,
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0,
+  "label_hw": [
+   4096,
+   6144
+  ],
+  "orig_hw": [
+   4376,
+   6144
+  ],
+  "red_frac": 0.09979
+ },
+ "260622_316_H_b4_CBS_02": {
+  "ok": true,
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0,
+  "label_hw": [
+   4096,
+   6144
+  ],
+  "orig_hw": [
+   4376,
+   6144
+  ],
+  "red_frac": 0.08196
+ },
+ "260708_316_H_b2_front_CBS_001": {
+  "ok": true,
+  "ncc": 1.0,
+  "dy": 278,
+  "dx": 1016,
+  "label_hw": [
+   1490,
+   1490
+  ],
+  "orig_hw": [
+   2188,
+   3072
+  ],
+  "red_frac": 0.05465
+ },
+ "AS_24hr_BSE_Side_008": {
+  "ok": true,
+  "ncc": 0.9992,
+  "dy": 0,
+  "dx": 0,
+  "label_hw": [
+   4096,
+   6144
+  ],
+  "orig_hw": [
+   4376,
+   6144
+  ],
+  "red_frac": 0.04042
+ },
+ "MAR_Amb_AS_CBS_0001": {
+  "ok": true,
+  "ncc": 1.0,
+  "dy": 997,
+  "dx": 1974,
+  "label_hw": [
+   2952,
+   2952
+  ],
+  "orig_hw": [
+   4376,
+   6144
+  ],
+  "red_frac": 0.02275
+ },
+ "MAR_Amb_AS_CBS_0004": {
+  "ok": true,
+  "ncc": 0.9995,
+  "dy": 0,
+  "dx": 0,
+  "label_hw": [
+   4096,
+   6144
+  ],
+  "orig_hw": [
+   4376,
+   6144
+  ],
+  "red_frac": 0.02771
+ },
+ "MAR_Amb_AS_ETD_0004": {
+  "ok": true,
+  "ncc": 0.9993,
+  "dy": 0,
+  "dx": 0,
+  "label_hw": [
+   4096,
+   6144
+  ],
+  "orig_hw": [
+   4376,
+   6144
+  ],
+  "red_frac": 0.01219
+ },
+ "MAR_Amb_Cast_ETD_0003": {
+  "ok": true,
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0,
+  "label_hw": [
+   4096,
+   6144
+  ],
+  "orig_hw": [
+   4376,
+   6144
+  ],
+  "red_frac": 0.00178
+ },
+ "MAR_Amb_HIP_ETD_0007": {
+  "ok": true,
+  "ncc": 0.9995,
+  "dy": 0,
+  "dx": 0,
+  "label_hw": [
+   2048,
+   3072
+  ],
+  "orig_hw": [
+   2188,
+   3072
+  ],
+  "red_frac": 0.01294
+ }
+}

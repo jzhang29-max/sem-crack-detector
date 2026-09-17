@@ -1,0 +1,146 @@
+[
+ {
+  "tile": "260622_316_H_b2_front_CBS_01__t0",
+  "std_inside": 63.625,
+  "modal_share_inside": 0.8174,
+  "oracle_iou": 0.2492,
+  "oracle_f1": 0.399,
+  "max_recall": 0.898,
+  "leak": false
+ },
+ {
+  "tile": "260622_316_H_b4_CBS_02__t0",
+  "std_inside": 15.321,
+  "modal_share_inside": 0.7295,
+  "oracle_iou": 0.1118,
+  "oracle_f1": 0.2011,
+  "max_recall": 1.0,
+  "leak": false
+ },
+ {
+  "tile": "260622_316_H_b4_CBS_02__t1",
+  "std_inside": 15.908,
+  "modal_share_inside": 0.7516,
+  "oracle_iou": 0.0613,
+  "oracle_f1": 0.1156,
+  "max_recall": 1.0,
+  "leak": false
+ },
+ {
+  "tile": "260708_316_H_b2_front_CBS_001__t0",
+  "std_inside": 67.273,
+  "modal_share_inside": 0.1131,
+  "oracle_iou": 0.1223,
+  "oracle_f1": 0.218,
+  "max_recall": 0.9612,
+  "leak": false
+ },
+ {
+  "tile": "260708_316_H_b2_front_CBS_001__t1",
+  "std_inside": 67.041,
+  "modal_share_inside": 0.0997,
+  "oracle_iou": 0.0582,
+  "oracle_f1": 0.11,
+  "max_recall": 0.9504,
+  "leak": false
+ },
+ {
+  "tile": "AS_24hr_BSE_Side_008__t0",
+  "std_inside": 79.677,
+  "modal_share_inside": 0.1054,
+  "oracle_iou": 0.6367,
+  "oracle_f1": 0.778,
+  "max_recall": 0.958,
+  "leak": false
+ },
+ {
+  "tile": "AS_24hr_BSE_Side_008__t1",
+  "std_inside": 75.198,
+  "modal_share_inside": 0.0884,
+  "oracle_iou": 0.6677,
+  "oracle_f1": 0.8007,
+  "max_recall": 0.9681,
+  "leak": false
+ },
+ {
+  "tile": "MAR_Amb_AS_CBS_0001__t0",
+  "std_inside": 5.15,
+  "modal_share_inside": 0.9777,
+  "oracle_iou": 0.6008,
+  "oracle_f1": 0.7506,
+  "max_recall": 1.0,
+  "leak": false
+ },
+ {
+  "tile": "MAR_Amb_AS_CBS_0001__t1",
+  "std_inside": 49.89,
+  "modal_share_inside": 0.4652,
+  "oracle_iou": 0.1017,
+  "oracle_f1": 0.1846,
+  "max_recall": 0.9698,
+  "leak": false
+ },
+ {
+  "tile": "MAR_Amb_AS_CBS_0004__t0",
+  "std_inside": 33.612,
+  "modal_share_inside": 0.3589,
+  "oracle_iou": 0.8235,
+  "oracle_f1": 0.9032,
+  "max_recall": 0.9999,
+  "leak": false
+ },
+ {
+  "tile": "MAR_Amb_AS_CBS_0004__t1",
+  "std_inside": 34.168,
+  "modal_share_inside": 0.0652,
+  "oracle_iou": 0.6599,
+  "oracle_f1": 0.7951,
+  "max_recall": 0.997,
+  "leak": false
+ },
+ {
+  "tile": "MAR_Amb_AS_ETD_0004__t0",
+  "std_inside": 33.475,
+  "modal_share_inside": 0.0155,
+  "oracle_iou": 0.0864,
+  "oracle_f1": 0.1591,
+  "max_recall": 0.6744,
+  "leak": false
+ },
+ {
+  "tile": "MAR_Amb_Cast_ETD_0003__t0",
+  "std_inside": 19.738,
+  "modal_share_inside": 0.9399,
+  "oracle_iou": 0.5391,
+  "oracle_f1": 0.7005,
+  "max_recall": 0.9897,
+  "leak": false
+ },
+ {
+  "tile": "MAR_Amb_Cast_ETD_0003__t1",
+  "std_inside": 20.131,
+  "modal_share_inside": 0.9473,
+  "oracle_iou": 0.409,
+  "oracle_f1": 0.5806,
+  "max_recall": 0.9918,
+  "leak": false
+ },
+ {
+  "tile": "MAR_Amb_HIP_ETD_0007__t0",
+  "std_inside": 56.829,
+  "modal_share_inside": 0.2615,
+  "oracle_iou": 0.3597,
+  "oracle_f1": 0.5291,
+  "max_recall": 0.8592,
+  "leak": false
+ },
+ {
+  "tile": "MAR_Amb_HIP_ETD_0007__t1",
+  "std_inside": 28.791,
+  "modal_share_inside": 0.4665,
+  "oracle_iou": 0.443,
+  "oracle_f1": 0.614,
+  "max_recall": 0.9447,
+  "leak": false
+ }
+]

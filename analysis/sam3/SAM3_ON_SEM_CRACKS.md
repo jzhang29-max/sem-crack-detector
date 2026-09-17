@@ -1,23 +1,31 @@
 # SAM 3 on your SEM crack tiles
 
 > # ⛔ INVALID — THE EXPERIMENT LEAKED THE ANSWER INTO THE INPUT
-> *Retracted 2026-09-18. Every number in this document is worthless.*
+> *Retracted 2026-09-18. Every score in this document is worthless.*
 >
 > `make_tiles.py:55` built the model input as the **green channel of the annotated overlay**,
 > with the comment *"green channel is unaffected by the red overlay"*. That is exactly wrong:
-> the overlay burns pure red (255, 0, 0), whose green channel is **0**. So the hand label was
-> written into the input as black pixels, and SAM 3 was shown the answer.
+> the overlay burns opaque red **(225, 25, 25)**, whose green channel is a constant **25**. So the hand label was
+> written into the input as black pixels and SAM 3 was shown the answer.
 >
-> Measured: a bare threshold `green < 80` — no model at all — recovers the ground truth at
-> **recall 1.000 on 16 of 16 tiles**, median IoU 0.106 against SAM 3's median union IoU of
-> 0.121. SAM 3 barely beat a threshold that reads the burned-in annotation.
+> **Measured extent** (`leak_check.py`, positive-control arm): the burn-in covers the label on
+> **14 of 16 tiles**, where within-label standard deviation is exactly **0.000** and
+> P(input = modal value | label) is exactly **1.0000** — a written value, not an image. The
+> other 2 tiles come from `260622_316_H_b4_CBS_02`, whose overlay red is *disjoint* from its
+> correction mask (0.00% overlap either way), so those two were clean by accident.
+>
+> An earlier version of this banner said the leak was 16/16, inferred from a bare threshold
+> `green < 80` reaching recall 1.000 on 16/16 tiles. That inference was itself too strong:
+> these micrographs are **clipped at acquisition** — one frame holds 9.4% of its pixels at
+> exactly 0, another 69.0% at exactly 65535 — so on the two clean tiles a threshold at 0
+> genuinely reaches recall 0.978 with no leak at all. The leak is 14/16.
 >
 > **What this invalidates:** the bimodal recall (0.969–1.000 on 10/16, 0.000 on 6/16), the
 > IoU 0.59–0.74 claim, the comparison to CoRe-SAM3, the "fails silently" claim, and the
 > confound analysis in `GAP_CONFOUND.md`. The prompt-brittleness observation ("fracture"
 > returning nothing on 16/16) is the only part not obviously contaminated — a leak makes
 > detection *easier*, so a prompt that finds nothing even with the answer visible is still
-> notable — but it is owned anyway (arXiv:2604.18225, arXiv:2605.22544).
+> notable — but it is owned prior art anyway (arXiv:2604.18225, arXiv:2605.22544).
 >
 > **And the gap was forced regardless.** SAM 3 scores instances as `p_ij = q_ij · s_i` with
 > **one** global presence scalar `s_i` per (image, prompt) — `sam3_image_processor.py:196-197`.
@@ -25,9 +33,16 @@
 > simultaneously. Bimodal-with-empty-gap is the arithmetic of a global multiplier, not a
 > property of thin structures or of foundation models.
 >
-> **To redo it properly:** feed the raw `original/*.tif`, never a rendered overlay; verify by
-> confirming no threshold on the input recovers the label; use official `facebook/sam3`
-> weights, not the `1038lab/sam3` mirror.
+> **The trivial baseline nobody had measured.** On the *clean* input, an oracle-tuned single
+> global threshold reaches **median IoU 0.384** (best over all 256 thresholds and both
+> polarities, per tile). SAM 3's reported median union IoU was 0.121 — three times worse,
+> *with* the answer burned in. Any method here must beat 0.384, and that bar had never been
+> stated.
+>
+> **Fixed:** `align_originals.py` registers all 9 label frames to their raw `original/*.tif`
+> at ncc ≥ 0.99 (five at exactly 1.0000); `make_tiles.py` now reads the grey from there and
+> writes the overlay only as `*_overlay_REFERENCE_DO_NOT_FEED.png`; `leak_check.py` gates any
+> future run and reports **0/16 contaminated** on the current tiles.
 >
 > Original text follows, unedited, as the record.
 >

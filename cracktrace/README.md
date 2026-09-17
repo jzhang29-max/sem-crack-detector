@@ -32,20 +32,23 @@ Four design claims:
 
 ## Measured baseline it must now beat (added 2026-09-15)
 
-SAM 3 was run on 16 hand-labelled tiles from this corpus
-(`../analysis/sam3/SAM3_ON_SEM_CRACKS.md`). It is **not** weak here, which raises the bar
-for this prototype:
+SAM 3 was run on 16 hand-labelled tiles from this corpus, and **that experiment is invalid** —
+the model input was built from the green channel of the annotated overlay, and opaque red
+(225, 25, 25) has green 0, so the label was written into the input as black pixels on 14 of 16
+tiles. See `../analysis/sam3/LEAK_POSTMORTEM.md`. Every number that was quoted here — recall
+0.969–1.000 on 10/16, IoU 0.59–0.74, and the "fails silently" reading — is withdrawn.
 
-- recall **0.969–1.000 on 10/16 tiles**, IoU **0.59–0.74** where the hand label is most complete;
-- but **0.000 on 6/16**, failing silently with no distinguishing signal;
-- and only the bare prompt `crack` works — "fracture" returns nothing on 16/16 tiles.
+What survives as a design target is narrower and does not depend on that run:
 
-So the honest positioning is narrower than design claim 1 above implies. CrackTrace should
-not be pitched as "pixel methods can't do this". Its remaining case is: **a curve-native
-output with connectivity by construction, a resolution-invariant physical parameterisation,
-and native consumption of superset labels — plus it does not fail silently**, because a
-minimum-spanning-forest with a refused-edge criterion reports when it declined to link.
-That last point is the one SAM 3 measurably lacks, and it is worth testing directly.
+- a single global grey threshold, oracle-tuned per tile, reaches **median IoU 0.384** on the
+  clean input. That is the bar, and it was never stated before;
+- SAM 3 returns instance masks under **one global presence scalar** per (image, prompt):
+  `out_probs = sigmoid(pred_logits) * sigmoid(presence_logit_dec)` then a single threshold
+  (`sam3_image_processor.py:195-200`), so when that scalar is small the whole image returns
+  nothing and no per-instance evidence survives to inspect.
+
+That second point is structural, verifiable by reading the source, and is the one CrackTrace's
+design actually addresses.
 
 ## What was measured (synthetic only)
 

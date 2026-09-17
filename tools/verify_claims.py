@@ -187,40 +187,92 @@ def d_auc_loio():
     return round(d["cv_results"]["LogisticRegression"]["loio_auc_exhaustive_image"], 4)
 
 
-def _sam(prompt="crack"):
-    return [r for r in json.load(open("analysis/sam3/sam3_results.json"))
-            if "error" not in r and r["prompt"] == prompt]
-
-
-def d_sam_hit():
-    rec = np.array([r.get("union_rec", 0) for r in _sam()])
-    return int((rec > 0).sum())
-
-
-def d_sam_miss():
-    rec = np.array([r.get("union_rec", 0) for r in _sam()])
-    return int((rec == 0).sum())
-
-
-def d_sam_min_nonzero():
-    rec = np.array([r.get("union_rec", 0) for r in _sam()])
-    return round(float(rec[rec > 0].min()), 3)
-
-
-def d_sam_median_rec():
-    return round(float(np.median([r.get("union_rec", 0) for r in _sam()])), 3)
-
-
-def d_sam_fracture_zero():
-    return sum(1 for r in _sam("fracture") if r.get("n", 0) == 0)
-
-
-def d_sam_crack_zero():
-    return sum(1 for r in _sam("crack") if r.get("n", 0) == 0)
+# ---- SAM 3 scoring claims WITHDRAWN 2026-09-18 ------------------------------------------
+# Six claims were registered here off sam3_results.json: tiles with non-zero recall (10),
+# tiles with recall exactly 0 (6), lowest non-zero recall (0.969), median recall (0.979),
+# and the two prompt-emptiness counts. All are withdrawn: the model input was the green
+# channel of the annotated overlay, and opaque red (225,25,25) has green 25, well under the 80 the threshold used, so the label was
+# written into the input as black pixels on 14 of 16 tiles (analysis/sam3/LEAK_POSTMORTEM.md).
+#
+# A registry that recomputes a number cannot tell that the number answers the wrong question.
+# Every derivation below reproduced its published value exactly, 33/33, while six of them were
+# measuring an annotation. What replaces them are claims about the LEAK and the REGISTRATION,
+# which are properties of the data rather than of a model run, plus the trivial baseline.
 
 
 def d_sam_tiles():
     return len(json.load(open("analysis/sam3/tiles_meta.json")))
+
+
+def d_overlay_triples():
+    """Distinct RGB triples inside the overlay's painted region. Exactly one: (225,25,25)."""
+    from PIL import Image
+    from collections import Counter
+    tot = Counter()
+    for m in json.load(open("analysis/sam3/tiles/meta.json")):
+        t = m["tile"]
+        o = np.array(Image.open(
+            f"analysis/sam3/tiles/{t}_overlay_REFERENCE_DO_NOT_FEED.png").convert("RGB"))
+        red = (o[..., 0] > 150) & (o[..., 1] < 80) & (o[..., 2] < 80)
+        if red.sum():
+            u = np.unique(o[red].reshape(-1, 3), axis=0)
+            for tri in u:
+                tot[tuple(int(x) for x in tri)] += 1
+    return len(tot)
+
+
+def d_overlay_green():
+    """The green value the burn-in writes. 25, not 0 -- I published 0 while retracting."""
+    from PIL import Image
+    for m in json.load(open("analysis/sam3/tiles/meta.json")):
+        t = m["tile"]
+        o = np.array(Image.open(
+            f"analysis/sam3/tiles/{t}_overlay_REFERENCE_DO_NOT_FEED.png").convert("RGB"))
+        red = (o[..., 0] > 150) & (o[..., 1] < 80) & (o[..., 2] < 80)
+        if red.sum():
+            return int(np.unique(o[red][:, 1])[0])
+    return -1
+
+
+def _leak():
+    return json.load(open("analysis/sam3/leak_check.json"))
+
+
+def d_leak_clean():
+    """Tiles whose current input carries a written-in label. Must be 0."""
+    return sum(1 for r in _leak() if r["leak"])
+
+
+def d_leak_oracle_iou():
+    """Median best-single-threshold IoU on the clean input: the bar any method must clear."""
+    return round(float(np.median([r["oracle_iou"] for r in _leak()])), 4)
+
+
+def d_align_ok():
+    """Label frames registered to their raw original at ncc >= 0.99."""
+    a = json.load(open("analysis/sam3/alignment.json"))
+    return sum(1 for v in a.values() if v.get("ok"))
+
+
+def d_align_exact():
+    """Frames registering at ncc exactly 1.0 -- proof the grey stretch matches the renderer."""
+    a = json.load(open("analysis/sam3/alignment.json"))
+    return sum(1 for v in a.values() if v.get("ncc") == 1.0)
+
+
+def d_burnin_tiles():
+    """Tiles the INVALID input contaminated, recomputed from the reference overlays."""
+    from PIL import Image
+    n = 0
+    for m in json.load(open("analysis/sam3/tiles/meta.json")):
+        t = m["tile"]
+        g = np.array(Image.open(
+            f"analysis/sam3/tiles/{t}_overlay_REFERENCE_DO_NOT_FEED.png").convert("RGB"))[..., 1]
+        gt = np.array(Image.open(f"analysis/sam3/tiles/{t}_gt.png")) > 127
+        v, c = np.unique(g[gt], return_counts=True)
+        if float(g[gt].std()) < 0.5 or float(c.max() / c.sum()) > 0.999:
+            n += 1
+    return n
 
 
 # ----------------------------------------------------------------- the registry
@@ -252,13 +304,14 @@ CLAIMS = [
     ("NOVELTY / LINEARITY", "area-fraction identity max error", 0.0, d_area_identity_err, 1e-12),
     ("HEAD_TO_HEAD / README", "pooled grouped-CV AUC", 0.7144, d_auc_pooled, 0.0001),
     ("HEAD_TO_HEAD / README", "single-image LOIO AUC", 0.8840, d_auc_loio, 0.0001),
-    ("sam3 report", "tiles tested", 16, d_sam_tiles, 0),
-    ("sam3 report", "tiles with non-zero recall", 10, d_sam_hit, 0),
-    ("sam3 report", "tiles with recall exactly 0", 6, d_sam_miss, 0),
-    ("sam3 report", "lowest non-zero recall", 0.969, d_sam_min_nonzero, 0.001),
-    ("sam3 report", "median recall", 0.979, d_sam_median_rec, 0.001),
-    ("sam3 report", "'fracture' tiles returning nothing", 16, d_sam_fracture_zero, 0),
-    ("sam3 report", "'crack' tiles returning nothing", 2, d_sam_crack_zero, 0),
+    ("sam3 tiles", "tiles tested", 16, d_sam_tiles, 0),
+    ("LEAK_POSTMORTEM", "tiles the invalid input contaminated", 14, d_burnin_tiles, 0),
+    ("LEAK_POSTMORTEM", "tiles the current input contaminates", 0, d_leak_clean, 0),
+    ("LEAK_POSTMORTEM", "median best-threshold IoU, clean input", 0.3843, d_leak_oracle_iou, 0.0005),
+    ("LEAK_POSTMORTEM", "label frames registered at ncc >= 0.99", 9, d_align_ok, 0),
+    ("LEAK_POSTMORTEM", "frames registering at ncc exactly 1.0", 5, d_align_exact, 0),
+    ("LEAK_POSTMORTEM", "distinct RGB triples in the burn-in", 1, d_overlay_triples, 0),
+    ("LEAK_POSTMORTEM", "green value the burn-in writes", 25, d_overlay_green, 0),
 ]
 
 

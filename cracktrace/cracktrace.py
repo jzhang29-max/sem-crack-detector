@@ -22,12 +22,15 @@ Treat every design claim below as a HYPOTHESIS with a synthetic feasibility chec
 not as a result.
 
 WHY NOT A CNN OR SAM, stated as testable design claims.
-NOTE (2026-09-15): SAM 3 was subsequently measured on this corpus and is NOT weak here --
-recall 0.969-1.000 on 10/16 hand-labelled tiles (and exactly 0.000 on the other 6 --
-the gap is empty), IoU 0.59-0.74 where the label is complete.
-It does, however, fail SILENTLY on 6/16. See ../analysis/sam3/SAM3_ON_SEM_CRACKS.md and
-README.md; claim 1 below is weaker than written, and the surviving case is the refused-edge
-criterion, which reports when it declined to link rather than returning nothing.
+NOTE (2026-09-18): a 2026-09-15 note here claimed SAM 3 had been measured on this corpus and
+was "NOT weak" (recall 0.969-1.000 on 10/16 tiles). THAT MEASUREMENT IS INVALID -- its input was
+the green channel of the annotated overlay, and opaque red (225,25,25) has green 25, well under the 80 the threshold used, so the label was
+written into the input as black pixels on 14 of 16 tiles. See analysis/sam3/LEAK_POSTMORTEM.md.
+The claim is withdrawn in both directions: SAM 3 is neither shown strong nor shown weak here.
+What IS established, by reading Meta's source rather than by any run, is that instance scores
+are gated by one global presence scalar per (image, prompt) -- sam3_image_processor.py:195-200 --
+so an empty result carries no per-instance evidence. The bar to beat on the clean input is a
+single oracle-tuned global threshold at median IoU 0.384.
 
 
 1. A crack is a 1-D curve embedded in 2-D. Pixel-mask methods represent it as an AREA

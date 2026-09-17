@@ -12,6 +12,18 @@ ENVIRONMENT NOTES (all contained, nothing written to site-packages):
   * torch tensor factories are patched during build only, because
     sam3/model/position_encoding.py:55 hardcodes device="cuda".
 
+LEAK GATE. This script REFUSES TO RUN unless leak_check.py reports every tile clean. The
+first version of this experiment fed the green channel of the annotated overlay -- pure red
+(225,25,25) has green 0, so the label was written into the input as black pixels on 14 of 16
+tiles. See LEAK_POSTMORTEM.md. The gate is not optional and not a warning.
+
+PRESENCE CAPTURE. model.forward_grounding is wrapped to record, per (tile, prompt), the global
+presence scalar s_i and max_j q_ij BEFORE gating. This makes the "empty output" behaviour
+measurable rather than merely inferred: sam3_image_processor.py:195-200 computes
+    out_probs = sigmoid(pred_logits) * sigmoid(presence_logit_dec);  keep = out_probs > tau
+so ONE scalar per (image, prompt) multiplies every instance, and when s_i <= tau / max_j q_ij
+the whole image returns nothing. An empty result is a property of that multiplier.
+
 SCORING. Ground truth is the fine-stroke correction subset (median brush <=25 px) — the
 only labels here that approximate an outline rather than a region assertion. They are
 still not pixel-precise, so IoU/Dice are INDICATIVE. clDice is primary (it does not
@@ -55,8 +67,19 @@ def sc(pred, gt):
             "pred_frac": round(float(pred.mean()), 5)}
 
 
+def gate():
+    """Refuse to run on an input that encodes the label."""
+    import leak_check
+    rows, nl = leak_check.check("LEAK GATE -- model input", leak_check.new_gray)
+    if nl:
+        sys.exit(f"REFUSING TO RUN: {nl} tiles carry a written-in label. "
+                 f"Regenerate with make_tiles.py (which reads the raw original), not from overlays.")
+    print("gate passed: no tile encodes its label\n", flush=True)
+
+
 def main():
     t0 = time.time()
+    gate()
     with redirect_cuda("cpu"):
         model = build_sam3_image_model(checkpoint_path=f"{SC}/sam3_original.pt",
                                        load_from_HF=False, device="cpu")
@@ -64,6 +87,27 @@ def main():
     model = model.float()
     model.eval()
     proc = Sam3Processor(model, resolution=1008, device="cpu", confidence_threshold=CONF)
+
+    # record the presence scalar and the top instance logit before gating
+    presence = {}
+    cur = {"tile": None, "prompt": None}
+    _orig_fg = model.forward_grounding
+
+    def fg(*a, **k):
+        out = _orig_fg(*a, **k)
+        try:
+            s_i = float(out["presence_logit_dec"].sigmoid().flatten()[0])
+            q = out["pred_logits"].sigmoid().flatten()
+            presence[f"{cur['tile']}|{cur['prompt']}"] = {
+                "presence": round(s_i, 6), "max_q": round(float(q.max()), 6),
+                "gated_max": round(s_i * float(q.max()), 6),
+                "tau": CONF,
+                "survives": bool(s_i * float(q.max()) > CONF)}
+        except Exception:
+            pass
+        return out
+
+    model.forward_grounding = fg
     print(f"model ready in {time.time()-t0:.0f}s", flush=True)
 
     meta = json.load(open(f"{SC}/tiles/meta.json"))
@@ -80,7 +124,9 @@ def main():
             print(f"  [{j+1}/{len(meta)}] {tid}: set_image FAILED {type(e).__name__}: {str(e)[:120]}", flush=True)
             continue
         enc = time.time() - te
+        cur["tile"] = tid
         for p in PROMPTS:
+            cur["prompt"] = p
             try:
                 with no_pin_memory(), torch.autocast(device_type="cpu", dtype=torch.bfloat16):
                     st = proc.set_text_prompt(p, state)
@@ -109,7 +155,9 @@ def main():
         print(f"      (encode {enc:.1f}s)", flush=True)
         json.dump(rows, open(f"{SC}/sam3_results.json", "w"), indent=1)
     json.dump(rows, open(f"{SC}/sam3_results.json", "w"), indent=1)
+    json.dump(presence, open(f"{SC}/sam3_presence.json", "w"), indent=1)
     print(f"\nwrote {SC}/sam3_results.json  ({len(rows)} rows, {time.time()-t0:.0f}s total)")
+    print(f"wrote {SC}/sam3_presence.json  ({len(presence)} (tile,prompt) presence records)")
 
 
 main()
