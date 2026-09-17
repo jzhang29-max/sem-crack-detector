@@ -75,10 +75,13 @@ to `CLAIMS` when you add a number to a document.
   excess over an angle-matched null is **1.030**.
 - "Full-frame 25 MP, no tiling" as an advantage — retracted (MegaSeg, Jan 2026, 67 MP).
 - "No comparable public paired-detector dataset exists" — false (RODARE; Schmies 2023).
-- **"SAM-family models remain poor on thin low-contrast curvilinear structures" /
+- **THE SAM 3 EXPERIMENT IS INVALID** — input was the green channel of the annotated overlay
+  (red is (255,0,0), so green = 0); a bare threshold recovers the label at recall 1.000 on
+  16/16. All SAM 3 numbers withdrawn, including the "correction" they were used to make.
+- ~~**"SAM-family models remain poor on thin low-contrast curvilinear structures" /
   "zero-shot: no"** (`VERDICT_2026.md` §6) — **disproven by measurement on this corpus.**
   SAM 3 reaches recall 0.969–1.000 on 10/16 tiles and IoU 0.59–0.74 where the label is complete.
-  Section rewritten in place with the original text quoted.
+  Section rewritten in place with the original text quoted.~~ **← this retraction is itself withdrawn**
 
 ## Data files
 

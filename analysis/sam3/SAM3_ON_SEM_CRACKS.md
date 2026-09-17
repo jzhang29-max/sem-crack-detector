@@ -1,5 +1,38 @@
-# SAM 3 on your SEM crack tiles — it ran, and the answer is bimodal
+# SAM 3 on your SEM crack tiles
 
+> # ⛔ INVALID — THE EXPERIMENT LEAKED THE ANSWER INTO THE INPUT
+> *Retracted 2026-09-18. Every number in this document is worthless.*
+>
+> `make_tiles.py:55` built the model input as the **green channel of the annotated overlay**,
+> with the comment *"green channel is unaffected by the red overlay"*. That is exactly wrong:
+> the overlay burns pure red (255, 0, 0), whose green channel is **0**. So the hand label was
+> written into the input as black pixels, and SAM 3 was shown the answer.
+>
+> Measured: a bare threshold `green < 80` — no model at all — recovers the ground truth at
+> **recall 1.000 on 16 of 16 tiles**, median IoU 0.106 against SAM 3's median union IoU of
+> 0.121. SAM 3 barely beat a threshold that reads the burned-in annotation.
+>
+> **What this invalidates:** the bimodal recall (0.969–1.000 on 10/16, 0.000 on 6/16), the
+> IoU 0.59–0.74 claim, the comparison to CoRe-SAM3, the "fails silently" claim, and the
+> confound analysis in `GAP_CONFOUND.md`. The prompt-brittleness observation ("fracture"
+> returning nothing on 16/16) is the only part not obviously contaminated — a leak makes
+> detection *easier*, so a prompt that finds nothing even with the answer visible is still
+> notable — but it is owned anyway (arXiv:2604.18225, arXiv:2605.22544).
+>
+> **And the gap was forced regardless.** SAM 3 scores instances as `p_ij = q_ij · s_i` with
+> **one** global presence scalar `s_i` per (image, prompt) — `sam3_image_processor.py:196-197`.
+> At fixed threshold τ, one scalar crossing `τ/max_j q_ij` flips every instance in an image
+> simultaneously. Bimodal-with-empty-gap is the arithmetic of a global multiplier, not a
+> property of thin structures or of foundation models.
+>
+> **To redo it properly:** feed the raw `original/*.tif`, never a rendered overlay; verify by
+> confirming no threshold on the input recovers the label; use official `facebook/sam3`
+> weights, not the `1038lab/sam3` mirror.
+>
+> Original text follows, unedited, as the record.
+>
+> ---
+>
 **Provenance, first.** `facebook/sam3` and `facebook/sam3.1` are gated-manual and your
 account is **not authorised** (403 `GatedRepoError`, verified today). These weights are the
 community mirror `1038lab/sam3` (`sam3.safetensors`, 1,465 tensors, header-validated),

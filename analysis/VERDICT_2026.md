@@ -74,7 +74,14 @@ becomes more load-bearing, not less. There is also live **VAMAS** (Jan 2026 call
 participation) and **ASTM E04.14** activity — a standards-adjacent audience that a
 novelty-hunting reviewer does not gatekeep. Cheapest visibility available.
 
-## 6. Foundation models — **this section was wrong; corrected 2026-09-15 by measurement**
+## 6. Foundation models — **my 2026-09-15 "correction" was itself invalid; the original may have been right**
+
+> ⛔ *2026-09-18.* On 2026-09-15 I overwrote this section's original claim (*"SAM-family models
+> remain poor on thin low-contrast curvilinear structures"*) with a measurement that **leaked the
+> label into the model input** (green channel of the annotated overlay; a bare threshold scores
+> recall 1.000 on 16/16 — see `sam3/SAM3_ON_SEM_CRACKS.md`). The original statement is therefore
+> **not** disproven, and stands unrefuted. Treat everything below as withdrawn.
+
 
 > **Superseded.** This section originally read: *"Zero-shot: no. Nothing in 2026
 > demonstrates usable zero-shot SEM crack segmentation; SAM-family models remain poor on

@@ -1,4 +1,16 @@
-# The SAM 3 "empty gap": what survives a confound check, and what does not
+# The SAM 3 "empty gap"
+
+> # ⛔ INVALID — built on a leaked experiment
+> *2026-09-18.* The input was the green channel of the annotated overlay, so the label was
+> visible to the model (`SAM3_ON_SEM_CRACKS.md`). A bare threshold scores recall 1.000 on
+> 16/16. All three confound checks below are therefore moot. Worse, the gap is **forced**:
+> `p_ij = q_ij · s_i` with one global presence scalar per image, so at fixed τ a single
+> scalar flips every instance at once. My confound-2 note ("point mass at zero") had the
+> right instinct and the wrong mechanism.
+>
+> Original follows as the record.
+>
+> ---
 
 *2026-09-18. Tested before the wildcard agent reported, so its verdict can be read against this.*
 
