@@ -22,13 +22,18 @@ Four design claims:
 3. **Scale-native.** Every filter is parameterised in **microns**, converted per frame
    via µm/px = HFW/width. σ = 0.4 µm means the same thing across the corpus's 249×
    magnification range; σ = 3 px does not.
-4. **It consumes superset labels natively** — the one gap the 2026 sweep found unoccupied.
+4. **It consumes superset labels natively** — ~~the one gap the 2026 sweep found
+   unoccupied~~. **That framing is withdrawn (2026-09-18): superset supervision is owned.**
    91% of this corpus's 70 M marked pixels are brush strokes of median 59 px (max 413 px)
-   asserting a region containing a ~3 px crack. Useless as a pixel target; near-exact as a
-   **corridor constraint on a path**. Every 2026 weak-supervision method assumes the weak
-   label is a *subset* of the object (scribbles inside, points on, boxes around). Here it
-   is a *superset*, and a path model is its natural consumer. Implemented as multiple-
-   instance learning: each corridor is a positive bag scored by its top-quantile crackness.
+   asserting a region containing a ~3 px crack — useless as a pixel target, near-exact as a
+   **corridor constraint on a path**, and that remains a sound design choice. It is simply
+   not novel: a bounding box is a superset label by construction, and the corridor constraint
+   is the **tightness prior** of Kervadec et al. (MIDL 2020, PMLR 121:365–381,
+   arXiv:2004.06816) restated for a curved region. The formal setting is Superset Label
+   Learning (Liu & Dietterich, ICML 2014, PMLR 32:1629–1637), and the over-inclusive crack
+   case already ships a **shrink module** (Eng. Appl. Artif. Intell. 2024,
+   10.1016/j.engappai.2024.108497, IoU 77.53%). The multiple-instance framing — each corridor
+   a positive bag scored by its top-quantile crackness — is retained on its merits.
 
 ## Measured baseline it must now beat (added 2026-09-15)
 

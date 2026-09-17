@@ -42,8 +42,18 @@ Only the bare noun `crack` fires. Prompt wording is an unguessable researcher de
 freedom, so any SAM-3 microscopy number published without a prompt ablation is reporting
 luck with vocabulary. Costs nothing further to claim — the ablation is already run.
 
-**One unoccupied methods gap.** Every 2026 weak-supervision method assumes the weak label
-is a *subset* of the object. These labels are *supersets*. Nothing in the window owns that.
+**~~One unoccupied methods gap.~~ WITHDRAWN 2026-09-18 — it is owned.** Box supervision *is*
+superset supervision, so the claim contradicted its own example list. Prior art, verified against source 2026-09-18: the formal setting is **Superset Label
+Learning** (Liu & Dietterich, ICML 2014, PMLR 32:1629–1637); the segmentation machinery is
+**box supervision with a tightness prior** (Kervadec et al., MIDL 2020, PMLR 121:365–381,
+arXiv:2004.06816 — every line inside the annotated region must contain ≥1 foreground pixel,
+which is exactly what a 59 px brush over a 3 px crack asserts); and the crack domain has
+already done the over-inclusive case with a **shrink module** (*Unified weakly and
+semi-supervised crack segmentation framework using limited coarse labels*, Eng. Appl. Artif.
+Intell. 2024, 10.1016/j.engappai.2024.108497 — IoU 77.53%, +28.64 pp over
+fully-supervised-on-coarse-labels). Full writeup:
+`../../crack-depth-3d/docs/SUPERSET_CLAIM_CLOSED.md`. What
+survives is the measurement (`LABEL_GRANULARITY.md`), not a gap.
 
 **The blocker for everything else.** There is no pixel-precise ground truth. ~15 paired
 fields hand-traced at ≤5 px (2–4 h each) unblocks the metrics, the circularity fix and any

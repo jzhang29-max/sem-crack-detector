@@ -16,7 +16,28 @@ not relayed on an agent's word.
 | S5 | Promotion gate | **DEAD as a claim** | Never scooped — it was never a contribution. Worse, its *context* collapsed: Teuber et al. (Mar 2026) and Convpaint (*Cell Reports Methods*, Mar 2026) benchmark your exact architecture (hand-crafted filters + shallow classifier + interactive paint) against pretrained-feature classifiers. |
 | S6 | Scale-aware segmentation | **DEAD, all three legs** | CIMP arXiv:2604.24909 (Apr 2026) conditions on 7-D acquisition metadata **and shows all seven parameters are linearly recoverable from the frozen visual embedding** — networks already encode their own scale. Plus "One Model to Magnify Them All" (arXiv:2608.09403, Aug 2026), NanoPSD scale-bar OCR as a shipped feature. |
 
-## 2. The one genuinely new gap — and it came out of measuring your labels
+## 2. ~~The one genuinely new gap~~ — **WITHDRAWN 2026-09-18: this gap is owned**
+
+> ⛔ The claim below is false, and it refutes itself two lines down: it lists *"boxes around it"*
+> as a **subset** assumption, but a bounding box asserts the object is **inside** a region —
+> a superset label by construction, and box-supervised segmentation is a mature literature.
+>
+> Prior art, verified against source 2026-09-18: the formal setting is **Superset Label
+> Learning** (Liu & Dietterich, ICML 2014, PMLR 32:1629–1637); the segmentation machinery is
+> **box supervision with a tightness prior** (Kervadec et al., MIDL 2020, PMLR 121:365–381,
+> arXiv:2004.06816 — every line inside the annotated region must contain ≥1 foreground pixel,
+> which is exactly what a 59 px brush over a 3 px crack asserts); and the crack domain has
+> already done the over-inclusive case with a **shrink module** (*Unified weakly and
+> semi-supervised crack segmentation framework using limited coarse labels*, Eng. Appl. Artif.
+> Intell. 2024, 10.1016/j.engappai.2024.108497 — IoU 77.53%, +28.64 pp over
+> fully-supervised-on-coarse-labels). Full writeup:
+> `../../crack-depth-3d/docs/SUPERSET_CLAIM_CLOSED.md`.
+>
+> What survives is the **measurement**, not a methods gap: median stroke 59 px (max 413) against
+> a ~3 px crack, 91% of 70,434,978 labelled px from strokes >80 px. That makes pixel-IoU against
+> these labels close to meaningless, which is worth reporting as a corpus property.
+>
+> Original text follows.
 
 Every 2026 weak-supervision method assumes the weak label is a **SUBSET** of the object:
 scribbles *inside* it, points *on* it, boxes *around* it. Your labels are **SUPERSETS** —
@@ -134,7 +155,8 @@ it falls; the paper is not about the detector. Note also *Materials Characteriza
 
 **P2** — run frozen DINOv2/v3 + same LogisticRegression as the demanded baseline.
 
-**P3** — if you want a methods paper, it is the **superset-label** problem in §2, not S4.
+**P3** — ~~if you want a methods paper, it is the **superset-label** problem in §2, not S4.~~
+**Withdrawn 2026-09-18**: §2's gap is owned (see its banner). There is no methods paper here.
 
 **Delete:** S4 as framing, S6 as contribution, the 25 MP differentiator, and any claim
 that competitors merely "fail to standardise scale."
