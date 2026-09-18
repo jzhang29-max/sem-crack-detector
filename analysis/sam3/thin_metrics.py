@@ -32,7 +32,9 @@ from scipy import ndimage as ndi
 from skimage.morphology import skeletonize
 
 SC = os.path.dirname(os.path.abspath(__file__))
-THS = list(range(0, 256, 2))
+THS = list(range(0, 256, 4))
+MAXFRAC = 0.35   # thresholds that light up >35% of the tile cannot be a ~3 px crack; skip the
+                 # skeletonisation (it is the expensive step) and score them as unusable.
 
 
 def load(tid):
@@ -117,7 +119,13 @@ def main():
         for pol in ("dark", "bright"):
             for th in THS:
                 P = (g <= th) if pol == "dark" else (g >= th)
-                cache[(t, pol, th)] = metrics(P, G)
+                if P.mean() > MAXFRAC:
+                    cache[(t, pol, th)] = {k: 0.0 for k in
+                                           ("IoU","clDice","Tprec","Tsens","skelR2",
+                                            "tolF1_2","tolF1_5","tolP2","tolR2","tolP5","tolR5")}
+                    cache[(t, pol, th)].update(ncc_P=0, dB0=G.ncc)
+                else:
+                    cache[(t, pol, th)] = metrics(P, G)
 
     arms = {}
 
@@ -171,12 +179,12 @@ def main():
     for name, (acc, rows) in arms.items():
         vals = "".join(f"{np.median([r[k] for r in rows]):>9.4f}" for k in KEYS)
         print(f"  {name:<36} {acc:<26}{vals}")
+    ods_rows = {}
     for k in KEYS:
         pol, th = ods_pt[k]
-        row = [cache[(t, pol, th)][k] for t in tiles]
-        arms.setdefault("_ods", {})[k] = row
+        ods_rows[k] = [cache[(t, pol, th)][k] for t in tiles]
     print(f"  {'ODS (one shared threshold)':<36} {'set-level, per metric':<26}"
-          + "".join(f"{np.median(arms['_ods'][k]):>9.4f}" for k in KEYS))
+          + "".join(f"{np.median(ods_rows[k]):>9.4f}" for k in KEYS))
     print(f"  {'OIS (per-tile oracle threshold)':<36} {'per tile, per metric':<26}"
           + "".join(f"{np.median(ois_rows[k]):>9.4f}" for k in KEYS))
     print("\n  ODS operating point per metric: "
@@ -185,8 +193,6 @@ def main():
     print("\n  Betti-0 (component counts, median): "
           f"GT={np.median([Gs[t].ncc for t in tiles]):.0f}")
     for name, (acc, rows) in arms.items():
-        if name.startswith("_"):
-            continue
         print(f"    {name:<36} #cc(P)={np.median([r['ncc_P'] for r in rows]):>8.0f}"
               f"   dB0={np.median([r['dB0'] for r in rows]):>8.0f}")
 
@@ -194,20 +200,31 @@ def main():
     from scipy.stats import wilcoxon
     print("\n  SEPARATION CHECK -- SAM 3 union vs the information-free null, per metric:")
     su = arms["SAM 3 union tau=0.3 (no labels)"][1]
-    for k in KEYS:
-        a = [r[k] for r in su]; b = [r[k] for r in null_rows]
+    so = arms["SAM 3 oracle instance"][1]
+    def pair(tag, a, b, an, bn):
         d = [x - y for x, y in zip(a, b) if x != y]
         p = wilcoxon(d).pvalue if len(d) >= 6 else float("nan")
-        print(f"    {k:<10} SAM wins {sum(1 for x, y in zip(a, b) if x > y):>2}/{len(tiles)}"
-              f"   median {np.median(a):.4f} vs {np.median(b):.4f}   p = {p:.4f}")
+        print(f"    {tag:<10} {an} wins {sum(1 for x, y in zip(a, b) if x > y):>2}/{len(tiles)}"
+              f"   median {np.median(a):.4f} vs {np.median(b):.4f} ({bn})   p = {p:.4f}")
+    for k in KEYS:
+        pair(k, [r[k] for r in su], [r[k] for r in null_rows], "SAM", "null")
+    print("\n  MATCHED per-tile-oracle budget -- SAM 3 oracle instance vs OIS threshold:")
+    for k in KEYS:
+        pair(k, [r[k] for r in so], ois_rows[k], "SAM", "OIS")
+    print("\n  MATCHED un-tuned budget -- SAM 3 union vs ODS (ODS still set-level tuned):")
+    for k in KEYS:
+        pair(k, [r[k] for r in su], ods_rows[k], "SAM", "ODS")
 
     print("\n  DECOY CHECK -- a metric a 3 px GT skeleton scores near 1.0 on is a metric that"
           "\n  is insensitive to the brush width of the region assertion (that is the point);"
           "\n  a metric the 40 px shift also scores high on is a metric with no localisation.")
 
-    json.dump({name: {k: [r[k] for r in rows] for k in KEYS + ["ncc_P", "dB0"]}
-               for name, (acc, rows) in arms.items() if not name.startswith("_")},
-              open(f"{SC}/thin_metrics.json", "w"), indent=1)
+    out = {name: {k: [r[k] for r in rows] for k in KEYS + ["ncc_P", "dB0"]}
+           for name, (acc, rows) in arms.items()}
+    out["ODS (one shared threshold)"] = {k: ods_rows[k] for k in KEYS}
+    out["OIS (per-tile oracle threshold)"] = {k: ois_rows[k] for k in KEYS}
+    out["_ods_operating_points"] = {k: list(ods_pt[k]) for k in KEYS}
+    json.dump(out, open(f"{SC}/thin_metrics.json", "w"), indent=1)
 
 
 if __name__ == "__main__":

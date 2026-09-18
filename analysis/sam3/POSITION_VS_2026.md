@@ -152,6 +152,44 @@ supervised training on ridge features buys nothing over a tuned global threshold
 foundation model that has never seen this material. That is a statement about the corpus size
 and label quality, not about the learners.
 
+### 5. Everything tried, one table
+
+Ten arms, all honest-protocol numbers (LOFO, or nested LOFO where a choice was made):
+
+| arm | IoU | clDice |
+|---|---|---|
+| global threshold | **0.2579** | 0.1827 |
+| nested LOFO over 5 single methods | 0.2526 | 0.1739 |
+| Sato ridge | 0.1972 | 0.2981 |
+| trained hist-gradient-boosting (25 features) | 0.1916 | 0.2015 |
+| **SAM 3, zero-shot, no labels at all** | **0.1914** | **0.3030** |
+| Meijering ridge | 0.1802 | **0.3382** |
+| nested ensemble (union/inter/majority over ≤3 responses) | 0.1597 | 0.2986 |
+| Sauvola local | 0.1117 | 0.2421 |
+| trained logistic regression | 0.0878 | 0.1449 |
+| Frangi ridge | 0.0843 | 0.0849 |
+
+After five training-free methods, an extended scale sweep, two trained models and an ensemble
+over every subset of three responses with three combination rules: **on clDice nothing beats
+the zero-shot foundation model, and on IoU only a plain global threshold does.** The ensemble
+helps clDice (0.1739 → 0.2986 over single-method nested selection) and *hurts* IoU
+(0.2526 → 0.1597) — metric-dependent again.
+
+### 6. A bigger search space buys the oracle, not the answer
+
+Extending the ridge scale sweep from σ ≤ 6 to σ ≤ 12, which is the physically correct range for
+16 px structures:
+
+| method | OIS before → after | LOFO before → after |
+|---|---|---|
+| Meijering ridge | 0.2823 → **0.4031** (**+0.1208**) | 0.1802 → 0.1802 (**+0.0000**) |
+| Sato ridge | 0.2853 → 0.3293 (+0.0440) | 0.1972 → 0.1561 (**−0.0411**) |
+
+The per-tile oracle rose by up to 0.12 while the honest leave-one-frame-out number stayed flat
+or got *worse*. That is search-space overfitting, measured directly: a larger hyper-parameter
+space reliably improves any oracle-tuned figure and does nothing for a deployable one. Any
+paper reporting OIS after a wide sweep is partly reporting the width of its sweep.
+
 ## Why this evaluation is stronger than the typical paper's — with the evidence
 
 Each bullet names something **done here and checkable in this repo**. Where I say a practice is
