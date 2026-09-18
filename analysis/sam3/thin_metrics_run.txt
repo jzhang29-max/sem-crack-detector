@@ -1,0 +1,53 @@
+n = 15 disjoint tiles; medians over tiles
+
+  arm                                  label access                    IoU   clDice    Tprec    Tsens   skelR2  tolF1_2  tolF1_5
+  ------------------------------------------------------------------------------------------------------------------------------
+  Otsu per tile (no labels)            none                         0.0882   0.1370   0.0736   0.9255   0.9811   0.1866   0.2443
+  SAM 3 union tau=0.3 (no labels)      none                         0.1914   0.3030   0.1785   0.9757   0.9852   0.3508   0.4379
+  SAM 3 oracle instance                per tile (picks instance)    0.3871   0.5882   0.7936   0.4622   0.4800   0.5263   0.5696
+  NULL: constant area, arbitrary place area only                    0.0000   0.0000   0.0000   0.0000   0.0000   0.0000   0.0000
+  DECOY: label shifted 40 px           label itself                 0.1033   0.1845   0.1808   0.1522   0.1948   0.2017   0.2495
+  DECOY: GT skeleton, 3 px wide        label itself                 0.1662   0.9997   0.9994   1.0000   1.0000   1.0000   1.0000
+  ODS (one shared threshold)           set-level, per metric        0.2405   0.3378   0.2392   0.9002   0.9689   0.5534   0.5809
+  OIS (per-tile oracle threshold)      per tile, per metric         0.4090   0.3831   0.2412   0.9762   1.0000   0.5939   0.6146
+
+  ODS operating point per metric: IoU=dark<=12, clDice=dark<=0, Tprec=dark<=0, Tsens=dark<=96, skelR2=dark<=96, tolF1_2=dark<=20, tolF1_5=dark<=20
+
+  Betti-0 (component counts, median): GT=3
+    Otsu per tile (no labels)            #cc(P)=    2102   dB0=    2098
+    SAM 3 union tau=0.3 (no labels)      #cc(P)=      16   dB0=      12
+    SAM 3 oracle instance                #cc(P)=       1   dB0=       2
+    NULL: constant area, arbitrary place #cc(P)=       1   dB0=       2
+    DECOY: label shifted 40 px           #cc(P)=       3   dB0=       0
+    DECOY: GT skeleton, 3 px wide        #cc(P)=       2   dB0=       0
+
+  SEPARATION CHECK -- SAM 3 union vs the information-free null, per metric:
+    IoU        SAM wins 12/15   median 0.1914 vs 0.0000 (null)   p = 0.0085
+    clDice     SAM wins 12/15   median 0.3030 vs 0.0000 (null)   p = 0.0085
+    Tprec      SAM wins 12/15   median 0.1785 vs 0.0000 (null)   p = 0.0353
+    Tsens      SAM wins 12/15   median 0.9757 vs 0.0000 (null)   p = 0.0018
+    skelR2     SAM wins 12/15   median 0.9852 vs 0.0000 (null)   p = 0.0018
+    tolF1_2    SAM wins 12/15   median 0.3508 vs 0.0000 (null)   p = 0.0067
+    tolF1_5    SAM wins 12/15   median 0.4379 vs 0.0000 (null)   p = 0.0067
+
+  MATCHED per-tile-oracle budget -- SAM 3 oracle instance vs OIS threshold:
+    IoU        SAM wins  6/15   median 0.3871 vs 0.4090 (OIS)   p = 0.8469
+    clDice     SAM wins  9/15   median 0.5882 vs 0.3831 (OIS)   p = 0.4543
+    Tprec      SAM wins  8/15   median 0.7936 vs 0.2412 (OIS)   p = 0.3894
+    Tsens      SAM wins  2/15   median 0.4622 vs 0.9762 (OIS)   p = 0.0034
+    skelR2     SAM wins  1/15   median 0.4800 vs 1.0000 (OIS)   p = 0.0024
+    tolF1_2    SAM wins  7/15   median 0.5263 vs 0.5939 (OIS)   p = 0.7615
+    tolF1_5    SAM wins  7/15   median 0.5696 vs 0.6146 (OIS)   p = 0.7615
+
+  MATCHED un-tuned budget -- SAM 3 union vs ODS (ODS still set-level tuned):
+    IoU        SAM wins  7/15   median 0.1914 vs 0.2405 (ODS)   p = 1.0000
+    clDice     SAM wins  8/15   median 0.3030 vs 0.3378 (ODS)   p = 0.8469
+    Tprec      SAM wins  4/15   median 0.1785 vs 0.2392 (ODS)   p = 0.0181
+    Tsens      SAM wins  8/15   median 0.9757 vs 0.9002 (ODS)   p = 0.4355
+    skelR2     SAM wins  5/15   median 0.9852 vs 0.9689 (ODS)   p = 0.8711
+    tolF1_2    SAM wins  7/15   median 0.3508 vs 0.5534 (ODS)   p = 0.7197
+    tolF1_5    SAM wins  7/15   median 0.4379 vs 0.5809 (ODS)   p = 0.4543
+
+  DECOY CHECK -- a metric a 3 px GT skeleton scores near 1.0 on is a metric that
+  is insensitive to the brush width of the region assertion (that is the point);
+  a metric the 40 px shift also scores high on is a metric with no localisation.

@@ -190,6 +190,32 @@ or got *worse*. That is search-space overfitting, measured directly: a larger hy
 space reliably improves any oracle-tuned figure and does nothing for a deployable one. Any
 paper reporting OIS after a wide sweep is partly reporting the width of its sweep.
 
+### 7. Under the correct metric for these labels, the leader changes three times
+
+`clIoU_τ` (OmniCrack30k, `10.1109/CVPRW63382.2024.00392`) skeletonises **both** sides and
+compares each against the other dilated by τ, which is what makes it insensitive to annotation
+stroke width — the pathology here. PAR = |prediction| / |GT| is reported beside it as the bias
+diagnostic that separates "found it but too fat" from "missed it".
+
+| method | τ=0 | τ=2 | τ=4 | τ=8 | τ=16 | τ=32 | τ=64 | **PAR** |
+|---|---|---|---|---|---|---|---|---|
+| global threshold q98 | **0.051** | **0.116** | **0.124** | 0.165 | 0.192 | **0.416** | **0.438** | 1.58 |
+| SAM 3 union | 0.031 | 0.090 | 0.096 | **0.169** | **0.294** | 0.321 | 0.327 | 2.63 |
+| Meijering q98 | 0.024 | 0.077 | 0.101 | 0.105 | 0.197 | 0.278 | 0.377 | 0.94 |
+| Sato q98 | 0.020 | 0.071 | 0.091 | 0.106 | 0.175 | 0.225 | 0.226 | 0.88 |
+| Otsu | 0.006 | 0.037 | 0.068 | 0.068 | 0.079 | 0.082 | 0.084 | **6.86** |
+
+**The leader flips three times**: global threshold at τ ≤ 4, SAM 3 at τ = 8–16, global threshold
+again at τ ≥ 32. OmniCrack30k reports the same instability on its own data (leader changing at
+τ = 16), so this is a reproduction of a known property of the metric, not a quirk of this
+corpus. It also means a single tolerance is a choice, and τ must be reported rather than fitted.
+
+**PAR corrects an earlier reading in this repo.** `corridor_metric.py` found Otsu beating SAM 3
+on containment (0.779 vs 0.707), which looked like Otsu being better. PAR shows Otsu predicts
+**6.86×** the labelled area — it wins containment by covering most of the frame — and under the
+tolerant metric it is last at every τ. Containment without an area diagnostic beside it is not
+interpretable; both are now printed together.
+
 ## Why this evaluation is stronger than the typical paper's — with the evidence
 
 Each bullet names something **done here and checkable in this repo**. Where I say a practice is
