@@ -234,6 +234,114 @@ def d_overlay_green():
     return -1
 
 
+def _clean(prompt="crack"):
+    return [r for r in json.load(open("analysis/sam3/sam3_results.json"))
+            if "error" not in r and r["prompt"] == prompt]
+
+
+def _pres():
+    return json.load(open("analysis/sam3/sam3_presence.json"))
+
+
+def d_clean_fired():
+    """Tiles where the 'crack' prompt returned at least one instance, LEAK-GATED run."""
+    return sum(1 for r in _clean() if r.get("n", 0) > 0)
+
+
+def d_clean_union_iou():
+    """Median union IoU, 'crack' prompt, over all 16 tiles."""
+    return round(float(np.median([r.get("union_IoU", 0) for r in _clean()])), 4)
+
+
+def d_clean_oracle_iou():
+    return round(float(np.median([r.get("oracle_IoU", 0) for r in _clean()])), 4)
+
+
+def d_gate_agreement():
+    """INSTRUMENTATION SELF-CHECK, NOT A RESULT.
+
+    (tile, prompt) pairs where 'returned nothing' == 'presence*max_q <= tau'. This is an
+    ALGEBRAIC IDENTITY: the wrapper reads the same tensors sam3_image_processor.py:197-199
+    multiplies and thresholds with the same constant, and sigmoid(presence) > 0 so
+    max_j(s*q_j) = s*max_j q_j. It cannot fail except through an instrumentation bug, which
+    is exactly what it is here to catch. Registered so the wrapper stays wired correctly --
+    NOT as evidence about the model. An earlier draft published it as a 64-trial result.
+    """
+    pres = _pres()
+    n = 0
+    for r in json.load(open("analysis/sam3/sam3_results.json")):
+        if "error" in r:
+            continue
+        p = pres.get(f"{r['tile']}|{r['prompt']}")
+        if p is not None and p["survives"] == (r.get("n", 0) > 0):
+            n += 1
+    return n
+
+
+def d_presence_span():
+    """THE empirical claim: ratio of median presence for the best vs worst of four synonyms.
+
+    Computed from UNROUNDED medians. An earlier version divided the 4-dp rounded values and a
+    1.0 tolerance hid the difference; the figure's ".0f" then printed 113 for a value of 112.55.
+    """
+    pres = json.load(open("analysis/sam3/sam3_presence.json"))
+    med = {}
+    for q in ("crack", "fracture"):
+        med[q] = float(np.median([v["presence"] for k, v in pres.items()
+                                  if k.split("|", 1)[1] == q]))
+    return round(med["crack"] / med["fracture"], 2)
+
+
+def d_always_empty_baseline():
+    """Information-free baseline for 'did this pair return anything?' -- always say empty."""
+    n = sum(1 for r in json.load(open("analysis/sam3/sam3_results.json"))
+            if "error" not in r and r.get("n", 0) == 0)
+    return n
+
+
+def d_prompt_identity_baseline():
+    """Best rule using ONLY prompt identity. The honest reference point, not 50%."""
+    rows = [r for r in json.load(open("analysis/sam3/sam3_results.json")) if "error" not in r]
+    prompts = sorted({r["prompt"] for r in rows})
+    best = 0
+    for mask in range(1 << len(prompts)):
+        pred = {p: bool(mask >> i & 1) for i, p in enumerate(prompts)}
+        best = max(best, sum(1 for r in rows if pred[r["prompt"]] == (r.get("n", 0) > 0)))
+    return best
+
+
+def d_max_instances():
+    """Largest instance count returned. If the scalar flipped all instances this would be 200."""
+    return max(r.get("n", 0) for r in json.load(open("analysis/sam3/sam3_results.json"))
+               if "error" not in r)
+
+
+def d_presence_median(prompt):
+    v = [x["presence"] for k, x in _pres().items() if k.split("|", 1)[1] == prompt]
+    return round(float(np.median(v)), 4)
+
+
+def d_pres_crack():
+    return d_presence_median("crack")
+
+
+def d_pres_fracture():
+    return d_presence_median("fracture")
+
+
+def d_leak_paired_p():
+    """Wilcoxon p on paired IoU deltas, contaminated vs leak-gated. Recovered from git."""
+    import subprocess
+    from scipy.stats import wilcoxon
+    out = subprocess.run(["git", "show", "3ae43eb:analysis/sam3/sam3_results.json"],
+                         capture_output=True, text=True, check=True).stdout
+    cm = {(r["tile"], r["prompt"]): r for r in json.loads(out) if "error" not in r}
+    d = [r.get("union_IoU", 0) - cm[(r["tile"], r["prompt"])].get("union_IoU", 0)
+         for r in _clean() if (r["tile"], r["prompt"]) in cm]
+    d = [x for x in d if x != 0]
+    return round(float(wilcoxon(d).pvalue), 4)
+
+
 def _leak():
     return json.load(open("analysis/sam3/leak_check.json"))
 
@@ -312,6 +420,17 @@ CLAIMS = [
     ("LEAK_POSTMORTEM", "frames registering at ncc exactly 1.0", 5, d_align_exact, 0),
     ("LEAK_POSTMORTEM", "distinct RGB triples in the burn-in", 1, d_overlay_triples, 0),
     ("LEAK_POSTMORTEM", "green value the burn-in writes", 25, d_overlay_green, 0),
+    ("sam3 clean run", "tiles where 'crack' returned instances", 14, d_clean_fired, 0),
+    ("sam3 clean run", "median union IoU, 'crack', all 16 tiles", 0.2039, d_clean_union_iou, 0.0005),
+    ("sam3 clean run", "median oracle IoU, 'crack', all 16 tiles", 0.3843, d_clean_oracle_iou, 0.0005),
+    ("sam3 clean run", "gate self-check (IDENTITY, not a result)", 64, d_gate_agreement, 0),
+    ("sam3 clean run", "presence span, best/worst synonym", 112.55, d_presence_span, 0.01),
+    ("sam3 clean run", "always-empty baseline (of 64)", 41, d_always_empty_baseline, 0),
+    ("sam3 clean run", "prompt-identity-only baseline (of 64)", 53, d_prompt_identity_baseline, 0),
+    ("sam3 clean run", "max instances returned (of 200 queries)", 62, d_max_instances, 0),
+    ("sam3 clean run", "median presence scalar, 'crack'", 0.9102, d_pres_crack, 0.0005),
+    ("sam3 clean run", "median presence scalar, 'fracture'", 0.0081, d_pres_fracture, 0.0005),
+    ("sam3 clean run", "Wilcoxon p, contaminated vs clean IoU", 0.7869, d_leak_paired_p, 0.0005),
 ]
 
 

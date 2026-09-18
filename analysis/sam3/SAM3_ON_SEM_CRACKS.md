@@ -29,13 +29,18 @@
 >
 > **And the gap was forced regardless.** SAM 3 scores instances as `p_ij = q_ij · s_i` with
 > **one** global presence scalar `s_i` per (image, prompt) — `sam3_image_processor.py:196-197`.
-> At fixed threshold τ, one scalar crossing `τ/max_j q_ij` flips every instance in an image
-> simultaneously. Bimodal-with-empty-gap is the arithmetic of a global multiplier, not a
-> property of thin structures or of foundation models.
+> **Corrected 2026-09-18** (an agent instructed to attack this caught it): the presence scalar rescales all **200** per-query scores
+> (`num_queries=200`, `model_builder.py:185`) and the threshold is then applied **per query**:
+> `keep = q_ij · s_i > τ`. So it does **not** flip every instance at once — survivors return
+> **1 to 62** of 200 queries. What is all-or-nothing is only whether the image returns
+> *anything*, via `s_i · max_j q_ij`.
+> Bimodal-with-empty-gap is still the arithmetic of a global multiplier rather than a property
+> of thin structures — but the arithmetic is about *existence of output*, not about instances
+> moving together.
 >
 > **The trivial baseline nobody had measured.** On the *clean* input, an oracle-tuned single
 > global threshold reaches **median IoU 0.384** (best over all 256 thresholds and both
-> polarities, per tile). SAM 3's reported median union IoU was 0.121 — three times worse,
+> polarities, per tile). SAM 3 reported median union IoU 0.119 over the 14 tiles that returned anything, 0.0775 over all 16 — three times worse,
 > *with* the answer burned in. Any method here must beat 0.384, and that bar had never been
 > stated.
 >

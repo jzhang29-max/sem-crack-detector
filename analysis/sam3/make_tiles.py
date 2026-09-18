@@ -15,7 +15,7 @@ The first version of this script did the opposite. It built the input from the o
 channel, with the comment "green channel is unaffected by the red overlay". The overlay burns
 opaque red (225, 25, 25), whose green channel is a constant 25, so every labelled pixel was written into the
 input as black. A bare threshold `green < 80` -- no model -- then recovered the ground truth at
-recall 1.000 on 16 of 16 tiles, median IoU 0.106, against SAM 3's median union IoU of 0.121.
+recall 1.000 on 16 of 16 tiles, median IoU 0.106, against SAM 3's median union IoU of 0.119 over the 14 tiles that returned anything (0.0775 over all 16).
 The whole experiment measured its own annotation.
 
 So: the grey is read from sem-crack-detector/original/<frame>.tif at the offset established by

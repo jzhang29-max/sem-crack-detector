@@ -28,8 +28,10 @@ the green channel of the annotated overlay, and opaque red (225,25,25) has green
 written into the input as black pixels on 14 of 16 tiles. See analysis/sam3/LEAK_POSTMORTEM.md.
 The claim is withdrawn in both directions: SAM 3 is neither shown strong nor shown weak here.
 What IS established, by reading Meta's source rather than by any run, is that instance scores
-are gated by one global presence scalar per (image, prompt) -- sam3_image_processor.py:195-200 --
-so an empty result carries no per-instance evidence. The bar to beat on the clean input is a
+are rescaled by one global presence scalar per (image, prompt) before a PER-QUERY threshold --
+sam3_image_processor.py:195-200 -- so whether an image returns anything is decided by
+s_i * max_j q_ij, and an empty result carries no per-instance evidence. Measured: that scalar
+spans 112x across four synonymous prompts (0.9102 for "crack", 0.0081 for "fracture"). The bar to beat on the clean input is a
 single oracle-tuned global threshold at median IoU 0.384.
 
 

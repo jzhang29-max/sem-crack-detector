@@ -1,0 +1,450 @@
+{
+ "260622_316_H_b2_front_CBS_01__t0|crack": {
+  "presence": 0.789062,
+  "max_q": 0.625,
+  "gated_max": 0.493164,
+  "tau": 0.3,
+  "survives": true
+ },
+ "260622_316_H_b2_front_CBS_01__t0|a crack in metal": {
+  "presence": 0.206055,
+  "max_q": 0.613281,
+  "gated_max": 0.126369,
+  "tau": 0.3,
+  "survives": false
+ },
+ "260622_316_H_b2_front_CBS_01__t0|thin dark line": {
+  "presence": 0.204102,
+  "max_q": 0.53125,
+  "gated_max": 0.108429,
+  "tau": 0.3,
+  "survives": false
+ },
+ "260622_316_H_b2_front_CBS_01__t0|fracture": {
+  "presence": 0.022583,
+  "max_q": 0.640625,
+  "gated_max": 0.014467,
+  "tau": 0.3,
+  "survives": false
+ },
+ "260622_316_H_b4_CBS_02__t0|crack": {
+  "presence": 0.9375,
+  "max_q": 0.890625,
+  "gated_max": 0.834961,
+  "tau": 0.3,
+  "survives": true
+ },
+ "260622_316_H_b4_CBS_02__t0|a crack in metal": {
+  "presence": 0.667969,
+  "max_q": 0.8125,
+  "gated_max": 0.542725,
+  "tau": 0.3,
+  "survives": true
+ },
+ "260622_316_H_b4_CBS_02__t0|thin dark line": {
+  "presence": 0.519531,
+  "max_q": 0.730469,
+  "gated_max": 0.379501,
+  "tau": 0.3,
+  "survives": true
+ },
+ "260622_316_H_b4_CBS_02__t0|fracture": {
+  "presence": 0.010681,
+  "max_q": 0.488281,
+  "gated_max": 0.005215,
+  "tau": 0.3,
+  "survives": false
+ },
+ "260622_316_H_b4_CBS_02__t1|crack": {
+  "presence": 0.96875,
+  "max_q": 0.933594,
+  "gated_max": 0.904419,
+  "tau": 0.3,
+  "survives": true
+ },
+ "260622_316_H_b4_CBS_02__t1|a crack in metal": {
+  "presence": 0.835938,
+  "max_q": 0.890625,
+  "gated_max": 0.744507,
+  "tau": 0.3,
+  "survives": true
+ },
+ "260622_316_H_b4_CBS_02__t1|thin dark line": {
+  "presence": 0.273438,
+  "max_q": 0.78125,
+  "gated_max": 0.213623,
+  "tau": 0.3,
+  "survives": false
+ },
+ "260622_316_H_b4_CBS_02__t1|fracture": {
+  "presence": 0.01001,
+  "max_q": 0.443359,
+  "gated_max": 0.004438,
+  "tau": 0.3,
+  "survives": false
+ },
+ "260708_316_H_b2_front_CBS_001__t0|crack": {
+  "presence": 0.835938,
+  "max_q": 0.839844,
+  "gated_max": 0.702057,
+  "tau": 0.3,
+  "survives": true
+ },
+ "260708_316_H_b2_front_CBS_001__t0|a crack in metal": {
+  "presence": 0.300781,
+  "max_q": 0.804688,
+  "gated_max": 0.242035,
+  "tau": 0.3,
+  "survives": false
+ },
+ "260708_316_H_b2_front_CBS_001__t0|thin dark line": {
+  "presence": 0.111328,
+  "max_q": 0.800781,
+  "gated_max": 0.089149,
+  "tau": 0.3,
+  "survives": false
+ },
+ "260708_316_H_b2_front_CBS_001__t0|fracture": {
+  "presence": 0.001869,
+  "max_q": 0.632812,
+  "gated_max": 0.001183,
+  "tau": 0.3,
+  "survives": false
+ },
+ "260708_316_H_b2_front_CBS_001__t1|crack": {
+  "presence": 0.625,
+  "max_q": 0.628906,
+  "gated_max": 0.393066,
+  "tau": 0.3,
+  "survives": true
+ },
+ "260708_316_H_b2_front_CBS_001__t1|a crack in metal": {
+  "presence": 0.114258,
+  "max_q": 0.566406,
+  "gated_max": 0.064716,
+  "tau": 0.3,
+  "survives": false
+ },
+ "260708_316_H_b2_front_CBS_001__t1|thin dark line": {
+  "presence": 0.059326,
+  "max_q": 0.365234,
+  "gated_max": 0.021668,
+  "tau": 0.3,
+  "survives": false
+ },
+ "260708_316_H_b2_front_CBS_001__t1|fracture": {
+  "presence": 0.000431,
+  "max_q": 0.5,
+  "gated_max": 0.000216,
+  "tau": 0.3,
+  "survives": false
+ },
+ "AS_24hr_BSE_Side_008__t0|crack": {
+  "presence": 0.960938,
+  "max_q": 0.929688,
+  "gated_max": 0.893372,
+  "tau": 0.3,
+  "survives": true
+ },
+ "AS_24hr_BSE_Side_008__t0|a crack in metal": {
+  "presence": 0.820312,
+  "max_q": 0.886719,
+  "gated_max": 0.727386,
+  "tau": 0.3,
+  "survives": true
+ },
+ "AS_24hr_BSE_Side_008__t0|thin dark line": {
+  "presence": 0.120117,
+  "max_q": 0.695312,
+  "gated_max": 0.083519,
+  "tau": 0.3,
+  "survives": false
+ },
+ "AS_24hr_BSE_Side_008__t0|fracture": {
+  "presence": 0.026001,
+  "max_q": 0.550781,
+  "gated_max": 0.014321,
+  "tau": 0.3,
+  "survives": false
+ },
+ "AS_24hr_BSE_Side_008__t1|crack": {
+  "presence": 0.957031,
+  "max_q": 0.917969,
+  "gated_max": 0.878525,
+  "tau": 0.3,
+  "survives": true
+ },
+ "AS_24hr_BSE_Side_008__t1|a crack in metal": {
+  "presence": 0.625,
+  "max_q": 0.828125,
+  "gated_max": 0.517578,
+  "tau": 0.3,
+  "survives": true
+ },
+ "AS_24hr_BSE_Side_008__t1|thin dark line": {
+  "presence": 0.06543,
+  "max_q": 0.632812,
+  "gated_max": 0.041405,
+  "tau": 0.3,
+  "survives": false
+ },
+ "AS_24hr_BSE_Side_008__t1|fracture": {
+  "presence": 0.007568,
+  "max_q": 0.703125,
+  "gated_max": 0.005322,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_AS_CBS_0001__t0|crack": {
+  "presence": 0.21582,
+  "max_q": 0.621094,
+  "gated_max": 0.134045,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_AS_CBS_0001__t0|a crack in metal": {
+  "presence": 0.031738,
+  "max_q": 0.478516,
+  "gated_max": 0.015187,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_AS_CBS_0001__t0|thin dark line": {
+  "presence": 0.181641,
+  "max_q": 0.546875,
+  "gated_max": 0.099335,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_AS_CBS_0001__t0|fracture": {
+  "presence": 0.004211,
+  "max_q": 0.546875,
+  "gated_max": 0.002303,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_AS_CBS_0001__t1|crack": {
+  "presence": 0.703125,
+  "max_q": 0.753906,
+  "gated_max": 0.53009,
+  "tau": 0.3,
+  "survives": true
+ },
+ "MAR_Amb_AS_CBS_0001__t1|a crack in metal": {
+  "presence": 0.091309,
+  "max_q": 0.5,
+  "gated_max": 0.045654,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_AS_CBS_0001__t1|thin dark line": {
+  "presence": 0.063477,
+  "max_q": 0.582031,
+  "gated_max": 0.036945,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_AS_CBS_0001__t1|fracture": {
+  "presence": 0.008606,
+  "max_q": 0.714844,
+  "gated_max": 0.006152,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_AS_CBS_0004__t0|crack": {
+  "presence": 0.90625,
+  "max_q": 0.722656,
+  "gated_max": 0.654907,
+  "tau": 0.3,
+  "survives": true
+ },
+ "MAR_Amb_AS_CBS_0004__t0|a crack in metal": {
+  "presence": 0.515625,
+  "max_q": 0.613281,
+  "gated_max": 0.316223,
+  "tau": 0.3,
+  "survives": true
+ },
+ "MAR_Amb_AS_CBS_0004__t0|thin dark line": {
+  "presence": 0.086426,
+  "max_q": 0.458984,
+  "gated_max": 0.039668,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_AS_CBS_0004__t0|fracture": {
+  "presence": 0.002625,
+  "max_q": 0.535156,
+  "gated_max": 0.001405,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_AS_CBS_0004__t1|crack": {
+  "presence": 0.921875,
+  "max_q": 0.75,
+  "gated_max": 0.691406,
+  "tau": 0.3,
+  "survives": true
+ },
+ "MAR_Amb_AS_CBS_0004__t1|a crack in metal": {
+  "presence": 0.5625,
+  "max_q": 0.625,
+  "gated_max": 0.351562,
+  "tau": 0.3,
+  "survives": true
+ },
+ "MAR_Amb_AS_CBS_0004__t1|thin dark line": {
+  "presence": 0.101074,
+  "max_q": 0.613281,
+  "gated_max": 0.061987,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_AS_CBS_0004__t1|fracture": {
+  "presence": 0.003082,
+  "max_q": 0.515625,
+  "gated_max": 0.001589,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_AS_ETD_0004__t0|crack": {
+  "presence": 0.914062,
+  "max_q": 0.8125,
+  "gated_max": 0.742676,
+  "tau": 0.3,
+  "survives": true
+ },
+ "MAR_Amb_AS_ETD_0004__t0|a crack in metal": {
+  "presence": 0.474609,
+  "max_q": 0.726562,
+  "gated_max": 0.344833,
+  "tau": 0.3,
+  "survives": true
+ },
+ "MAR_Amb_AS_ETD_0004__t0|thin dark line": {
+  "presence": 0.111328,
+  "max_q": 0.675781,
+  "gated_max": 0.075233,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_AS_ETD_0004__t0|fracture": {
+  "presence": 0.007355,
+  "max_q": 0.671875,
+  "gated_max": 0.004941,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_Cast_ETD_0003__t0|crack": {
+  "presence": 0.953125,
+  "max_q": 0.839844,
+  "gated_max": 0.800476,
+  "tau": 0.3,
+  "survives": true
+ },
+ "MAR_Amb_Cast_ETD_0003__t0|a crack in metal": {
+  "presence": 0.200195,
+  "max_q": 0.675781,
+  "gated_max": 0.135288,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_Cast_ETD_0003__t0|thin dark line": {
+  "presence": 0.185547,
+  "max_q": 0.742188,
+  "gated_max": 0.137711,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_Cast_ETD_0003__t0|fracture": {
+  "presence": 0.010986,
+  "max_q": 0.71875,
+  "gated_max": 0.007896,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_Cast_ETD_0003__t1|crack": {
+  "presence": 0.816406,
+  "max_q": 0.828125,
+  "gated_max": 0.676086,
+  "tau": 0.3,
+  "survives": true
+ },
+ "MAR_Amb_Cast_ETD_0003__t1|a crack in metal": {
+  "presence": 0.140625,
+  "max_q": 0.691406,
+  "gated_max": 0.097229,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_Cast_ETD_0003__t1|thin dark line": {
+  "presence": 0.102539,
+  "max_q": 0.640625,
+  "gated_max": 0.065689,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_Cast_ETD_0003__t1|fracture": {
+  "presence": 0.007111,
+  "max_q": 0.683594,
+  "gated_max": 0.004861,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_HIP_ETD_0007__t0|crack": {
+  "presence": 0.96875,
+  "max_q": 0.847656,
+  "gated_max": 0.821167,
+  "tau": 0.3,
+  "survives": true
+ },
+ "MAR_Amb_HIP_ETD_0007__t0|a crack in metal": {
+  "presence": 0.835938,
+  "max_q": 0.761719,
+  "gated_max": 0.636749,
+  "tau": 0.3,
+  "survives": true
+ },
+ "MAR_Amb_HIP_ETD_0007__t0|thin dark line": {
+  "presence": 0.308594,
+  "max_q": 0.613281,
+  "gated_max": 0.189255,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_HIP_ETD_0007__t0|fracture": {
+  "presence": 0.016968,
+  "max_q": 0.582031,
+  "gated_max": 0.009876,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_HIP_ETD_0007__t1|crack": {
+  "presence": 0.472656,
+  "max_q": 0.582031,
+  "gated_max": 0.275101,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_HIP_ETD_0007__t1|a crack in metal": {
+  "presence": 0.214844,
+  "max_q": 0.597656,
+  "gated_max": 0.128403,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_HIP_ETD_0007__t1|thin dark line": {
+  "presence": 0.230469,
+  "max_q": 0.65625,
+  "gated_max": 0.151245,
+  "tau": 0.3,
+  "survives": false
+ },
+ "MAR_Amb_HIP_ETD_0007__t1|fracture": {
+  "presence": 0.013611,
+  "max_q": 0.494141,
+  "gated_max": 0.006726,
+  "tau": 0.3,
+  "survives": false
+ }
+}

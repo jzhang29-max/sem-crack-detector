@@ -4,9 +4,11 @@
 > *2026-09-18.* The input was the green channel of the annotated overlay, so the label was
 > visible to the model (`SAM3_ON_SEM_CRACKS.md`). A bare threshold scores recall 1.000 on
 > 16/16. All three confound checks below are therefore moot. Worse, the gap is **forced**:
-> `p_ij = q_ij · s_i` with one global presence scalar per image, so at fixed τ a single
-> scalar flips every instance at once. My confound-2 note ("point mass at zero") had the
-> right instinct and the wrong mechanism.
+> `p_ij = q_ij · s_i` with one global presence scalar per image. **Corrected 2026-09-18:** the
+> threshold is applied per query (`keep = q_ij · s_i > τ`) over 200 queries, so the scalar does
+> not flip every instance at once — survivors return 1 to 62 of 200. Only whether the image
+> returns *anything* is all-or-nothing, via `s_i · max_j q_ij`. My confound-2 note ("point mass
+> at zero") had the right instinct and the wrong mechanism.
 >
 > Original follows as the record.
 >

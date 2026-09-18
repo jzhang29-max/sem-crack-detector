@@ -79,7 +79,7 @@ originally said SAM-family models remain poor on thin low-contrast curvilinear s
 overwrote it as disproven. It was not disproven, and it now stands unrefuted.
 
 The one thing gained: nobody had measured the **trivial baseline**. On the clean input, an
-oracle-tuned single global threshold reaches median **IoU 0.384**. SAM 3 scored 0.121 *with*
+oracle-tuned single global threshold reaches median **IoU 0.384**. SAM 3 scored 0.119 (0.0775 over all 16 tiles) *with*
 the answer visible. Any method proposed on this corpus has to beat 0.384, and that number had
 never appeared in any of these documents.
 

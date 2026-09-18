@@ -21,8 +21,16 @@ PRESENCE CAPTURE. model.forward_grounding is wrapped to record, per (tile, promp
 presence scalar s_i and max_j q_ij BEFORE gating. This makes the "empty output" behaviour
 measurable rather than merely inferred: sam3_image_processor.py:195-200 computes
     out_probs = sigmoid(pred_logits) * sigmoid(presence_logit_dec);  keep = out_probs > tau
-so ONE scalar per (image, prompt) multiplies every instance, and when s_i <= tau / max_j q_ij
-the whole image returns nothing. An empty result is a property of that multiplier.
+so ONE scalar per (image, prompt) rescales all num_queries=200 per-query scores before a
+PER-QUERY threshold. It does NOT flip every instance together: survivors return 1 to 62 of 200.
+What is all-or-nothing is only whether the image returns ANYTHING, via s_i * max_j q_ij.
+
+Be careful what this instrumentation can prove. Because the wrapper reads the same tensors the
+library multiplies and thresholds with the same constant, "n == 0 iff s_i*max_j q_ij <= tau" is
+an ALGEBRAIC IDENTITY, not a prediction -- sigmoid(presence) > 0, so max_j(s*q_j) = s*max_j q_j.
+There is no NMS, dedup or area filter after the gate (verified: no such call exists in
+sam3_image_processor.py), so the instance COUNT is algebra too. Treat any agreement figure as an
+instrumentation self-check. The EMPIRICAL content is the scalar's MAGNITUDE per prompt.
 
 SCORING. Ground truth is the fine-stroke correction subset (median brush <=25 px) — the
 only labels here that approximate an outline rather than a region assertion. They are
@@ -46,6 +54,7 @@ from sam3.model.sam3_image_processor import Sam3Processor
 
 PROMPTS = ["crack", "a crack in metal", "thin dark line", "fracture"]
 CONF = 0.3
+SAVE_MASKS = os.environ.get("SAM3_SAVE_MASKS") == "1"   # dump union/oracle masks for figures
 
 
 def cldice(pred, gt):
@@ -80,6 +89,8 @@ def gate():
 def main():
     t0 = time.time()
     gate()
+    if SAVE_MASKS:
+        os.makedirs(f"{SC}/masks", exist_ok=True)
     with redirect_cuda("cpu"):
         model = build_sam3_image_model(checkpoint_path=f"{SC}/sam3_original.pt",
                                        load_from_HF=False, device="cpu")
@@ -145,6 +156,9 @@ def main():
                     r = {"tile": tid, "prompt": p, "n": int(n)}
                     r.update({f"union_{k}": v for k, v in sc(union, gt).items()})
                     r.update({f"oracle_{k}": v for k, v in sc(M[b], gt).items()})
+                if SAVE_MASKS and n:
+                    np.savez_compressed(f"{SC}/masks/{tid}__{p.replace(' ','_')}.npz",
+                                        union=M.any(0), oracle=M[b], n=np.int32(n))
                 rows.append(r)
                 print(f"  [{j+1}/{len(meta)}] {tid[:34]:<34} '{p[:16]:<16}' n={r['n']:<3} "
                       f"union IoU {r['union_IoU']:.3f} clD {r['union_clDice']:.3f} | "

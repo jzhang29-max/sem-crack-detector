@@ -47,10 +47,14 @@ What survives as a design target is narrower and does not depend on that run:
 
 - a single global grey threshold, oracle-tuned per tile, reaches **median IoU 0.384** on the
   clean input. That is the bar, and it was never stated before;
-- SAM 3 returns instance masks under **one global presence scalar** per (image, prompt):
-  `out_probs = sigmoid(pred_logits) * sigmoid(presence_logit_dec)` then a single threshold
-  (`sam3_image_processor.py:195-200`), so when that scalar is small the whole image returns
-  nothing and no per-instance evidence survives to inspect.
+- SAM 3 rescales all 200 per-query scores by **one global presence scalar** per (image, prompt):
+  `out_probs = sigmoid(pred_logits) * sigmoid(presence_logit_dec)`, then thresholds **per query**
+  (`sam3_image_processor.py:195-200`). Whether the image returns *anything* is therefore decided
+  by `s_i · max_j q_ij`, and when that is below τ nothing survives to inspect. Measured on this
+  corpus, that scalar spans **112×** across four synonymous prompts (median 0.9102 for `crack`,
+  0.0081 for `fracture`), with prompt identity explaining 81.7% of its variance against 10.6%
+  for the image. The mechanism is architectural — readable in the source, not a finding; the
+  112× span is the measurement. See `../analysis/sam3/CLEAN_RUN_RESULTS.md`.
 
 That second point is structural, verifiable by reading the source, and is the one CrackTrace's
 design actually addresses.
