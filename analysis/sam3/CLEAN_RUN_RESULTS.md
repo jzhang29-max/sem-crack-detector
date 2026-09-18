@@ -23,7 +23,8 @@ Reproduce: `python align_originals.py && python make_tiles.py && python leak_che
 | "an oracle threshold is a bar nobody stated; SAM 3 fails it" | **owned** (ODS/OIS, 2004/2011) and **rigged** (unmatched tuning); matched, p = 1.0000 |
 | "per-tile IoU carries no model information" | **self-comparison**; SAM 3 beats the real null on 12/15 |
 | "the contamination did not measurably change scores" | **underpowered**; another prompt gives p = 0.0312 |
-| the mechanism itself | **in Meta's abstract** (`arXiv:2511.16719`) |
+| "an empty result is a presence-gate event" | **true only at my τ**; at the library default 6 of 44 empties are decoder failures |
+| the mechanism itself | **in Meta's abstract** (`arXiv:2511.16719`); synonym instability owned at 263 images (`arXiv:2604.17126`) |
 
 What survives is a local measurement with honest caveats. Keep it as a reason not to trust
 text-prompted SAM 3 on this material. Do not write it up.
@@ -46,8 +47,25 @@ reads the same tensors the library multiplies and thresholds with the same const
 and is registered as one. Honest reference points for "did this pair return anything":
 always-empty **39/60**, best prompt-identity-only rule **50/60** (83%). The implied comparison for any agreement figure is 83%, not chance.
 
+**And "an empty result is a presence-gate event" is true only at the τ I picked.** Counting
+empties whose *decoder* score `max_j q_ij` is itself below τ — a genuine query-score failure
+rather than a gate event:
+
+| τ | empty pairs | of which the decoder also failed |
+|---|---|---|
+| 0.3 | 39 | **0** |
+| 0.4 | 42 | 0 |
+| **0.5** (library default) | 44 | **6** |
+| 0.6 | 46 | 17 |
+| 0.7 | 50 | 34 |
+
+The minimum `max_q` over all 60 pairs is 0.4434, which is the only reason nothing fails at
+τ=0.3. At the library's own default the framing already breaks for 6 of 44 empties.
+
 And Meta published the mechanism: *"Recognition and localization are decoupled with a presence
-head"* is in the abstract of `arXiv:2511.16719`.
+head"* is in the abstract of `arXiv:2511.16719`. The synonym-instability half is owned too, at
+far better power — CoCo-SAM3 (`arXiv:2604.19648`) names SAM 3 synonym inconsistency; and
+`arXiv:2604.17126` measures prompt instability over 263 COCO images with six prompts.
 
 ## 2. The measurement, with its robustness
 

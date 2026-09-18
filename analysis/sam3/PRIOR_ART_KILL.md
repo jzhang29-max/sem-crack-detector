@@ -50,6 +50,26 @@ than 15 tiles.
 Three weeks after SAM 3's release, the presence score was already being used as a one-number
 existence gate.
 
+## 2b. And the synonym-instability claim is owned twice, at far better power
+
+**CoCo-SAM3, arXiv:2604.19648, 2026-04-21.** Verbatim:
+
+> "**synonymous expressions of the same concept tend to activate inconsistent semantic and
+> spatial evidence**, leading to intra-class drift that exacerbates inter-class conflicts and
+> compromises overall inference stability"
+
+That is SAM 3 synonym inconsistency, named, five months before I measured it.
+
+**"Prompt Sensitivity in Vision-Language Grounding: How Small Changes in Wording Affect Object
+Detection", arXiv:2604.17126, 2026-04-18.** Verbatim:
+
+> "overlapping prompts such as **"a person," "a human," and "a pedestrian" frequently select
+> different instances**, with mean instability of 2.11 distinct selections across six prompts.
+> PCA analysis shows this variability is **structured and directional, not random**."
+
+Six prompts over **263 COCO val2017 images**, with a structure analysis. My version is four
+prompts over 15 tiles from 9 frames, without a pre-registered synonym list.
+
 ## 3. SAM 3 failing on thin low-contrast cracks is also published
 
 **"Rapid-Deployment Crack Measurement Based on SAM3 Semantic-Edge Response Decoding",
