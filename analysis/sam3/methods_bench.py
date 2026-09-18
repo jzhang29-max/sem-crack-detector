@@ -13,7 +13,12 @@ that matters for a claim of usefulness is the third.
   LOFO  leave-one-FRAME-out: parameters fitted on the other 8 frames, applied to the held-out
         frame's tiles. Frame level, not tile level, because 15 tiles come from 9 frames and
         two tiles of one frame share a specimen, an instrument setting and an operator.
-        THIS is the number a deployed method would actually get.
+
+  NESTED LOFO  the number to actually quote. Reporting "the best method's LOFO score" still
+        selects the METHOD using every frame, including the held-out one -- a second-order
+        leak that survives a correct first-order LOFO. Here the method AND its parameters are
+        both chosen on the 8 training frames, so the held-out frame contributes nothing to any
+        choice. This is what a deployed pipeline with no prior knowledge of the new frame gets.
 
 Uncertainty is a frame-clustered bootstrap (resample the 9 frames, not the 15 tiles).
 
@@ -46,6 +51,8 @@ def iou(p, gt):
 
 def cldice(p, gt):
     if p.sum() == 0 or gt.sum() == 0:
+        return 0.0
+    if p.mean() > 0.25:          # a "crack" covering a quarter of the tile is not a crack
         return 0.0
     sp, sg = skeletonize(p), skeletonize(gt)
     tp = (sp & gt).sum() / sp.sum() if sp.sum() else 0.0
@@ -96,7 +103,12 @@ METHODS = {
     "Meijering ridge": resp_meijering,
 }
 # binarisation parameters swept on top of every response map
-QS = [50, 70, 80, 85, 90, 92, 94, 95, 96, 97, 98, 98.5, 99, 99.3, 99.5, 99.7, 99.9]
+# Quantiles below 90 predict >10% of a tile as crack. The densest hand label in this corpus is
+# 10.16% of a tile, so those settings are physically impossible for a crack and they dominate
+# runtime, because skeletonize on a near-half-filled mask is orders of magnitude slower than on
+# a thin one. Restricting the search to <=10% foreground is a modelling decision, stated here,
+# not a convenience: it can only hurt a method that wanted to predict a third of the frame.
+QS = [90, 92, 94, 95, 96, 97, 98, 98.5, 99, 99.3, 99.5, 99.7, 99.9]
 MINSZ = [0, 32, 128]
 
 
@@ -145,6 +157,21 @@ def main():
         """parameter set maximising the median metric over `subset` tiles"""
         return max(keys, key=lambda k: np.median([score[k][t][idx] for t in subset]))
 
+    # ---- nested LOFO: choose method AND parameters on the training frames only
+    nested = {}
+    for idx, metric in ((0, "IoU"), (1, "clDice")):
+        vals, picks = [], []
+        for t in tiles:
+            tr = [u for u in tiles if tframe[u] != tframe[t]]
+            best_m, best_k, best_v = None, None, -1
+            for m in mnames:
+                k = best_over([q for q in score if q[0] == m], tr, idx)
+                v = np.median([score[k][u][idx] for u in tr])
+                if v > best_v:
+                    best_m, best_k, best_v = m, k, v
+            vals.append(score[best_k][t][idx]); picks.append(best_m)
+        nested[metric] = (vals, picks)
+
     rows = []
     for m in mnames:
         keys = [k for k in score if k[0] == m]
@@ -185,6 +212,16 @@ def main():
         out[f"{m}|{metric}"] = {"OIS": float(np.median(ois)), "ODS": float(np.median(ods)),
                                 "LOFO": float(np.median(lofo)), "LOFO_ci": [float(lo), float(hi)],
                                 "per_tile_LOFO": [float(x) for x in lofo]}
+    for metric, (vals, picks) in nested.items():
+        lo_, hi_ = boot(vals)
+        from collections import Counter
+        c = Counter(picks).most_common()
+        print(f"{'NESTED LOFO (best)':<20} {metric:<7} {'--':>7} {'--':>7} {np.median(vals):>7.4f}   "
+              f"[{lo_:.4f}, {hi_:.4f}]   picked: {', '.join(f'{k}x{v}' for k, v in c)}")
+        out[f"NESTED LOFO|{metric}"] = {"LOFO": float(np.median(vals)),
+                                        "LOFO_ci": [float(lo_), float(hi_)],
+                                        "per_tile_LOFO": [float(x) for x in vals],
+                                        "method_picked": picks}
     lo, hi = boot(sam_u)
     print(f"{'SAM 3 union tau=.3':<20} {'IoU':<7} {'--':>7} {'--':>7} {np.median(sam_u):>7.4f}   [{lo:.4f}, {hi:.4f}]")
     print(f"{'SAM 3 union tau=.3':<20} {'clDice':<7} {'--':>7} {'--':>7} {np.median(sam_c):>7.4f}")
