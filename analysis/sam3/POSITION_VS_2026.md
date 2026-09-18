@@ -133,6 +133,25 @@ of five do. Method ranking is unstable across frames, so a choice made on 8 fram
 transfer to the ninth. Any paper that reports "our method achieves X" after trying several
 methods on one corpus is quoting the hindsight number unless it says otherwise.
 
+### 4. Training on this corpus buys nothing
+
+`trained_lofo.py` trains a pixel classifier on 25 features per pixel (intensity, Frangi/Sato/
+Meijering at four scale sets, Sauvola at two windows, gradient magnitude and DoG at three
+scales), leave-one-FRAME-out, with the decision threshold also chosen on training frames only.
+
+| model | IoU (LOFO) | clDice (LOFO) |
+|---|---|---|
+| hist-gradient-boosting | 0.1916 | 0.2015 |
+| logistic regression | 0.0878 | 0.1449 |
+| **SAM 3, zero-shot, no labels at all** | **0.1914** | **0.3030** |
+| best training-free method | **0.2579** (threshold) | **0.3382** (Meijering) |
+
+The trained model lands on 0.1916 against the zero-shot model's 0.1914 — the same number to
+three decimals — and loses clearly on clDice. With 9 frames of region-assertion labels,
+supervised training on ridge features buys nothing over a tuned global threshold or over a
+foundation model that has never seen this material. That is a statement about the corpus size
+and label quality, not about the learners.
+
 ## Why this evaluation is stronger than the typical paper's — with the evidence
 
 Each bullet names something **done here and checkable in this repo**. Where I say a practice is
