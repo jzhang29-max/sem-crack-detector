@@ -132,3 +132,63 @@ least one tile (global threshold 3, Sato 4, Frangi 3, Meijering 1, Sauvola 4); u
 of five do. Method ranking is unstable across frames, so a choice made on 8 frames does not
 transfer to the ninth. Any paper that reports "our method achieves X" after trying several
 methods on one corpus is quoting the hindsight number unless it says otherwise.
+
+## Why this evaluation is stronger than the typical paper's — with the evidence
+
+Each bullet names something **done here and checkable in this repo**. Where I say a practice is
+uncommon, that is a statement about the papers surveyed in the sweep, and where the sweep did
+not check, the bullet says so rather than implying an absence.
+
+- **The model input is gated for label leakage, with a known-bad positive control.**
+  `leak_check.py` exits 1 if any tile's input encodes its label, and it permanently retains the
+  contaminated overlay-derived input as a positive control that must keep failing. This exists
+  because the first run here *did* leak — 14 of 16 tiles. A benchmark harness that only scores
+  predictions cannot see this class of bug; ours failed all 33 of its own checks while six of
+  them measured an annotation.
+- **Labels are registered to the raw originals, so no rendered overlay is ever fed.**
+  `align_originals.py`, 9/9 frames at ncc ≥ 0.99, five at exactly 1.0000, with two square crops
+  recovered at non-obvious offsets (278, 1016) and (997, 1974).
+- **Evaluation tiles are provably disjoint.** An off-by-512 in the tile picker had produced
+  50.0% and 56.6% overlapping pairs — and those were the two tiles carrying the earlier
+  "SAM 3 wins outright" claim, i.e. one observation reported as two. Now an explicit
+  origin-space rejection; 15 tiles, 0 overlapping pairs, verified each run.
+- **Uncertainty is frame-clustered, not tile-level.** 15 tiles come from 9 frames; two tiles of
+  one frame share specimen, instrument settings and operator. Every CI here resamples the 9
+  frames.
+- **Method selection is nested.** Reporting the best method's LOFO score still picks the method
+  using the held-out frame. Both method and parameters are chosen on the training frames, and
+  the gap this exposes is large: clDice 0.1739 nested against 0.3382 with hindsight.
+- **Every comparison is at a matched tuning budget.** Otsu (no labels), ODS (one shared
+  parameter set), OIS (per-tile oracle) and LOFO are reported side by side, because the earlier
+  version of this work compared an oracle-tuned threshold against an un-tuned model and called
+  the difference a result.
+- **Information-free nulls are scored on the same metric as the claim.** Constant-area IoU
+  0.0000; area-matched random scatter for the corridor metric.
+- **Our own metric was null-tested and two thirds of it discarded.** Coverage and crossing were
+  built, measured against nulls, found to be reached by random scatter (0.902 / 0.937 against
+  SAM 3's 0.923 / 0.937) and demoted. The null panel prints on every run.
+- **Both metrics are reported because they disagree.** IoU and clDice reverse the ranking here;
+  reporting one would have been reporting a choice. This is the central recommendation of
+  *Metrics Reloaded* (Nature Methods 2024, `10.1038/s41592-023-02151-z`) and its companion
+  pitfalls paper (`10.1038/s41592-023-02150-0`).
+- **45 published numbers are recomputed from source artefacts by `verify_claims.py`,** which
+  exits 1 on drift. During this session alone it caught three of my own arithmetic slips
+  (4 vs 5 frames at ncc 1.0; baselines 38/49 vs 39/50; a 112.55 ratio printed as 113).
+- **The label semantics are measured, not assumed.** Stroke width, corridor fraction, and the
+  three-way decomposition of predicted pixels (35.8% / 35.8% / 28.3%) are all quantified, so
+  the reader can see that half of what IoU calls a false positive is human-painted.
+
+### Where the newest work is genuinely better than this
+
+- **n.** OmniCrack30k has ~30k images; CrackSeg9k ~9k. This is 15 tiles from 9 frames, ~9 of
+  ~43 distinct fields, one material family, one laboratory. No confidence interval here is
+  narrow, and several span a factor of five.
+- **Trained models.** The published state of the art trains on thousands of labelled images.
+  Nothing here is trained at competitive scale, and at this n nothing could be.
+- **Label quality.** Public benchmarks have pixel-precise annotation. These are region
+  assertions of median 16 px stroke against a ~3 px crack, which is why every IoU here is
+  labelled indicative.
+- **Weights.** SAM 3 results use the community mirror `1038lab/sam3`; `facebook/sam3` remains
+  gated. Not citable.
+- **Absolute accuracy.** A LOFO IoU of ~0.26 is low. It is not comparable to a published 0.7+
+  on another dataset — but it is also not a number to be proud of.
