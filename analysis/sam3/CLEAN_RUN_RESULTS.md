@@ -51,9 +51,22 @@ mean/median` tautology.
 | `thin dark line` | **0.1157** | 0.0593 – 0.5195 | 1/16 |
 | `fracture` | **0.0081** | 0.0004 – 0.0260 | 0/16 |
 
-**A 112× span across four synonyms a materials scientist would use interchangeably.** And the
-variance is in the *prompt*, not the *image*: prompt identity explains **81.7%** of
-logit(`s_i`) variance, tile identity only **10.6%**.
+**A 112× span across four synonyms a materials scientist would use interchangeably**, and it
+survives permutation: over 20,000 shuffles of the prompt labels the null span has median
+**3.4×** and maximum **72.1×**, so **p = 0**. Permuting prompts *within* each tile — which
+respects the fact that 16 tiles come from only 9 frames — gives null median 3.9×, max 65.3×,
+again **p = 0**.
+
+The variance is in the *prompt*, not the *image*: prompt identity explains **81.7%** of
+logit(`s_i`) variance against a chance level of **0.038** for a 4-level factor (95th percentile
+0.123, max 0.316 in 20,000 permutations), p = 0.
+
+> **Compare each factor to its own null, not to each other.** Tile identity explains 10.6%, and
+> an earlier draft set that beside 81.7% as though the gap were the result. That comparison is
+> invalid: a 16-level factor earns R² ≈ **0.233** by chance on this design, so tile's 10.6% is
+> *below* its own null (p = 0.98). The conclusion is if anything stronger — the image contributes
+> no more than chance — but the two raw R² values are not comparable and must not be quoted
+> side by side.
 
 So the actionable statement is: *which words you type, not which micrograph you have, decides
 whether SAM 3 reports anything at all.* `fracture` never comes within an order of magnitude of

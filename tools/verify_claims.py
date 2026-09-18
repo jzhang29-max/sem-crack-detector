@@ -316,6 +316,22 @@ def d_max_instances():
                if "error" not in r)
 
 
+def d_prompt_r2():
+    """R^2 of logit(presence) by prompt identity. Chance for a 4-level factor here is 0.038."""
+    pres = json.load(open("analysis/sam3/sam3_presence.json"))
+    lg, lab = [], []
+    for k, x in pres.items():
+        s = min(max(x["presence"], 1e-6), 1 - 1e-6)
+        lg.append(np.log(s / (1 - s))); lab.append(k.split("|", 1)[1])
+    lg = np.array(lg)
+    g = {}
+    for val, k in zip(lg, lab):
+        g.setdefault(k, []).append(val)
+    sst = ((lg - lg.mean()) ** 2).sum()
+    ssw = sum(((np.array(v) - np.mean(v)) ** 2).sum() for v in g.values())
+    return round(1 - ssw / sst, 4)
+
+
 def d_presence_median(prompt):
     v = [x["presence"] for k, x in _pres().items() if k.split("|", 1)[1] == prompt]
     return round(float(np.median(v)), 4)
@@ -425,6 +441,7 @@ CLAIMS = [
     ("sam3 clean run", "median oracle IoU, 'crack', all 16 tiles", 0.3843, d_clean_oracle_iou, 0.0005),
     ("sam3 clean run", "gate self-check (IDENTITY, not a result)", 64, d_gate_agreement, 0),
     ("sam3 clean run", "presence span, best/worst synonym", 112.55, d_presence_span, 0.01),
+    ("sam3 clean run", "R2 of logit(presence) by prompt", 0.8174, d_prompt_r2, 0.0005),
     ("sam3 clean run", "always-empty baseline (of 64)", 41, d_always_empty_baseline, 0),
     ("sam3 clean run", "prompt-identity-only baseline (of 64)", 53, d_prompt_identity_baseline, 0),
     ("sam3 clean run", "max instances returned (of 200 queries)", 62, d_max_instances, 0),
