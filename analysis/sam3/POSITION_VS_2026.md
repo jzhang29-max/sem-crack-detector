@@ -41,5 +41,55 @@ does.
   statistically indistinguishable from thresholding, and `arXiv:2607.12292` reaches a
   compatible conclusion on six public datasets with far better power.
 
-*(Accuracy table and the protocol-by-protocol comparison are filled in from `methods_bench.json`
-and the literature sweep — see the sections below once both complete.)*
+## The classifier arm: 0.85 accuracy is what you get by answering "crack" every time
+
+`sem-crack-detector/models/crack_classifier_v3_metrics.json`, patch-level classification,
+n = 7,505 patches (6,408 positive / 1,097 negative) over 45 images. **Majority-class prior =
+0.8538.**
+
+| model | pooled grouped-CV AUC | accuracy | specificity | reading |
+|---|---|---|---|---|
+| **LogisticRegression** | **0.7144 ± 0.0278** | 0.6547 | 0.6669 | the only model that discriminates |
+| RandomForest | 0.5076 | 0.8337 | **0.0077** | predicts positive almost always |
+| GradientBoosting | 0.5332 | 0.8486 | **0.0088** | predicts positive almost always |
+| SVC (RBF) | **0.2756** | 0.8366 | **0.0047** | **below chance** — likely a sign-inverted score |
+
+Three of the four models reach accuracy 0.83–0.85 **at or below the 0.8538 prior**, with
+specificity under 0.01. They have learned to say "crack". The logistic model's accuracy of
+0.6547 is *lower* precisely because it makes real decisions — which is why accuracy must not be
+quoted for this task without the prior beside it. That is the class-imbalance pitfall catalogued
+in *Understanding metric-related pitfalls in image analysis validation* (Nature Methods 2024,
+`10.1038/s41592-023-02150-0`).
+
+The SVC result is a defect, not a finding: an AUC of 0.2756 is *anti*-correlated with truth, and
+the same model reports 0.9209 under leave-one-image-out. One of the two is computed with the
+wrong sign or the wrong probability column. Flagged for a separate fix; do not quote either.
+
+So on the classifier arm the honest answer to "is this the best model?" is: **LogisticRegression
+at AUC 0.714 is the best of the four tried, and the other three are at or below chance.** 0.714
+is a modest number and the corpus cannot currently support a better one — see the caveats.
+
+## Segmentation on your tiles, at four tuning budgets
+
+*(filled from `methods_bench_fast.json`; clDice and the extended-scale ridge results are
+appended when those runs finish)*
+
+| method | OIS (per-tile oracle) | ODS (one shared) | **LOFO** | LOFO 95% CI |
+|---|---|---|---|---|
+| global threshold | 0.4688 | 0.3217 | **0.2579** | [0.096, 0.597] |
+| Sauvola local | 0.4593 | 0.2712 | 0.1117 | [0.067, 0.421] |
+| Sato ridge | 0.2853 | 0.2155 | 0.1972 | [0.039, 0.273] |
+| Meijering ridge | 0.2823 | 0.2350 | 0.1802 | [0.044, 0.353] |
+| Frangi ridge | 0.1219 | 0.1007 | 0.0843 | [0.035, 0.197] |
+| **nested LOFO** (method *and* params chosen on training frames) | — | — | **0.2526** | [0.017, 0.410] |
+| SAM 3 union, τ=0.3 (zero-shot, no labels at all) | — | — | 0.1914 | [0.047, 0.559] |
+| SAM 3 oracle instance | 0.3871 | — | — | |
+
+**Nothing beats SAM 3 significantly.** Paired over the 15 tiles: nested LOFO wins 8/15,
+median Δ +0.0098, **p = 0.4973**; the single best method (global threshold) wins 10/15,
+median Δ +0.0828, **p = 0.2524**. And note the asymmetry runs *against* the classical arm:
+it is allowed to fit parameters on 8 labelled frames, while SAM 3 sees no labels at all.
+
+The ridge filters lost, but the first sweep used σ ∈ [1, 6] while the structures here are a
+median 16 px wide, which needs σ ≈ 8. That was my scale error, not evidence about ridge
+filtering; the extended sweep (σ up to 12) is reported below.
