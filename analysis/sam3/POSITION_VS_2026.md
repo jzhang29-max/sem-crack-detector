@@ -93,3 +93,42 @@ it is allowed to fit parameters on 8 labelled frames, while SAM 3 sees no labels
 The ridge filters lost, but the first sweep used σ ∈ [1, 6] while the structures here are a
 median 16 px wide, which needs σ ≈ 8. That was my scale error, not evidence about ridge
 filtering; the extended sweep (σ up to 12) is reported below.
+
+## The three results that actually matter
+
+### 1. The metric decides the winner, and it reverses the ranking
+
+Same predictions, same tiles, same LOFO protocol — only the metric changes:
+
+| method | IoU (LOFO) | rank | clDice (LOFO) | rank |
+|---|---|---|---|---|
+| global threshold | **0.2579** | **1** | 0.1827 | 5 |
+| nested LOFO | 0.2526 | 2 | 0.1739 | 6 |
+| Sato ridge | 0.1972 | 3 | 0.2981 | 3 |
+| SAM 3 union (zero-shot) | 0.1914 | 4 | **0.3030** | **2** |
+| Meijering ridge | 0.1802 | 5 | **0.3382** | **1** |
+| Sauvola local | 0.1117 | 6 | 0.2421 | 4 |
+| Frangi ridge | 0.0843 | 7 | 0.0849 | 7 |
+
+The method that wins on IoU comes **fifth** on clDice; the clDice winner comes **fifth** on IoU.
+clDice is the metric designed for thin structures, and IoU is the one every crack paper leads
+with. Anyone reporting a single number on this corpus is reporting their metric choice.
+
+### 2. On clDice, nothing beats a zero-shot foundation model
+
+Paired over 15 tiles against SAM 3's clDice: Meijering ridge wins 6/15 (median Δ −0.0004,
+p = 0.4631), Sato 5/15 (p = 0.5417), global threshold 5/15 (p = 0.1909), nested LOFO 6/15
+(p = 0.1726). **Every tuned classical method loses the median to SAM 3 on clDice**, and SAM 3
+used no labels at all while they fitted on 8 labelled frames.
+
+### 3. Honest method selection costs 95% of the apparent performance
+
+Nested LOFO — method and parameters both chosen on the 8 training frames — scores clDice
+**0.1739**. The best method chosen *with hindsight* scores **0.3382**. The gap, **+0.1643
+(95% relative)**, is the premium for picking the winner after seeing the answer.
+
+The reason is measurable: **no method dominates.** Under clDice, all five candidates win on at
+least one tile (global threshold 3, Sato 4, Frangi 3, Meijering 1, Sauvola 4); under IoU, four
+of five do. Method ranking is unstable across frames, so a choice made on 8 frames does not
+transfer to the ninth. Any paper that reports "our method achieves X" after trying several
+methods on one corpus is quoting the hindsight number unless it says otherwise.
