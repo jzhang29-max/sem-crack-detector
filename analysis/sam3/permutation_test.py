@@ -66,7 +66,7 @@ if __name__ == "__main__":
     print(f"{NPERM} permutations, seed 20260918\n")
     report("R2 of logit(presence) by PROMPT (4 levels)", r2(lg, prompt_lab),
            np.array([r2(lg, list(rng.permutation(prompt_lab))) for _ in range(NPERM)]))
-    report("R2 of logit(presence) by TILE (16 levels)", r2(lg, tile_lab),
+    report("R2 of logit(presence) by TILE (per-tile)", r2(lg, tile_lab),
            np.array([r2(lg, list(rng.permutation(tile_lab))) for _ in range(NPERM)]))
     print("    ^ a 16-level factor earns ~0.23 for free; tile sits BELOW its own null.\n"
           "      Never quote the two raw R2 values against each other.\n")

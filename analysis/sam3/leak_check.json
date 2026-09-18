@@ -36,15 +36,6 @@
   "leak": false
  },
  {
-  "tile": "260708_316_H_b2_front_CBS_001__t1",
-  "std_inside": 67.041,
-  "modal_share_inside": 0.0997,
-  "oracle_iou": 0.0582,
-  "oracle_f1": 0.11,
-  "max_recall": 0.9504,
-  "leak": false
- },
- {
   "tile": "AS_24hr_BSE_Side_008__t0",
   "std_inside": 79.677,
   "modal_share_inside": 0.1054,
@@ -55,11 +46,11 @@
  },
  {
   "tile": "AS_24hr_BSE_Side_008__t1",
-  "std_inside": 75.198,
-  "modal_share_inside": 0.0884,
-  "oracle_iou": 0.6677,
-  "oracle_f1": 0.8007,
-  "max_recall": 0.9681,
+  "std_inside": 72.105,
+  "modal_share_inside": 0.0988,
+  "oracle_iou": 0.6873,
+  "oracle_f1": 0.8147,
+  "max_recall": 0.9874,
   "leak": false
  },
  {
@@ -91,11 +82,11 @@
  },
  {
   "tile": "MAR_Amb_AS_CBS_0004__t1",
-  "std_inside": 34.168,
-  "modal_share_inside": 0.0652,
-  "oracle_iou": 0.6599,
-  "oracle_f1": 0.7951,
-  "max_recall": 0.997,
+  "std_inside": 28.61,
+  "modal_share_inside": 0.5387,
+  "oracle_iou": 0.8036,
+  "oracle_f1": 0.8911,
+  "max_recall": 0.9997,
   "leak": false
  },
  {

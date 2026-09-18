@@ -31,7 +31,9 @@ What IS established, by reading Meta's source rather than by any run, is that in
 are rescaled by one global presence scalar per (image, prompt) before a PER-QUERY threshold --
 sam3_image_processor.py:195-200 -- so whether an image returns anything is decided by
 s_i * max_j q_ij, and an empty result carries no per-instance evidence. Measured: that scalar
-spans 112x across four synonymous prompts (0.9102 for "crack", 0.0081 for "fracture"). The bar to beat on the clean input is a
+spans 105x across four prompts, but only 6.3x without the out-of-vocabulary noun "fracture"
+and 3.0x between the two real synonyms. NOT a contribution -- the presence head is in Meta's
+own abstract (arXiv:2511.16719). See analysis/sam3/PRIOR_ART_KILL.md. The bar to beat on the clean input is a
 single oracle-tuned global threshold at median IoU 0.384.
 
 

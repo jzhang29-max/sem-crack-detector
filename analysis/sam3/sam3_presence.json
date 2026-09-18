@@ -111,34 +111,6 @@
   "tau": 0.3,
   "survives": false
  },
- "260708_316_H_b2_front_CBS_001__t1|crack": {
-  "presence": 0.625,
-  "max_q": 0.628906,
-  "gated_max": 0.393066,
-  "tau": 0.3,
-  "survives": true
- },
- "260708_316_H_b2_front_CBS_001__t1|a crack in metal": {
-  "presence": 0.114258,
-  "max_q": 0.566406,
-  "gated_max": 0.064716,
-  "tau": 0.3,
-  "survives": false
- },
- "260708_316_H_b2_front_CBS_001__t1|thin dark line": {
-  "presence": 0.059326,
-  "max_q": 0.365234,
-  "gated_max": 0.021668,
-  "tau": 0.3,
-  "survives": false
- },
- "260708_316_H_b2_front_CBS_001__t1|fracture": {
-  "presence": 0.000431,
-  "max_q": 0.5,
-  "gated_max": 0.000216,
-  "tau": 0.3,
-  "survives": false
- },
  "AS_24hr_BSE_Side_008__t0|crack": {
   "presence": 0.960938,
   "max_q": 0.929688,
@@ -168,30 +140,30 @@
   "survives": false
  },
  "AS_24hr_BSE_Side_008__t1|crack": {
-  "presence": 0.957031,
-  "max_q": 0.917969,
-  "gated_max": 0.878525,
+  "presence": 0.96875,
+  "max_q": 0.949219,
+  "gated_max": 0.919556,
   "tau": 0.3,
   "survives": true
  },
  "AS_24hr_BSE_Side_008__t1|a crack in metal": {
-  "presence": 0.625,
-  "max_q": 0.828125,
-  "gated_max": 0.517578,
+  "presence": 0.769531,
+  "max_q": 0.90625,
+  "gated_max": 0.697388,
   "tau": 0.3,
   "survives": true
  },
  "AS_24hr_BSE_Side_008__t1|thin dark line": {
-  "presence": 0.06543,
-  "max_q": 0.632812,
-  "gated_max": 0.041405,
+  "presence": 0.144531,
+  "max_q": 0.703125,
+  "gated_max": 0.101624,
   "tau": 0.3,
   "survives": false
  },
  "AS_24hr_BSE_Side_008__t1|fracture": {
-  "presence": 0.007568,
-  "max_q": 0.703125,
-  "gated_max": 0.005322,
+  "presence": 0.003479,
+  "max_q": 0.714844,
+  "gated_max": 0.002487,
   "tau": 0.3,
   "survives": false
  },
@@ -280,30 +252,30 @@
   "survives": false
  },
  "MAR_Amb_AS_CBS_0004__t1|crack": {
-  "presence": 0.921875,
-  "max_q": 0.75,
-  "gated_max": 0.691406,
+  "presence": 0.652344,
+  "max_q": 0.621094,
+  "gated_max": 0.405167,
   "tau": 0.3,
   "survives": true
  },
  "MAR_Amb_AS_CBS_0004__t1|a crack in metal": {
-  "presence": 0.5625,
-  "max_q": 0.625,
-  "gated_max": 0.351562,
+  "presence": 0.137695,
+  "max_q": 0.546875,
+  "gated_max": 0.075302,
   "tau": 0.3,
-  "survives": true
+  "survives": false
  },
  "MAR_Amb_AS_CBS_0004__t1|thin dark line": {
-  "presence": 0.101074,
-  "max_q": 0.613281,
-  "gated_max": 0.061987,
+  "presence": 0.068359,
+  "max_q": 0.574219,
+  "gated_max": 0.039253,
   "tau": 0.3,
   "survives": false
  },
  "MAR_Amb_AS_CBS_0004__t1|fracture": {
-  "presence": 0.003082,
-  "max_q": 0.515625,
-  "gated_max": 0.001589,
+  "presence": 0.002472,
+  "max_q": 0.640625,
+  "gated_max": 0.001584,
   "tau": 0.3,
   "survives": false
  },

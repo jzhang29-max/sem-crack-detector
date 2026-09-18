@@ -69,11 +69,11 @@ def fig_presence_gate():
     med = {p: float(np.median(d)) for p, d in zip(PROMPTS, data)}
     ax[1].set_title("THE MEASUREMENT: prompt sensitivity is one scalar\n"
                     f"median {med['crack']:.3f} → {med['fracture']:.4f} = "
-                    f"{med['crack']/med['fracture']:.1f}× across four synonyms; "
-                    f"prompt explains 81.7% of its variance, tile 10.6%", fontsize=9.5)
+                    f"{med['crack']/med['fracture']:.1f}× — but 6.3× without 'fracture', "
+                    f"3.0× between the two real synonyms", fontsize=9.5)
     ax[1].grid(alpha=0.25, axis="y")
-    fig.suptitle("SAM 3 on SEM cracks: one global scalar rescales all 200 per-query scores, so "
-                 "the PROMPT decides whether anything is returned", fontsize=11, y=0.99)
+    fig.suptitle("SAM 3 on SEM cracks: the presence head collapses on one out-of-vocabulary noun "
+                 "while the decoder barely moves (max$_j q_{ij}$ spans 1.31×)", fontsize=11, y=0.99)
     fig.tight_layout(rect=[0, 0, 1, 0.94])
     fig.savefig(f"{SC}/fig_presence_gate.png", dpi=160)
     print(f"  fig_presence_gate.png   (medians: " +

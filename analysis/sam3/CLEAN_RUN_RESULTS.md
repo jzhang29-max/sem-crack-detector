@@ -1,160 +1,193 @@
-# SAM 3 on SEM cracks: the leak-gated run
+# SAM 3 on SEM cracks: the leak-gated run, and why none of it is a contribution
 
-*2026-09-18. Replaces `SAM3_ON_SEM_CRACKS.md`, which is void — its input had the label written
-into it (`LEAK_POSTMORTEM.md`). Weights are the community mirror `1038lab/sam3`;
-`facebook/sam3` is still gated (verified 401/gated:manual today), so **nothing here is citable**
-until the run is repeated on official weights.*
+*2026-09-18. Supersedes `SAM3_ON_SEM_CRACKS.md` (void — its input had the label written into it,
+see `LEAK_POSTMORTEM.md`) and an earlier draft of this file that claimed a finding. The claim is
+withdrawn: see `PRIOR_ART_KILL.md`. Weights are the community mirror `1038lab/sam3`;
+`facebook/sam3` is still `gated: manual` (401 verified today), so nothing here is citable.*
 
-Reproduce: `python align_originals.py && python make_tiles.py && python leak_check.py && SAM3_SAVE_MASKS=1 python run_real.py && python analyse_clean_run.py && python make_figures.py`
+Reproduce: `python align_originals.py && python make_tiles.py && python leak_check.py && SAM3_SAVE_MASKS=1 python run_real.py && python analyse_clean_run.py && python baseline_matched.py && python permutation_test.py && python make_figures.py`
 
-Inference is deterministic: an independent second run reproduced **union IoU on 64/64
-(tile, prompt) pairs bit-identically**.
-
----
-
-## 1. What is architecture, and what is measurement
-
-This distinction is the whole of this document, because I got it wrong first.
-
-**ARCHITECTURE — read from source, not measured, and therefore not a finding.**
-`sam3_image_processor.py:195-200`:
-
-```python
-out_probs = out_logits.sigmoid()
-presence_score = outputs["presence_logit_dec"].sigmoid().unsqueeze(1)
-out_probs = (out_probs * presence_score).squeeze(-1)
-keep = out_probs > self.confidence_threshold
-```
-
-One global presence scalar `s_i` per (image, prompt) rescales **all 200** per-query scores
-(`num_queries=200`, `model_builder.py:185`), and the threshold is then applied **per query**.
-Two consequences, both definitional:
-
-- whether the image returns *anything* is decided by `s_i · max_j q_ij > τ`;
-- the instance **count** is `#{j : q_ij · s_i > τ}` — there is no NMS, dedup or area filter
-  after the gate (verified: no such call exists in the processor).
-
-So a report that "the gate predicts emptiness on 64/64 pairs" proves nothing: the wrapper reads
-the same tensors the library multiplies and thresholds with the same constant, and
-`max_j(s·q_j) ≡ s·max_j q_j` because `sigmoid(presence) > 0`. **That figure is an
-instrumentation self-check and is labelled as one below.** An earlier draft of this work
-presented it as a 64-trial empirical result with an implied p-value. It was a tautology, and it
-is the same error class as this project's area-fraction "identity" and its `forced/naive ≡
-mean/median` tautology.
-
-**MEASUREMENT — the part with content.** How large that scalar actually is, per prompt:
-
-| prompt | median `s_i` | range | fired (τ=0.3) |
-|---|---|---|---|
-| `crack` | **0.9102** | 0.2158 – 0.9688 | 14/16 |
-| `a crack in metal` | **0.3877** | 0.0317 – 0.8359 | 8/16 |
-| `thin dark line` | **0.1157** | 0.0593 – 0.5195 | 1/16 |
-| `fracture` | **0.0081** | 0.0004 – 0.0260 | 0/16 |
-
-**A 112× span across four synonyms a materials scientist would use interchangeably**, and it
-survives permutation: over 20,000 shuffles of the prompt labels the null span has median
-**3.4×** and maximum **72.1×**, so **p = 0**. Permuting prompts *within* each tile — which
-respects the fact that 16 tiles come from only 9 frames — gives null median 3.9×, max 65.3×,
-again **p = 0**.
-
-The variance is in the *prompt*, not the *image*: prompt identity explains **81.7%** of
-logit(`s_i`) variance against a chance level of **0.038** for a 4-level factor (95th percentile
-0.123, max 0.316 in 20,000 permutations), p = 0.
-
-> **Compare each factor to its own null, not to each other.** Tile identity explains 10.6%, and
-> an earlier draft set that beside 81.7% as though the gap were the result. That comparison is
-> invalid: a 16-level factor earns R² ≈ **0.233** by chance on this design, so tile's 10.6% is
-> *below* its own null (p = 0.98). The conclusion is if anything stronger — the image contributes
-> no more than chance — but the two raw R² values are not comparable and must not be quoted
-> side by side.
-
-So the actionable statement is: *which words you type, not which micrograph you have, decides
-whether SAM 3 reports anything at all.* `fracture` never comes within an order of magnitude of
-any usable threshold.
-
-**Honest baselines for the same question.** Predicting "did this pair return anything?":
-always-empty gets **41/64 (64.1%)**, the best prompt-identity-only rule gets **53/64 (82.8%)**.
-The gate rule gets 64/64 by construction. Quote 82.8% as the reference point, not 50%.
-
-**τ is a choice.** τ = 0.3 here; the library default is 0.5 (`sam3_image_processor.py:17`). The
-firing counts above move with τ. The presence *magnitudes* do not, which is why they are the
-reportable quantity.
+**n = 15 tiles from 9 frames, provably disjoint.** An earlier 16-tile set contained
+50.0%- and 56.6%-overlapping pairs from a bug in `make_tiles.py` (below).
 
 ---
 
-## 2. Segmentation quality, and the baseline it must beat
+## 0. The verdict first
 
-Prompt `crack`, all 16 tiles:
-
-| metric | median |
+| what I claimed | status |
 |---|---|
-| union IoU | **0.2039** |
-| oracle IoU (best single returned instance, chosen *using* the label) | **0.3843** |
-| union recall | **0.9585** |
-| tiles returning ≥1 instance | **14/16** |
+| "the presence gate predicts emptiness on 64/64 pairs" | **tautology** — my wrapper read the tensors the library thresholds |
+| "one scalar flips every instance simultaneously" | **false** — the threshold is per query over 200; survivors keep 1–62 |
+| "a 112× presence span across four synonyms" | **one out-of-vocabulary noun**; 6.3× without `fracture`, 3.0× between the two real synonyms |
+| "which words you type, not which micrograph" | **false** — tile is significant once conditioned on prompt |
+| "an oracle threshold is a bar nobody stated; SAM 3 fails it" | **owned** (ODS/OIS, 2004/2011) and **rigged** (unmatched tuning); matched, p = 1.0000 |
+| "per-tile IoU carries no model information" | **self-comparison**; SAM 3 beats the real null on 12/15 |
+| "the contamination did not measurably change scores" | **underpowered**; another prompt gives p = 0.0312 |
+| the mechanism itself | **in Meta's abstract** (`arXiv:2511.16719`) |
 
-**The trivial baseline, which had never been stated.** An oracle-tuned single global grey
-threshold — the best of 256 thresholds in both polarities, per tile — reaches **median IoU
-0.3843** on the same tiles. It beats SAM 3's *union* everywhere and ties its *oracle* arm in
-median. Per tile the two are unrelated (identical on 0/16; the threshold wins on 6/16, including
-two tiles where SAM 3 returns nothing at all and thresholding still reaches IoU 0.60 and 0.44).
-The median coincidence (0.384350 vs 0.384300) is coincidence and nothing more.
-
-**Where SAM 3 does win, and where the score is meaningless** (`fig_qualitative.png`). On the
-two tiles with the densest labels it beats the threshold outright — 0.728 vs 0.637 and 0.695 vs
-0.668 — so it is not simply worse. On `MAR_Amb_AS_CBS_0001__t1` it returns **62** instances of
-small dark features that look like genuine pits or micro-cracks and scores IoU **0.000**,
-because the hand label on that tile marks one region at the frame edge and nothing else; the
-threshold also collapses there (0.102). That tile is a label-disagreement case, not a model
-failure, and it is why the aggregate medians should not be read as a verdict.
-
-**Do not read per-tile IoU as model quality.** IoU here is dominated by how much of the tile the
-label covers (Spearman ρ = +0.798, p = 0.0006, n = 14). A null model that predicts a *constant*
-area fraction reproduces the precision ordering just as well (ρ = +0.757 against measured
-precision, versus ρ = +0.758 for label coverage itself). The ranking is close to arithmetic, so
-differences between tiles carry almost no information about the model. This is the same trap as
-`../LABEL_GRANULARITY.md`: the labels are region assertions, median brush 59 px against a ~3 px
-crack.
+What survives is a local measurement with honest caveats. Keep it as a reason not to trust
+text-prompted SAM 3 on this material. Do not write it up.
 
 ---
 
-## 3. The contamination did not inflate the scores
+## 1. Architecture, not measurement
 
-Paired per (tile, prompt) against the void run, prompt `crack`:
+`sam3_image_processor.py:195-200` — one global presence scalar `s_i` per (image, prompt)
+rescales **all 200** per-query scores (`num_queries=200`, `model_builder.py:185`), then the
+threshold is applied **per query**. Consequences, both definitional:
 
-- median ΔIoU **+0.0000**, median Δrecall **+0.0000**
-- Wilcoxon on 13 non-zero IoU deltas: **p = 0.7869**; on 10 non-zero recall deltas: **p = 0.8457**
+- whether the image returns *anything* is `s_i · max_j q_ij > τ`;
+- the instance count is `#{j : q_ij · s_i > τ}` — there is no NMS, dedup or area filter after
+  the gate.
 
-The burn-in was a dark curvilinear region where the crack was, so the model found a dark
-curvilinear thing either way. **This does not rehabilitate the old numbers** — an input
-containing the answer yields uninterpretable scores whether or not they happen to agree — but
-it does mean the leak was not the reason SAM 3 scored poorly.
+So "the gate predicts emptiness on 64/64 pairs, 0 disagreements" **cannot fail**: the wrapper
+reads the same tensors the library multiplies and thresholds with the same constant, and
+`sigmoid(presence) > 0` makes `max_j(s·q_j) ≡ s·max_j q_j`. It is an instrumentation self-check
+and is registered as one. Honest reference points for "did this pair return anything":
+always-empty **39/60**, best prompt-identity-only rule **50/60** (83%). The implied comparison for any agreement figure is 83%, not chance.
 
-One thing the leak *did* change: it **suppressed alternative prompts**. `a crack in metal` fired
-on **8/16** tiles clean versus **2/16** contaminated. So the original "only the bare noun
-`crack` works" claim overstated the brittleness; the honest version is the 112× presence span
-above.
+And Meta published the mechanism: *"Recognition and localization are decoupled with a presence
+head"* is in the abstract of `arXiv:2511.16719`.
 
----
+## 2. The measurement, with its robustness
 
-## 4. Caveats that must travel with any of this
+Median presence scalar, 15 disjoint tiles:
 
-- **n = 16 tiles from 9 frames**, and those 9 frames are ~9 of ~43 distinct fields. Not 64
-  independent trials; prompt identity dominates the variance anyway.
-- **Community-mirror weights.** Not citable. `facebook/sam3` remains `gated: manual`.
-- **The labels are not pixel-precise.** Only the fine-stroke subset (median brush ≤25 px) is
-  used and even those are region assertions. Every IoU/Dice here is indicative.
-- **Frames are clipped at acquisition** — one holds 9.4% of pixels at exactly 0, another 69.0%
-  at 65535, one carries only 256 distinct values in a uint16 container. This inflates any
-  threshold baseline honestly, and it is why threshold skill is not evidence of a leak.
-- **τ = 0.3 ≠ library default 0.5.** Firing counts are τ-dependent.
+| prompt | median `s_i` | median `max_q` | fired (τ=0.3) |
+|---|---|---|---|
+| `crack` | 0.9062 | 0.8281 | 13/15 |
+| `a crack in metal` | 0.3008 | 0.6914 | 7/15 |
+| `thin dark line` | 0.1445 | 0.6562 | 1/15 |
+| `fracture` | 0.0086 | 0.6328 | 0/15 |
 
-## 5. What would make this publishable
+Span 105.3×, and it survives permutation (20,000 shuffles: null median 3.16×, max 70.0× free;
+3.48×/74.3× permuted within tile; **p < 1e-4** both ways). R² of logit(`s_i`) by prompt is
+**0.8148** against a 4-level chance level of 0.041 (95th pct 0.130), p < 1e-4.
 
-The presence-magnitude measurement is the only thing here with a claim to novelty, and it has
-**not yet been checked against prior art** — the literature sweep for it was killed by a session
-limit before it ran. SAM 3 is recent, so assume 2026 work on presence heads and prompt
-robustness exists until shown otherwise. Before writing anything: (a) repeat on official
-weights, (b) sweep τ, (c) extend beyond four prompts with a pre-registered synonym list,
-(d) search the prior art properly, (e) note that the falsifiable per-query count test is
-*also* algebra, so there is no empirical claim to be had from the gate mechanism itself.
+**But the span is one prompt, and it is not a synonym effect.** Drop-one-prompt:
+
+| dropped | remaining span |
+|---|---|
+| `a crack in metal` | 105.30× |
+| `thin dark line` | 105.30× |
+| `crack` | 34.95× |
+| **`fracture`** | **6.27×** |
+
+Between the two phrases a materials scientist would actually use interchangeably — `crack` and
+`a crack in metal` — it is **3.01×**. Meanwhile `max_q`, the decoder's best per-query score,
+spans only **1.31×** across all four prompts: **the decoder proposes the same features whatever
+word you type, and only the presence head collapses.** `fracture` reads as a bone/medical term
+in a caption distribution. This is a vocabulary-grounding fact about one out-of-domain noun, not
+"synonymous prompts give two orders of magnitude different answers".
+
+**The ratio is also parameterisation-dependent** — the same two medians give 105.3× as a
+probability ratio, **1114×** as an odds ratio, **7.02 nats** as a logit difference and **10.6×**
+as a miss-probability ratio. Its size is set by how near the smaller median sits to zero.
+Frame-clustered bootstrap over the 9 source frames: 95% CI **[77, 187]**. Quote no more than
+two significant figures.
+
+**"Which words, not which micrograph" is false.** Conditioned on prompt — correct for a fully
+crossed design — image identity is significant, not chance: F(15,45) = 4.14, p = 1.06e-4,
+ω² = 0.080, partial R²(tile|prompt) = 0.580 against a 0.250 null (p < 5e-5), and Kendall's
+W = 0.627 (p = 0.0010) because the prompts rank tiles concordantly. Both factors are real; the
+prompt effect is roughly 39× larger per degree of freedom.
+
+> **Do not quote raw R² across factors with different level counts.** A 15/16-level factor earns
+> R² ≈ 0.23 by chance on this design; a 4-level factor earns ≈ 0.04. An earlier draft set 81.7%
+> beside 10.6% as though the gap were the result. A later "correction" of mine — that tile sits
+> below its own null — was also a misdiagnosis: it is below the *marginal* null only because the
+> large prompt variance inflates the residual it is scored against. Compare each factor to its
+> own null, and condition when the design is crossed.
+
+## 3. Segmentation, at matched oracle budgets
+
+This is the comparison the first draft got wrong. My baseline was tuned **per tile over 512
+operating points chosen with the ground truth** while SAM 3 was **un-tuned at one fixed τ**. And
+per-tile oracle thresholding is **OIS**, named in Arbeláez et al., TPAMI 33(5):898–916, 2011
+(`10.1109/TPAMI.2010.161`), after Martin et al. 2004 (`10.1109/TPAMI.2004.1273918`), and standard
+in crack segmentation (DeepCrack, `10.1109/TIP.2018.2878966`; OmniCrack30k,
+`10.1109/CVPRW63382.2024.00392`). `baseline_matched.py`:
+
+| arm | label access | median IoU | mean |
+|---|---|---|---|
+| Otsu, per tile | none | 0.0882 | 0.2495 |
+| **SAM 3 union, `crack`, τ=0.3** | **none** | **0.1914** | **0.2546** |
+| ODS — one threshold shared by all tiles | set-level (optimistic) | 0.2417 | 0.2614 |
+| SAM 3 oracle instance | per tile (picks instance) | 0.3871 | 0.4129 |
+| OIS — per-tile oracle threshold | per tile (512 points) | 0.4090 | 0.4024 |
+| information-free constant-area | area only | 0.0000 | 0.0347 |
+
+Paired Wilcoxon:
+
+- **ODS vs SAM 3 union** (both un-tuned per tile): threshold wins 8/15, **p = 1.0000**
+- **OIS vs SAM 3 oracle** (both per-tile oracle): threshold wins 9/15, **p = 0.8040**
+- OIS vs SAM 3 union (**unmatched** — this is the comparison I published): 11/15, p = 0.0256
+
+**At every matched budget the two are indistinguishable.** The only significant result is the
+rigged one. Otsu — the sole rung with no label access at all — is beaten by SAM 3.
+
+Other scores, `crack`, 15 tiles: median oracle IoU **0.3871**, median union recall **0.9691**,
+firing **13/15** at τ=0.3. Frame-clustered bootstrap CIs on the earlier set were wide
+([0.06, 0.39] for union IoU), so quote one decimal: union IoU ≈ 0.19, oracle ≈ 0.39, recall ≈ 0.97.
+
+**Per-tile IoU does carry model information** — the opposite of what an earlier draft said. The
+genuinely information-free baseline (predict the label's own area, arbitrarily placed) scores
+median IoU **0.0000**, and SAM 3 beats it on **12/15** tiles. The earlier argument compared
+`min(label_coverage/const, 1)` against label coverage — ρ = **+0.9989**, the same variable — and
+reported the 0.001 difference as though it were two comparisons. It was a self-comparison, of
+exactly the kind §1 of this document already names.
+
+## 4. The contamination comparison was blind
+
+Earlier: "the leak did not measurably inflate the scores", from paired Wilcoxon p = 0.7869 (IoU)
+and p = 0.8457 (recall) on `crack`. That is accepting a null from a test with a minimum
+detectable effect of ΔIoU ≈ 0.084 — 44% of the clean median. It is demonstrably blind: on the
+same pairing the median union IoU moves **0.0775 → 0.2039 (2.63×)** and the test still returns
+p = 0.7869.
+
+And on `a crack in metal` the identical paired design gives **p = 0.0312** on both IoU and
+precision, with firing **2/16 → 8/16**. The contamination *did* measurably change the scores; I
+had run the test on the one prompt where it did not show. Every point estimate favours the clean
+arm (mean ΔIoU +0.0298, Δprecision +0.0441, Δrecall +0.1183), so the defensible statement is
+directional and one-sided: **contamination did not inflate by more than ~0.08 IoU.**
+
+"The burn-in suppressed alternative prompts" is 1 of 3: `thin dark line` moved the *other* way
+(2/16 → 1/16) and `fracture` did not move (0/16). And the tile-level p = 0.0312 becomes
+**p = 0.125** at frame level (6 flips, 4 frames) and after Bonferroni over 4 prompts. My
+conclusion that the original brittleness finding was "overstated" is also wrong: the clean run
+reproduces brittleness at the same statistic (`crack` 13/15 vs `a crack in metal` 7/15).
+
+**An uncontrolled second difference.** My `to8()` percentile stretch does not reproduce the
+overlay renderer on 6 frames — off-label MAE up to **19.1** grey levels. So "contaminated vs
+clean" was never a single-variable contrast. `align_originals.py` was already reporting this as
+ncc 0.9993 rather than 1.0000; I read it only as "registration certain" (true) and missed that it
+also meant "the tone curve differs" (also true), because ncc is invariant to affine intensity
+change. The correct control is to remove the burn-in *only* — inpaint the painted region from the
+registered original — which is what a redo should do.
+
+## 5. A real bug in the tile generator
+
+`make_tiles.py` suppressed already-picked regions using the tile **origin** while `argmax`
+returns the **centre** — an off-by-`S//2` = 512. `AS_24hr_BSE_Side_008` t0/t1 came out exactly
+512 px apart: **50.0% overlap**; `260708…_001` t0/t1 at **56.6%**. The comment said "a second one
+far from it". Two tiles sharing half their pixels are one observation reported as two — and those
+two were exactly the tiles carrying the earlier draft's "SAM 3 wins outright" story.
+
+Fixed twice: suppression moved into centre space, and then, because two disjoint 1024 tiles do
+not *fit* on a 1490×1490 frame (the clip to `[0, H-S]` collapsed distinct centres to an 80%
+overlap), an explicit rejection in origin space against every tile already taken. A frame that
+cannot yield a disjoint second tile now contributes one. Result: **15 tiles, 0 overlapping
+pairs** — three frames give one tile each.
+
+## 6. Caveats that must travel with any of this
+
+- **15 tiles from 9 frames**, ~9 of ~43 distinct fields, one material family. No crack-free
+  negative control — the tile factor was built not to vary while the prompt factor was allowed to
+  reach an out-of-vocabulary noun.
+- **Community-mirror weights.** Not citable.
+- **Labels are region assertions**, even in this fine-stroke subset (median brush 59 px against
+  a ~3 px crack). Every IoU is indicative.
+- **Frames are clipped at acquisition** (9.4% of pixels at exactly 0 on one; 69.0% at 65535 on
+  another; 256 distinct values in a uint16 container on a third).
+- **τ = 0.3 is a choice**; the library default is 0.5, and the firing counts move with it.
+- **The synonym list was never pre-registered**, and the headline rests on one of its four items.

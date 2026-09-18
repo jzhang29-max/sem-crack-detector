@@ -51,10 +51,12 @@ What survives as a design target is narrower and does not depend on that run:
   `out_probs = sigmoid(pred_logits) * sigmoid(presence_logit_dec)`, then thresholds **per query**
   (`sam3_image_processor.py:195-200`). Whether the image returns *anything* is therefore decided
   by `s_i · max_j q_ij`, and when that is below τ nothing survives to inspect. Measured on this
-  corpus, that scalar spans **112×** across four synonymous prompts (median 0.9102 for `crack`,
-  0.0081 for `fracture`), with prompt identity explaining 81.7% of its variance against 10.6%
-  for the image. The mechanism is architectural — readable in the source, not a finding; the
-  112× span is the measurement. See `../analysis/sam3/CLEAN_RUN_RESULTS.md`.
+  corpus, that scalar spans 105× across four prompts (median 0.906 for `crack`, 0.0086 for
+  `fracture`) — but only **6.3×** once the out-of-vocabulary noun `fracture` is dropped and
+  **3.0×** between the two real synonyms, while the decoder's own `max_q` spans just 1.31×.
+  **None of this is a contribution**: the presence head is in Meta's abstract
+  (arXiv:2511.16719) and the read-out is published (arXiv:2607.09583, arXiv:2512.08730). See
+  `../analysis/sam3/PRIOR_ART_KILL.md`.
 
 That second point is structural, verifiable by reading the source, and is the one CrackTrace's
 design actually addresses.

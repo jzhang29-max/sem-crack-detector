@@ -68,17 +68,34 @@ for n in fine:
     H, W = gt.shape
     raw = raw[dy:dy + H, dx:dx + W]
     assert raw.shape == gt.shape, f"{n}: registered crop {raw.shape} != label {gt.shape}"
-    # two tiles per frame: the densest labelled window, and a second one far from it
+    # two tiles per frame: the densest labelled window, and a second NON-OVERLAPPING one.
+    # The suppression below was wrong until 2026-09-18: argmax returns CENTRE coordinates but
+    # the zeroing used the tile ORIGIN (cy - S//2), shifting the exclusion window by 512 px.
+    # AS_24hr t0/t1 came out 512 px apart -- 50.0% overlap -- and 260708 t0/t1 at 56.6%, while
+    # the comment claimed "far from it". Two tiles sharing half their pixels are one
+    # observation reported as two.
+    #
+    # Suppressing in centre space is still not enough: on a 1490x1490 frame two non-overlapping
+    # 1024 tiles do not FIT, and the clip to [0, H-S] collapses distinct centres onto nearly the
+    # same origin (that frame came out at 80% overlap). So the guarantee is enforced where it
+    # matters -- an explicit rejection in ORIGIN space against every tile already taken from this
+    # frame. A frame that cannot yield a second disjoint tile contributes one.
     dens = ndi.uniform_filter(gt.astype(np.float32), size=256)
     picked = []
     d = dens.copy()
-    for k in range(2):
+    k = 0
+    while k < 2 and d.max() > 0:
         cy, cx = np.unravel_index(np.argmax(d), d.shape)
         y = int(np.clip(cy - S // 2, 0, max(H - S, 0)))
         x = int(np.clip(cx - S // 2, 0, max(W - S, 0)))
+        d[max(0, cy - S + 1):cy + S, max(0, cx - S + 1):cx + S] = 0   # never revisit this peak
         sub = gt[y:y + S, x:x + S]
         if sub.shape != (S, S) or sub.sum() < 400:
             break
+        # reject any candidate that shares a single pixel with a tile already taken
+        if any(min(y + S, py + S) > max(y, py) and min(x + S, px + S) > max(x, px)
+               for py, px in picked):
+            continue
         tid = f"{n}__t{k}"
         Image.fromarray((sub * 255).astype(np.uint8)).save(f"{OUT}/tiles/{tid}_gt.png")
         # THE MODEL INPUT: raw original grey, no annotation anywhere in it
@@ -93,7 +110,7 @@ for n in fine:
                      "red_frac_in_tile": round(float(red.mean()), 5),
                      "grey_source": f"original/{n}.tif+({dy},{dx})", "align_ncc": al["ncc"]})
         picked.append((y, x))
-        d[max(0, y - S):y + S, max(0, x - S):x + S] = 0   # suppress for the next pick
+        k += 1
 json.dump(meta, open(f"{OUT}/tiles/meta.json", "w"), indent=1)
 print(f"{len(meta)} tiles from {len(set(m['frame'] for m in meta))} frames")
 for m in meta:
