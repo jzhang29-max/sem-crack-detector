@@ -55,6 +55,7 @@ from sam3.model.sam3_image_processor import Sam3Processor
 PROMPTS = ["crack", "a crack in metal", "thin dark line", "fracture"]
 CONF = 0.3
 SAVE_MASKS = os.environ.get("SAM3_SAVE_MASKS") == "1"   # dump union/oracle masks for figures
+SAVE_SERD = os.environ.get("SAM3_SAVE_SERD") == "1"     # dump the pre-gate dense response
 
 
 def cldice(pred, gt):
@@ -101,11 +102,29 @@ def main():
 
     # record the presence scalar and the top instance logit before gating
     presence = {}
+    serd = {}
     cur = {"tile": None, "prompt": None}
     _orig_fg = model.forward_grounding
 
     def fg(*a, **k):
         out = _orig_fg(*a, **k)
+        # SERD (arXiv:2607.12292): SAM 3's post-gate instance masks discard crack evidence that
+        # survives in the dense prompt-conditioned response. That paper measures 82.66% internal
+        # crack-pixel recall against 74.66% for the retained proposals over six public crack
+        # datasets. Capture the dense field BEFORE the presence multiply and BEFORE the tau cut,
+        # which is exactly the stage our own measurements showed the gate throwing away.
+        if SAVE_SERD:
+            try:
+                import torch.nn.functional as F
+                pm = out["pred_masks"].float()          # [Q, h, w] logits
+                pl = out["pred_logits"].float().sigmoid().flatten()   # [Q]
+                q = (pm.sigmoid() * pl[:, None, None]).max(0).values  # NO presence, NO keep
+                q = F.interpolate(q[None, None], size=(1024, 1024), mode="bilinear",
+                                  align_corners=False)[0, 0]
+                q = q.detach().cpu().numpy()
+                serd[f"{cur['tile']}|{cur['prompt']}"] = q.astype(np.float16)
+            except Exception as e:
+                print(f"    SERD capture failed: {type(e).__name__}: {str(e)[:90]}", flush=True)
         try:
             s_i = float(out["presence_logit_dec"].sigmoid().flatten()[0])
             q = out["pred_logits"].sigmoid().flatten()
@@ -170,6 +189,12 @@ def main():
         json.dump(rows, open(f"{SC}/sam3_results.json", "w"), indent=1)
     json.dump(rows, open(f"{SC}/sam3_results.json", "w"), indent=1)
     json.dump(presence, open(f"{SC}/sam3_presence.json", "w"), indent=1)
+    if SAVE_SERD and serd:
+        os.makedirs(f"{SC}/serd", exist_ok=True)
+        for k, v in serd.items():
+            t, pr = k.split("|", 1)
+            np.savez_compressed(f"{SC}/serd/{t}__{pr.replace(' ', '_')}.npz", r=v)
+        print(f"wrote {len(serd)} SERD response maps to {SC}/serd/")
     print(f"\nwrote {SC}/sam3_results.json  ({len(rows)} rows, {time.time()-t0:.0f}s total)")
     print(f"wrote {SC}/sam3_presence.json  ({len(presence)} (tile,prompt) presence records)")
 

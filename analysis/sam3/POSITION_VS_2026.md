@@ -4,6 +4,21 @@
 this session. Numbers from other papers are quoted with their protocol and are **not** compared
 to ours — cross-dataset accuracy comparison is invalid and this document does not do it.*
 
+## The single most important number here
+
+**A perfect 3 px trace down the centreline of every label scores median pixel IoU 0.1662.**
+(`iou_ceiling.py` — take the GT's own skeleton, dilate to the true crack width, score it
+against the GT.) The same perfect answer scores **clDice 0.9997**.
+
+So on this corpus **pixel IoU has a ceiling of about 0.17 for a physically correct crack
+trace**, and SAM 3's measured 0.1914 sits *above* it. Every IoU in this project above ~0.17 —
+including the global threshold's winning 0.2579 — was earned by predicting something *thicker
+than a crack*, because the labels are a median 16 px brush around a ~3 px feature.
+
+The IoU leaderboard was ranking methods by how well they imitate a paintbrush. That is why this
+document reports clDice and clIoU_τ beside every IoU, and why the ranking reverses between
+them.
+
 ## The one thing to get straight first
 
 **You cannot rank methods by comparing our IoU to a published IoU.** Their numbers come from
