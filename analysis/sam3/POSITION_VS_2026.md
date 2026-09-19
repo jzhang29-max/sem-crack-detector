@@ -231,6 +231,57 @@ on containment (0.779 vs 0.707), which looked like Otsu being better. PAR shows 
 tolerant metric it is last at every τ. Containment without an area diagnostic beside it is not
 interpretable; both are now printed together.
 
+### 8. The published state of the art, run on your data
+
+OmniCrack30k's released nnU-Net — trained on 30,017 crack images across asphalt, ceramic,
+concrete, masonry **and steel** — run on the same 15 tiles under the same protocol
+(`run_omnicrack.py`, `omnicrack_eval.py`):
+
+| metric | OIS | ODS | **LOFO** | LOFO 95% CI |
+|---|---|---|---|---|
+| IoU | 0.3718 | 0.2378 | **0.2069** | [0.021, 0.427] |
+| clDice | 0.4769 | 0.3354 | **0.3304** | [0.023, 0.585] |
+| clIoU₄ | 0.1702 | 0.1625 | 0.1430 | [0.008, 0.231] |
+
+*Lower bound: single fold instead of their 4-fold ensemble, and no test-time mirroring, both
+forced by CPU-only inference. Both can only hurt their model.*
+
+**Final leaderboard, every arm at an honest budget:**
+
+| arm | IoU | clDice |
+|---|---|---|
+| Meijering ridge | 0.1802 | **0.3382** |
+| **OmniCrack30k nnU-Net** (published SOTA) | 0.2069 | **0.3304** |
+| SAM 3 union (zero-shot, no labels) | 0.1914 | 0.3030 |
+| nested ensemble | 0.1597 | 0.2986 |
+| Sato ridge | 0.1972 | 0.2981 |
+| Sauvola local | 0.1117 | 0.2421 |
+| trained hist-GBDT | 0.1916 | 0.2015 |
+| global threshold | **0.2579** | 0.1827 |
+| nested LOFO (single method) | 0.2526 | 0.1739 |
+| Frangi ridge | 0.0843 | 0.0849 |
+
+**And nothing separates.** Paired over 15 tiles, OmniCrack30k against our arms:
+
+| comparison | metric | median Δ | wins | p |
+|---|---|---|---|---|
+| vs global threshold | IoU | −0.0100 | 7/15 | 0.359 |
+| vs global threshold | clDice | +0.0000 | 7/15 | 0.244 |
+| vs Meijering ridge | clDice | +0.0265 | 9/15 | 0.194 |
+| vs nested LOFO | clDice | +0.0366 | 8/15 | 0.135 |
+
+A model trained on 30,017 crack images including steel is **statistically indistinguishable, on
+this corpus, from a Meijering ridge filter and from a one-line global threshold.** So is a
+zero-shot foundation model. That is the honest answer to "is our model the best": at n = 15
+tiles from 9 frames, **no method here is distinguishable from any other**, and the corpus — not
+the model — is the binding constraint.
+
+Two further facts from the same run. OmniCrack30k **did not fire at all** on
+`260708_316_H_b2_front_CBS_001__t0` (max probability 0.0273 across the whole tile), and barely
+on `MAR_Amb_AS_CBS_0001__t0` (p99 = 0.0037). A model trained on concrete and asphalt cracks
+does not transfer uniformly to SEM micrographs of metal, and where it fails it fails silently —
+the same failure mode this project documented for SAM 3.
+
 ## Why this evaluation is stronger than the typical paper's — with the evidence
 
 Each bullet names something **done here and checkable in this repo**. Where I say a practice is
