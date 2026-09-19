@@ -62,35 +62,46 @@ def cliou(p, g, tau, cache=None):
     return float(tp / (tp + fp + fn)) if (tp + fp + fn) else 0.0
 
 
-def tortuosity_of(sub):
-    """skeleton length / END-TO-END chord. ~1 for a straight bar, larger for one that wanders.
+def metric_skeleton_length(sk):
+    """True path length of a skeleton: 1 per orthogonal step, sqrt(2) per diagonal step.
 
-    The chord is the largest distance between skeleton ENDPOINTS -- pixels with exactly one
-    skeleton neighbour -- which is O(k^2) in the number of endpoints, typically 2, rather than
-    O(n^2) in skeleton pixels.
-
-    Two earlier versions were wrong and both were caught by a two-line sanity check rather than
-    by reading. Taking the maximum distance over ALL skeleton pixel pairs is correct but cost
-    ~270M distance evaluations per frame. Substituting regionprops' major_axis_length is fast
-    and USELESS: it is the major axis of the equivalent ellipse, so a straight bar and a sine
-    wave of the same extent both scored 0.866 vs 0.865. A feature that returns the same number
-    for the two classes it is meant to separate is not a feature.
+    Counting skeleton PIXELS instead underestimates a diagonal path by up to sqrt(2), which
+    makes tortuosity = length/chord come out BELOW 1 -- geometrically impossible, since the
+    path can never be shorter than the straight line between its ends. A pure diagonal bar
+    scored 0.7252 under the pixel-count version. This project already has a memory note titled
+    "pixel count is not path length" from the first time it happened; this is the second.
     """
+    ort = np.array([[0, 1, 0], [0, 0, 0], [0, 0, 0]], np.uint8)
+    dia = np.array([[1, 0, 0], [0, 0, 0], [0, 0, 0]], np.uint8)
+    s8 = sk.astype(np.uint8)
+    n_ort = int((s8 * ndi.convolve(s8, ort, mode="constant")).sum()) \
+          + int((s8 * ndi.convolve(s8, ort.T, mode="constant")).sum())
+    n_dia = int((s8 * ndi.convolve(s8, dia, mode="constant")).sum()) \
+          + int((s8 * ndi.convolve(s8, dia[:, ::-1], mode="constant")).sum())
+    # Kulpa's estimator, the same constants tools/skeleton_metrics.py already uses. Plain
+    # sqrt(2) weighting is exact at 0/45/90 degrees but over-counts intermediate angles: a
+    # straight bar at 30 degrees measured 1.074, and the scratch threshold is 1.08, so a
+    # straight line was within 0.006 of being called curved. Kulpa removes most of that.
+    return 0.948 * n_ort + 1.343 * n_dia
+
+
+def tortuosity_of(sub):
+    """METRIC skeleton length / end-to-end chord. 1.0 for a straight bar at any angle."""
     sk = skeletonize(sub)
-    n = int(sk.sum())
-    if n < 4:
+    if int(sk.sum()) < 4:
         return 1.0
+    L = metric_skeleton_length(sk)
     nb = ndi.convolve(sk.astype(np.uint8), np.ones((3, 3), np.uint8), mode="constant")
-    ends = np.argwhere(sk & (nb == 2))            # self + exactly one neighbour
+    ends = np.argwhere(sk & (nb == 2))
     if len(ends) < 2:
-        ys, xs = np.nonzero(sk)                   # a loop: fall back to the extreme pair
+        ys, xs = np.nonzero(sk)
         ends = np.array([[ys.min(), xs[ys.argmin()]], [ys.max(), xs[ys.argmax()]]])
     if len(ends) > 12:
         ends = ends[np.linspace(0, len(ends) - 1, 12).astype(int)]
     d = np.hypot(ends[:, 0][:, None] - ends[:, 0][None, :],
                  ends[:, 1][:, None] - ends[:, 1][None, :])
     chord = float(d.max())
-    return float(n / chord) if chord > 1 else 1.0
+    return float(L / chord) if chord > 1 else 1.0
 
 
 def describe(mask):
