@@ -19,6 +19,9 @@ from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
 
 SC = os.path.dirname(os.path.abspath(__file__))
+# read the quantile from the config rather than hardcoding it in the title: the
+# first version of this sheet said "top 2%" while rendering a top-1% run.
+CFG = json.load(open(f"{SC}/best_config.json"))
 COLS = 7
 THUMB = 460
 
@@ -55,7 +58,8 @@ def main():
         ax[j // COLS, j % COLS].axis("off")
     ns = [r["clIoU_adapt"] for r in scored]
     fig.suptitle(
-        "Best detector on all 62 frames — Meijering ridge, sigmas 1-4, top 2% of response\n"
+        f"Best detector on all 62 frames — Meijering ridge, sigmas 1-4, "
+        f"top {100-CFG['quantile']:g}% of response\n"
         f"orange = prediction · {len(scored)} frames scorable against a hand label "
         f"(median clIoU_adapt {np.median(ns):.3f}), {len(unscored)} unlabelled · "
         "ordered best to worst", fontsize=11)

@@ -1,29 +1,29 @@
 [
  {
   "frame": "260622_316_H_b2_back_CBS_01",
-  "pred_frac": 0.01854,
+  "pred_frac": 0.00908,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 95.8,
-  "clIoU_adapt": 0.1729,
-  "PAR": 0.19
+  "clIoU_adapt": 0.2156,
+  "PAR": 0.093
  },
  {
   "frame": "260622_316_H_b2_front_CBS_01",
-  "pred_frac": 0.01844,
+  "pred_frac": 0.00902,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 18.1,
-  "clIoU_adapt": 0.0074,
-  "PAR": 9.718
+  "clIoU_adapt": 0.0103,
+  "PAR": 4.754
  },
  {
   "frame": "260622_316_H_b2_front_CBS_02",
-  "pred_frac": 0.01869,
+  "pred_frac": 0.00927,
   "shape": [
    4096,
    6144
@@ -32,29 +32,29 @@
  },
  {
   "frame": "260622_316_H_b2_front_CBS_03",
-  "pred_frac": 0.01101,
+  "pred_frac": 0.00711,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 61.2,
-  "clIoU_adapt": 0.0836,
-  "PAR": 0.384
+  "clIoU_adapt": 0.1002,
+  "PAR": 0.248
  },
  {
   "frame": "260622_316_H_b2_front_CBS_04",
-  "pred_frac": 0.01961,
+  "pred_frac": 0.00983,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 105.6,
-  "clIoU_adapt": 0.2332,
-  "PAR": 0.407
+  "clIoU_adapt": 0.3328,
+  "PAR": 0.204
  },
  {
   "frame": "260622_316_H_b4_CBS_01",
-  "pred_frac": 0.01946,
+  "pred_frac": 0.00968,
   "shape": [
    4096,
    6144
@@ -63,18 +63,18 @@
  },
  {
   "frame": "260622_316_H_b4_CBS_02",
-  "pred_frac": 0.01969,
+  "pred_frac": 0.00971,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 10.0,
-  "clIoU_adapt": 0.0127,
-  "PAR": 48.165
+  "clIoU_adapt": 0.0195,
+  "PAR": 23.756
  },
  {
   "frame": "260622_316_amb_b3_CBS_01",
-  "pred_frac": 0.01859,
+  "pred_frac": 0.00924,
   "shape": [
    4096,
    6144
@@ -83,7 +83,7 @@
  },
  {
   "frame": "260622_316_amb_b3_CBS_02",
-  "pred_frac": 0.01793,
+  "pred_frac": 0.0091,
   "shape": [
    4096,
    6144
@@ -92,7 +92,7 @@
  },
  {
   "frame": "260708_316_H_b2_front_CBS_001",
-  "pred_frac": 0.01356,
+  "pred_frac": 0.00766,
   "shape": [
    2048,
    3072
@@ -101,40 +101,40 @@
  },
  {
   "frame": "260708_316_H_b2_front_CBS_002",
-  "pred_frac": 0.01893,
+  "pred_frac": 0.00935,
   "shape": [
    2044,
    3067
   ],
   "brush_px": 41.6,
-  "clIoU_adapt": 0.1889,
-  "PAR": 0.838
+  "clIoU_adapt": 0.2337,
+  "PAR": 0.414
  },
  {
   "frame": "260708_316_H_b2_front_CBS_003",
-  "pred_frac": 0.01887,
+  "pred_frac": 0.0092,
   "shape": [
    2044,
    3068
   ],
   "brush_px": 41.2,
-  "clIoU_adapt": 0.315,
-  "PAR": 0.259
+  "clIoU_adapt": 0.2954,
+  "PAR": 0.126
  },
  {
   "frame": "260708_316_H_b2_front_CBS_004",
-  "pred_frac": 0.01916,
+  "pred_frac": 0.00935,
   "shape": [
    2045,
    3072
   ],
   "brush_px": 31.0,
-  "clIoU_adapt": 0.2948,
-  "PAR": 0.463
+  "clIoU_adapt": 0.2831,
+  "PAR": 0.226
  },
  {
   "frame": "260708_316_H_b2_front_CBS_005",
-  "pred_frac": 0.01929,
+  "pred_frac": 0.00964,
   "shape": [
    4093,
    6139
@@ -143,40 +143,40 @@
  },
  {
   "frame": "260708_316_H_b2_front_CBS_006",
-  "pred_frac": 0.01914,
+  "pred_frac": 0.00959,
   "shape": [
    2044,
    3071
   ],
   "brush_px": 79.8,
-  "clIoU_adapt": 0.267,
-  "PAR": 0.371
+  "clIoU_adapt": 0.3397,
+  "PAR": 0.186
  },
  {
   "frame": "260708_316_H_b2_front_CBS_007",
-  "pred_frac": 0.01904,
+  "pred_frac": 0.00939,
   "shape": [
    2047,
    3071
   ],
   "brush_px": 127.1,
-  "clIoU_adapt": 0.3357,
-  "PAR": 0.245
+  "clIoU_adapt": 0.437,
+  "PAR": 0.121
  },
  {
   "frame": "260708_316_H_b2_front_CBS_008",
-  "pred_frac": 0.01909,
+  "pred_frac": 0.00948,
   "shape": [
    2045,
    3072
   ],
   "brush_px": 40.3,
-  "clIoU_adapt": 0.1043,
-  "PAR": 1.577
+  "clIoU_adapt": 0.1371,
+  "PAR": 0.783
  },
  {
   "frame": "260708_316_H_b2_front_CBS_009",
-  "pred_frac": 0.01684,
+  "pred_frac": 0.00821,
   "shape": [
    2038,
    3072
@@ -185,7 +185,7 @@
  },
  {
   "frame": "260708_316_H_b2_front_CBS_010",
-  "pred_frac": 0.01753,
+  "pred_frac": 0.0088,
   "shape": [
    2037,
    3072
@@ -194,18 +194,18 @@
  },
  {
   "frame": "260708_316_H_b2_front_CBS_011",
-  "pred_frac": 0.01936,
+  "pred_frac": 0.00956,
   "shape": [
    2041,
    3072
   ],
   "brush_px": 58.9,
-  "clIoU_adapt": 0.2575,
-  "PAR": 0.423
+  "clIoU_adapt": 0.2813,
+  "PAR": 0.209
  },
  {
   "frame": "260708_316_H_b2_front_CBS_012",
-  "pred_frac": 0.01909,
+  "pred_frac": 0.00956,
   "shape": [
    2038,
    3072
@@ -214,7 +214,7 @@
  },
  {
   "frame": "260708_316_H_b2_front_CBS_013",
-  "pred_frac": 0.01932,
+  "pred_frac": 0.0095,
   "shape": [
    2046,
    3072
@@ -223,73 +223,73 @@
  },
  {
   "frame": "260708_316_H_b2_front_CBS_014",
-  "pred_frac": 0.01904,
+  "pred_frac": 0.00958,
   "shape": [
    2045,
    3072
   ],
   "brush_px": 110.3,
-  "clIoU_adapt": 0.3783,
-  "PAR": 0.23
+  "clIoU_adapt": 0.4928,
+  "PAR": 0.116
  },
  {
   "frame": "260708_316_H_b2_front_CBS_015",
-  "pred_frac": 0.01016,
+  "pred_frac": 0.0082,
   "shape": [
    4092,
    6144
   ],
   "brush_px": 140.7,
-  "clIoU_adapt": 0.2577,
-  "PAR": 0.315
+  "clIoU_adapt": 0.2687,
+  "PAR": 0.255
  },
  {
   "frame": "260708_316_H_b2_front_CBS_016",
-  "pred_frac": 0.01507,
+  "pred_frac": 0.00923,
   "shape": [
    4090,
    6144
   ],
   "brush_px": 230.1,
-  "clIoU_adapt": 0.5448,
-  "PAR": 0.071
+  "clIoU_adapt": 0.5907,
+  "PAR": 0.044
  },
  {
   "frame": "AS_24hr_BSE_Side_008",
-  "pred_frac": 0.01845,
+  "pred_frac": 0.00894,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 10.0,
-  "clIoU_adapt": 0.5604,
-  "PAR": 0.507
+  "clIoU_adapt": 0.5118,
+  "PAR": 0.246
  },
  {
   "frame": "Cast_24hr_SE_Side_006",
-  "pred_frac": 0.01828,
+  "pred_frac": 0.00888,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 288.7,
-  "clIoU_adapt": 0.0291,
-  "PAR": 0.124
+  "clIoU_adapt": 0.0478,
+  "PAR": 0.06
  },
  {
   "frame": "HIP_24hr_SE_Side_006",
-  "pred_frac": 0.00442,
+  "pred_frac": 0.00315,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 36.1,
-  "clIoU_adapt": 0.1486,
-  "PAR": 0.194
+  "clIoU_adapt": 0.1507,
+  "PAR": 0.138
  },
  {
   "frame": "MAR_Amb_AS_CBS_0001",
-  "pred_frac": 0.0171,
+  "pred_frac": 0.0084,
   "shape": [
    4096,
    6144
@@ -298,7 +298,7 @@
  },
  {
   "frame": "MAR_Amb_AS_CBS_0002",
-  "pred_frac": 0.01534,
+  "pred_frac": 0.00725,
   "shape": [
    4096,
    6144
@@ -307,40 +307,40 @@
  },
  {
   "frame": "MAR_Amb_AS_CBS_0003",
-  "pred_frac": 0.01596,
+  "pred_frac": 0.0078,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 413.0,
-  "clIoU_adapt": 0.5185,
-  "PAR": 0.031
+  "clIoU_adapt": 0.5294,
+  "PAR": 0.015
  },
  {
   "frame": "MAR_Amb_AS_CBS_0004",
-  "pred_frac": 0.0162,
+  "pred_frac": 0.00816,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 22.0,
-  "clIoU_adapt": 0.118,
-  "PAR": 1.201
+  "clIoU_adapt": 0.1443,
+  "PAR": 0.605
  },
  {
   "frame": "MAR_Amb_AS_CBS_0005",
-  "pred_frac": 0.01673,
+  "pred_frac": 0.00928,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 28.6,
-  "clIoU_adapt": 0.0051,
-  "PAR": 26.382
+  "clIoU_adapt": 0.0088,
+  "PAR": 14.628
  },
  {
   "frame": "MAR_Amb_AS_CBS_0006",
-  "pred_frac": 0.01567,
+  "pred_frac": 0.00883,
   "shape": [
    4096,
    6144
@@ -349,7 +349,7 @@
  },
  {
   "frame": "MAR_Amb_AS_ETD_0001",
-  "pred_frac": 0.01137,
+  "pred_frac": 0.0066,
   "shape": [
    4096,
    6144
@@ -358,40 +358,40 @@
  },
  {
   "frame": "MAR_Amb_AS_ETD_0002",
-  "pred_frac": 0.01615,
+  "pred_frac": 0.00797,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 207.5,
-  "clIoU_adapt": 0.1452,
-  "PAR": 0.082
+  "clIoU_adapt": 0.2071,
+  "PAR": 0.04
  },
  {
   "frame": "MAR_Amb_AS_ETD_0003",
-  "pred_frac": 0.016,
+  "pred_frac": 0.00732,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 268.5,
-  "clIoU_adapt": 0.4741,
-  "PAR": 0.033
+  "clIoU_adapt": 0.4731,
+  "PAR": 0.015
  },
  {
   "frame": "MAR_Amb_AS_ETD_0004",
-  "pred_frac": 0.01693,
+  "pred_frac": 0.0082,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 22.0,
-  "clIoU_adapt": 0.0015,
-  "PAR": 24.861
+  "clIoU_adapt": 0.0021,
+  "PAR": 12.036
  },
  {
   "frame": "MAR_Amb_AS_ETD_0006",
-  "pred_frac": 0.01596,
+  "pred_frac": 0.00771,
   "shape": [
    4096,
    6144
@@ -400,7 +400,7 @@
  },
  {
   "frame": "MAR_Amb_Cast_CBS_0001",
-  "pred_frac": 0.01393,
+  "pred_frac": 0.00705,
   "shape": [
    4096,
    6144
@@ -409,7 +409,7 @@
  },
  {
   "frame": "MAR_Amb_Cast_CBS_0002",
-  "pred_frac": 0.01278,
+  "pred_frac": 0.0063,
   "shape": [
    4096,
    6144
@@ -418,7 +418,7 @@
  },
  {
   "frame": "MAR_Amb_Cast_CBS_0003",
-  "pred_frac": 0.0118,
+  "pred_frac": 0.00668,
   "shape": [
    4096,
    6144
@@ -427,7 +427,7 @@
  },
  {
   "frame": "MAR_Amb_Cast_CBS_0004",
-  "pred_frac": 0.01699,
+  "pred_frac": 0.00803,
   "shape": [
    4096,
    6144
@@ -436,18 +436,18 @@
  },
  {
   "frame": "MAR_Amb_Cast_CBS_0005",
-  "pred_frac": 0.01562,
+  "pred_frac": 0.00732,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 180.1,
-  "clIoU_adapt": 0.1186,
-  "PAR": 0.128
+  "clIoU_adapt": 0.1645,
+  "PAR": 0.06
  },
  {
   "frame": "MAR_Amb_Cast_ETD_0001",
-  "pred_frac": 0.01457,
+  "pred_frac": 0.00777,
   "shape": [
    4096,
    6144
@@ -456,7 +456,7 @@
  },
  {
   "frame": "MAR_Amb_Cast_ETD_0002",
-  "pred_frac": 0.01335,
+  "pred_frac": 0.00715,
   "shape": [
    4096,
    6144
@@ -465,29 +465,29 @@
  },
  {
   "frame": "MAR_Amb_Cast_ETD_0003",
-  "pred_frac": 0.01058,
+  "pred_frac": 0.00558,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 8.2,
-  "clIoU_adapt": 0.0289,
-  "PAR": 9.864
+  "clIoU_adapt": 0.0556,
+  "PAR": 5.208
  },
  {
   "frame": "MAR_Amb_Cast_ETD_0004",
-  "pred_frac": 0.01662,
+  "pred_frac": 0.00807,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 173.9,
-  "clIoU_adapt": 0.1259,
-  "PAR": 0.088
+  "clIoU_adapt": 0.147,
+  "PAR": 0.043
  },
  {
   "frame": "MAR_Amb_Cast_ETD_0005",
-  "pred_frac": 0.01677,
+  "pred_frac": 0.00802,
   "shape": [
    4096,
    6144
@@ -496,18 +496,18 @@
  },
  {
   "frame": "MAR_Amb_HIP_CBS_0003",
-  "pred_frac": 0.01609,
+  "pred_frac": 0.00753,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 140.0,
-  "clIoU_adapt": 0.1022,
-  "PAR": 0.151
+  "clIoU_adapt": 0.1521,
+  "PAR": 0.071
  },
  {
   "frame": "MAR_Amb_HIP_CBS_0004",
-  "pred_frac": 0.00985,
+  "pred_frac": 0.00473,
   "shape": [
    4096,
    6144
@@ -516,29 +516,29 @@
  },
  {
   "frame": "MAR_Amb_HIP_CBS_0005",
-  "pred_frac": 0.01499,
+  "pred_frac": 0.00711,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 223.0,
-  "clIoU_adapt": 0.1603,
-  "PAR": 0.075
+  "clIoU_adapt": 0.1451,
+  "PAR": 0.035
  },
  {
   "frame": "MAR_Amb_HIP_CBS_0006",
-  "pred_frac": 0.01583,
+  "pred_frac": 0.00925,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 28.4,
-  "clIoU_adapt": 0.1247,
-  "PAR": 0.66
+  "clIoU_adapt": 0.1463,
+  "PAR": 0.386
  },
  {
   "frame": "MAR_Amb_HIP_CBS_0007",
-  "pred_frac": 0.01931,
+  "pred_frac": 0.00979,
   "shape": [
    2048,
    3072
@@ -547,90 +547,90 @@
  },
  {
   "frame": "MAR_Amb_HIP_CBS_0008",
-  "pred_frac": 0.01935,
+  "pred_frac": 0.00961,
   "shape": [
    2048,
    3072
   ],
   "brush_px": 60.0,
-  "clIoU_adapt": 0.0209,
-  "PAR": 2.489
+  "clIoU_adapt": 0.0142,
+  "PAR": 1.236
  },
  {
   "frame": "MAR_Amb_HIP_CBS_0010",
-  "pred_frac": 0.01808,
+  "pred_frac": 0.00838,
   "shape": [
    2048,
    3072
   ],
   "brush_px": 28.6,
-  "clIoU_adapt": 0.1831,
-  "PAR": 0.368
+  "clIoU_adapt": 0.1875,
+  "PAR": 0.171
  },
  {
   "frame": "MAR_Amb_HIP_ETD_0003",
-  "pred_frac": 0.01585,
+  "pred_frac": 0.0075,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 279.7,
-  "clIoU_adapt": 0.0339,
-  "PAR": 0.178
+  "clIoU_adapt": 0.0636,
+  "PAR": 0.084
  },
  {
   "frame": "MAR_Amb_HIP_ETD_0005",
-  "pred_frac": 0.01548,
+  "pred_frac": 0.00713,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 145.7,
-  "clIoU_adapt": 0.0489,
-  "PAR": 0.559
+  "clIoU_adapt": 0.08,
+  "PAR": 0.257
  },
  {
   "frame": "MAR_Amb_HIP_ETD_0006",
-  "pred_frac": 0.00989,
+  "pred_frac": 0.00691,
   "shape": [
    4096,
    6144
   ],
   "brush_px": 122.7,
-  "clIoU_adapt": 0.0345,
-  "PAR": 0.743
+  "clIoU_adapt": 0.0446,
+  "PAR": 0.519
  },
  {
   "frame": "MAR_Amb_HIP_ETD_0007",
-  "pred_frac": 0.01156,
+  "pred_frac": 0.00801,
   "shape": [
    2048,
    3072
   ],
   "brush_px": 15.6,
-  "clIoU_adapt": 0.1789,
-  "PAR": 1.434
+  "clIoU_adapt": 0.2034,
+  "PAR": 0.994
  },
  {
   "frame": "MAR_Amb_HIP_ETD_0008",
-  "pred_frac": 0.01711,
+  "pred_frac": 0.0093,
   "shape": [
    2048,
    3072
   ],
   "brush_px": 28.0,
-  "clIoU_adapt": 0.1174,
-  "PAR": 0.731
+  "clIoU_adapt": 0.1245,
+  "PAR": 0.397
  },
  {
   "frame": "MAR_Amb_HIP_ETD_0010",
-  "pred_frac": 0.01832,
+  "pred_frac": 0.00871,
   "shape": [
    2048,
    3072
   ],
   "brush_px": 33.5,
-  "clIoU_adapt": 0.1478,
-  "PAR": 0.39
+  "clIoU_adapt": 0.1293,
+  "PAR": 0.185
  }
 ]

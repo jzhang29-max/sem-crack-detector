@@ -7,7 +7,15 @@
   4
  ],
  "black_ridges": true,
- "quantile": 98,
+ "quantile": 99,
  "min_object_px": 32,
- "clIoU_adapt_ODS": 0.2847993613951061
+ "clIoU_adapt_ODS": 0.2847993613951061,
+ "quantile_note": "99 for WHOLE FRAMES (median clIoU_adapt 0.1514, +0.0199 vs q98, 31/38 wins, p=9.9e-05, over-predicting frames 9/38 -> 6/38). On the label-centred TILES the optimum was 98 (0.2848 vs 0.2450) -- tiles contain proportionally more crack, so they tolerate a fatter cut. Whole-frame is the deployment setting.",
+ "rejected_adaptive": {
+  "Otsu": 0.0357,
+  "Triangle": 0.01,
+  "Li": 0.0106,
+  "note": "classical per-frame histogram thresholds are 4-15x WORSE here and over-predict on 22-36 of 38 frames; Triangle and Li lose on 38/38"
+ },
+ "clIoU_adapt_wholeframe": 0.1514
 }
