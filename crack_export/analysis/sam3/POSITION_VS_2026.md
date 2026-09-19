@@ -352,6 +352,53 @@ can be checked against the 15-tile result on common ground.
 Brush widths across the 47 run from 10 px to 288 px, which is the clearest possible statement of
 why a width-insensitive metric is not optional here.
 
+### 12. At n = 44, something finally separates — and it is not what won on IoU
+
+With one tile per frame over all 44 labelled frames, τ scaled per frame and containment
+expressed as lift over its own null:
+
+| method | clIoU_adapt (LOFO) | cont_lift | PAR | pixel IoU |
+|---|---|---|---|---|
+| **Meijering ridge** | **0.2848** | 2.07 | 0.55 | 0.0957 |
+| **Sato ridge** | **0.2752** | 1.99 | 0.71 | 0.1097 |
+| global threshold | 0.2024 | **3.18** | 1.04 | 0.1815 |
+| Otsu | 0.1925 | 1.71 | 1.45 | **0.2945** |
+
+Six pairwise tests, paired over 44 frames:
+
+| comparison | median Δ | p | Bonferroni | BH |
+|---|---|---|---|---|
+| Sato ridge > Otsu | +0.0682 | **0.0042** | pass | pass |
+| Meijering ridge > Otsu | +0.0741 | **0.0049** | pass | pass |
+| global threshold vs Sato | −0.0337 | 0.212 | — | — |
+| global threshold vs Meijering | −0.0303 | 0.229 | — | — |
+| global threshold vs Otsu | +0.0296 | 0.253 | — | — |
+| Sato vs Meijering | +0.0004 | 0.889 | — | — |
+
+**These are the first significant differences anywhere in this project**, and they survive both
+Bonferroni (α = 0.0083) and Benjamini–Hochberg. The power analysis of §10 predicted exactly
+this: the effects were always there, and 9 frames could not see them.
+
+**Scope it honestly.** Splitting by label type:
+
+| | n | median Δ | p |
+|---|---|---|---|
+| Meijering > Otsu, coarse frames | 35 | +0.1185 | **0.0048** |
+| Meijering > Otsu, fine frames | 9 | +0.0170 | 0.594 |
+| Sato > Otsu, coarse frames | 35 | +0.0887 | **0.0039** |
+| Sato > Otsu, fine frames | 9 | +0.0170 | 0.515 |
+
+The sign agrees on both subsets, so this is not an artefact of the coarse labels — but the
+effect is **7× larger** on them, so it is not purely a power difference either. The defensible
+claim is: *ridge filtering beats Otsu on this corpus, clearly so where the annotation is broad,
+and at the fine subset's n the same effect is present but unmeasurable.*
+
+**And the metric still picks the winner.** Meijering leads clIoU_adapt; the global threshold
+leads containment lift (3.18) by a wide margin; Otsu leads pixel IoU (0.2945) while coming last
+on clIoU_adapt — because with PAR 1.45 it over-predicts, which pixel IoU rewards against a
+broad brush and a tolerant centreline metric does not. Every arm beats its own null
+(cont_lift > 1), so all four carry real signal; they differ in what kind.
+
 ## Why this evaluation is stronger than the typical paper's — with the evidence
 
 Each bullet names something **done here and checkable in this repo**. Where I say a practice is
