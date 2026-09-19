@@ -17,3 +17,5 @@ analysis/sam3/serd/
 analysis/sam3/omnicrack/
 analysis/sam3/runs/
 analysis/sam3/tiles_all/
+analysis/sam3/detector_masks/
+analysis/sam3/detector_overlays/
