@@ -15,3 +15,4 @@ __pycache__/
 .DS_Store
 analysis/sam3/serd/
 analysis/sam3/omnicrack/
+analysis/sam3/runs/

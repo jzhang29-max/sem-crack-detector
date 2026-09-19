@@ -39,7 +39,33 @@ punish a thin prediction against a thick label). An ORACLE arm reports the singl
 best-matching returned instance, chosen using the ground truth: a deliberate upper bound,
 so a poor oracle result cannot be blamed on proposal ranking.
 """
-import os, sys, json, time
+import os, sys, json, time, tempfile, subprocess
+
+
+def atomic_json(path, obj):
+    """Write via a temp file + rename so no reader ever sees a half-written artefact.
+
+    run_real.py used to json.dump() straight to sam3_results.json on every tile. That left the
+    canonical file partial for the ~28 minutes of a run, so tools/verify_claims.py read 16 rows
+    instead of 60 and failed 7 claims that were not actually wrong. It also meant a re-run
+    destroyed the previous run's file, which is why the earlier determinism claim had no
+    surviving artefact to audit.
+    """
+    d = os.path.dirname(path)
+    fd, tmp = tempfile.mkstemp(dir=d, suffix=".tmp")
+    with os.fdopen(fd, "w") as f:
+        json.dump(obj, f, indent=1)
+    os.replace(tmp, path)
+
+
+def run_stamp():
+    """A stable id for this run: git HEAD plus the tile-set size."""
+    try:
+        sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
+                             text=True, cwd=os.path.dirname(os.path.abspath(__file__))).stdout.strip()
+    except Exception:
+        sha = "nogit"
+    return f"{sha or 'nogit'}_{int(time.time())}"
 SC = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(SC, "shim"))
 import sam3_preload  # noqa: F401  (must precede sam3)
@@ -194,9 +220,14 @@ def main():
                 print(f"  [{j+1}/{len(meta)}] {tid[:34]:<34} '{p[:16]:<16}' ERR {type(e).__name__}: {str(e)[:110]}", flush=True)
                 rows.append({"tile": tid, "prompt": p, "error": f"{type(e).__name__}: {str(e)[:200]}"})
         print(f"      (encode {enc:.1f}s)", flush=True)
-        json.dump(rows, open(f"{SC}/sam3_results.json", "w"), indent=1)
-    json.dump(rows, open(f"{SC}/sam3_results.json", "w"), indent=1)
-    json.dump(presence, open(f"{SC}/sam3_presence.json", "w"), indent=1)
+        atomic_json(f"{SC}/sam3_results.json", rows)
+    atomic_json(f"{SC}/sam3_results.json", rows)
+    # permanent snapshot so a later run cannot destroy this one's evidence
+    rd = f"{SC}/runs/{run_stamp()}"
+    os.makedirs(rd, exist_ok=True)
+    atomic_json(f"{rd}/results.json", rows)
+    atomic_json(f"{SC}/sam3_presence.json", presence)
+    atomic_json(f"{rd}/presence.json", presence)
     if SAVE_SERD and serd:
         os.makedirs(f"{SC}/serd", exist_ok=True)
         for k, v in serd.items():
