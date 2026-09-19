@@ -212,7 +212,9 @@ def d_auc_loio():
 
 
 def d_sam_tiles():
-    return len(json.load(open("analysis/sam3/tiles_meta.json")))
+    # was analysis/sam3/tiles_meta.json, a byte-identical copy of the file the
+    # pipeline actually writes. One source of truth.
+    return len(json.load(open("analysis/sam3/tiles/meta.json")))
 
 
 def d_overlay_triples():

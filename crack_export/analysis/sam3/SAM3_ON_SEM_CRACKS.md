@@ -79,7 +79,7 @@ not see them at all, and it gives you no signal about which.
 I initially reported median union IoU 0.121 and would have concluded "SAM 3 is poor on
 SEM cracks." That is an artefact of **label incompleteness**, not model failure.
 
-Look at row 1 of `sam3_examples.png`: on `260622_316_H_b4_CBS_02__t0` the human labelled
+Look at row 1 of `sam3_examples_INVALID_contaminated_input.png`: on `260622_316_H_b4_CBS_02__t0` the human labelled
 **one** crack (0.49 % of the tile); the tile plainly contains many; SAM 3 returned 40
 instances covering most of them. Recall 1.000, precision 0.083, IoU 0.083. The metric
 punished it for finding cracks nobody annotated.
@@ -143,7 +143,7 @@ Which arm flatters depends on whether the field holds one crack or many. Report 
 
 ```
 sam3_results.json      64 (tile, prompt) rows: union + oracle IoU/Dice/clDice/prec/rec
-sam3_examples.png      4 tiles x [SEM | hand label | SAM3 union | SAM3 oracle-best]
+sam3_examples_INVALID_contaminated_input.png  4 tiles x [SEM | hand label | SAM3 union | SAM3 oracle-best]
 tiles_meta.json        the 16 tiles, source frame, offsets, label fraction
 make_tiles.py          tile extraction
 prepare_checkpoint.py  regenerates sam3_original.pt from the cached safetensors (~5 s)
