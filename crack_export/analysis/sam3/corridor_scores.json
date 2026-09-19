@@ -1,0 +1,161 @@
+{
+ "per_tile": [
+  {
+   "tile": "260622_316_H_b2_front_CBS_01__t0",
+   "frame": "260622_316_H_b2_front_CBS_01",
+   "corridor_frac": 0.16158485412597656,
+   "containment": 0.9447922557904013,
+   "coverage": 0.17073170731707318,
+   "crossing": 0.5877034358047016,
+   "pixel_IoU": 0.2584
+  },
+  {
+   "tile": "260622_316_H_b4_CBS_02__t0",
+   "frame": "260622_316_H_b4_CBS_02",
+   "corridor_frac": 0.04542064666748047,
+   "containment": 0.7774455065599557,
+   "coverage": 0.9230769230769231,
+   "crossing": 0.9867219917012449,
+   "pixel_IoU": 0.089
+  },
+  {
+   "tile": "260622_316_H_b4_CBS_02__t1",
+   "frame": "260622_316_H_b4_CBS_02",
+   "corridor_frac": 0.05664253234863281,
+   "containment": 0.7849343549629975,
+   "coverage": 0.3333333333333333,
+   "crossing": 0.9366240097501524,
+   "pixel_IoU": 0.0472
+  },
+  {
+   "tile": "260708_316_H_b2_front_CBS_001__t0",
+   "frame": "260708_316_H_b2_front_CBS_001",
+   "corridor_frac": 0.05475807189941406,
+   "containment": 0.9691277046054818,
+   "coverage": 1.0,
+   "crossing": 0.9929577464788732,
+   "pixel_IoU": 0.146
+  },
+  {
+   "tile": "AS_24hr_BSE_Side_008__t0",
+   "frame": "AS_24hr_BSE_Side_008",
+   "corridor_frac": 0.1084432601928711,
+   "containment": 0.786969861035914,
+   "coverage": 1.0,
+   "crossing": 0.9766643788606726,
+   "pixel_IoU": 0.728
+  },
+  {
+   "tile": "AS_24hr_BSE_Side_008__t1",
+   "frame": "AS_24hr_BSE_Side_008",
+   "corridor_frac": 0.07040023803710938,
+   "containment": 0.819843828187732,
+   "coverage": 1.0,
+   "crossing": 0.9876065065840434,
+   "pixel_IoU": 0.6305
+  },
+  {
+   "tile": "MAR_Amb_AS_CBS_0001__t0",
+   "frame": "MAR_Amb_AS_CBS_0001",
+   "corridor_frac": 0.034874916076660156,
+   "containment": 0.0,
+   "coverage": 0.0,
+   "crossing": 0.0,
+   "pixel_IoU": 0.0
+  },
+  {
+   "tile": "MAR_Amb_AS_CBS_0001__t1",
+   "frame": "MAR_Amb_AS_CBS_0001",
+   "corridor_frac": 0.10528278350830078,
+   "containment": 0.1143632389518378,
+   "coverage": 0.11666666666666667,
+   "crossing": 0.3001345895020188,
+   "pixel_IoU": 0.0
+  },
+  {
+   "tile": "MAR_Amb_AS_CBS_0004__t0",
+   "frame": "MAR_Amb_AS_CBS_0004",
+   "corridor_frac": 0.06340217590332031,
+   "containment": 0.706621604986627,
+   "coverage": 0.4523809523809524,
+   "crossing": 0.8466666666666667,
+   "pixel_IoU": 0.5587
+  },
+  {
+   "tile": "MAR_Amb_AS_CBS_0004__t1",
+   "frame": "MAR_Amb_AS_CBS_0004",
+   "corridor_frac": 0.03607463836669922,
+   "containment": 0.7385059913316904,
+   "coverage": 0.3684210526315789,
+   "crossing": 0.8103932584269663,
+   "pixel_IoU": 0.6095
+  },
+  {
+   "tile": "MAR_Amb_AS_ETD_0004__t0",
+   "frame": "MAR_Amb_AS_ETD_0004",
+   "corridor_frac": 0.057717323303222656,
+   "containment": 0.690278676402625,
+   "coverage": 1.0,
+   "crossing": 0.9959623149394348,
+   "pixel_IoU": 0.1914
+  },
+  {
+   "tile": "MAR_Amb_Cast_ETD_0003__t0",
+   "frame": "MAR_Amb_Cast_ETD_0003",
+   "corridor_frac": 0.004985809326171875,
+   "containment": 0.216525160488714,
+   "coverage": 1.0,
+   "crossing": 1.0,
+   "pixel_IoU": 0.2165
+  },
+  {
+   "tile": "MAR_Amb_Cast_ETD_0003__t1",
+   "frame": "MAR_Amb_Cast_ETD_0003",
+   "corridor_frac": 0.0030755996704101562,
+   "containment": 0.09056932501545552,
+   "coverage": 1.0,
+   "crossing": 1.0,
+   "pixel_IoU": 0.0719
+  },
+  {
+   "tile": "MAR_Amb_HIP_ETD_0007__t0",
+   "frame": "MAR_Amb_HIP_ETD_0007",
+   "corridor_frac": 0.03403472900390625,
+   "containment": 0.4692886895225889,
+   "coverage": 1.0,
+   "crossing": 0.8976109215017065,
+   "pixel_IoU": 0.2714
+  },
+  {
+   "tile": "MAR_Amb_HIP_ETD_0007__t1",
+   "frame": "MAR_Amb_HIP_ETD_0007",
+   "corridor_frac": 0.009752273559570312,
+   "containment": 0.0,
+   "coverage": 0.0,
+   "crossing": 0.0,
+   "pixel_IoU": 0.0
+  }
+ ],
+ "nulls": {
+  "Otsu": [
+   0.7789304551329072,
+   1.0,
+   0.9873417721518988
+  ],
+  "random strokes": [
+   0.039286060723639535,
+   0.25925925925925924,
+   0.25140449438202245
+  ],
+  "all-ones": [
+   0.05475807189941406,
+   1.0,
+   1.0
+  ],
+  "area-matched random": [
+   0.054751892674889405,
+   0.9024390243902439,
+   0.9366666666666666
+  ]
+ }
+}

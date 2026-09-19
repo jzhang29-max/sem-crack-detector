@@ -1,0 +1,18 @@
+# Raw export — large, and regenerable from the pipeline's app_exports
+masks/
+overlays/
+regions/
+summary.csv
+
+# Derived and regenerable (tools/split_sets.py rebuilds sets/ as hard links)
+sets/
+analysis/sam3/tiles/
+analysis/sam3/sam3_original.pt
+
+# Local cruft
+__pycache__/
+*.pyc
+.DS_Store
+analysis/sam3/serd/
+analysis/sam3/omnicrack/
+analysis/sam3/runs/

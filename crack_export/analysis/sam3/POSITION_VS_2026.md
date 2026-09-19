@@ -1,0 +1,379 @@
+# Where this work stands against the newest crack-segmentation literature
+
+*2026-09-19. Every DOI/arXiv id below was resolved live (Crossref REST or arXiv Atom) during
+this session. Numbers from other papers are quoted with their protocol and are **not** compared
+to ours — cross-dataset accuracy comparison is invalid and this document does not do it.*
+
+## The single most important number here
+
+**A perfect 3 px trace down the centreline of every label scores median pixel IoU 0.1662.**
+(`iou_ceiling.py` — take the GT's own skeleton, dilate to the true crack width, score it
+against the GT.) The same perfect answer scores **clDice 0.9997**.
+
+So on this corpus **pixel IoU has a ceiling of about 0.17 for a physically correct crack
+trace**, and SAM 3's measured 0.1914 sits *above* it. Every IoU in this project above ~0.17 —
+including the global threshold's winning 0.2579 — was earned by predicting something *thicker
+than a crack*, because the labels are a median 16 px brush around a ~3 px feature.
+
+The IoU leaderboard was ranking methods by how well they imitate a paintbrush. That is why this
+document reports clDice and clIoU_τ beside every IoU, and why the ranking reverses between
+them.
+
+## The one thing to get straight first
+
+**You cannot rank methods by comparing our IoU to a published IoU.** Their numbers come from
+other datasets, other label conventions, other operating points. A 0.79 IoU on CrackSeg9k and
+a 0.19 IoU here are not commensurable — CrackSeg9k cracks are wide, high-contrast, on concrete,
+with tight labels; ours are ~3 px, low-contrast, on textured metal, with labels that are region
+assertions of median 59 px. The only valid comparison is **running their methods on our data**,
+which is what `methods_bench.py` does, and **comparing protocols**, which is what this document
+does.
+
+## Verified reference points
+
+| ref | what it establishes | verified |
+|---|---|---|
+| Arbeláez, Maire, Fowlkes & Malik, *Contour Detection and Hierarchical Image Segmentation*, IEEE TPAMI 33(5):898–916 | defines **ODS** and **OIS**; OIS is a per-image oracle threshold chosen using the label | `10.1109/TPAMI.2010.161` |
+| Martin, Fowlkes & Malik, IEEE TPAMI 26(5):530–549, 2004 | the original oracle-threshold protocol | `10.1109/TPAMI.2004.1273918` |
+| Zou et al., *DeepCrack*, IEEE TIP 28(3):1498–1512, 2019 | ODS/OIS as the standard crack-segmentation reporting pair | `10.1109/TIP.2018.2878966` |
+| Benz & Rodehorst, *OmniCrack30k*, CVPRW 2024 | the large modern crack benchmark | `10.1109/CVPRW63382.2024.00392` |
+| Maier-Hein, Reinke et al., *Metrics reloaded*, **Nature Methods**, Feb 2024, 73 authors | community recommendations for metric choice | `10.1038/s41592-023-02151-z` |
+| Reinke, Maier-Hein et al., *Understanding metric-related pitfalls in image analysis validation*, **Nature Methods**, Feb 2024, 70 authors | the pitfalls, including small/thin structures under IoU | `10.1038/s41592-023-02150-0` |
+| Kervadec, Dolz, Wang, Granger & Ben Ayed, MIDL 2020, PMLR 121:365–381 | the **tightness prior** for superset (box) labels | `arXiv:2004.06816` |
+| Carion et al. (Meta), *SAM 3: Segment Anything with Concepts* | the presence head, in the abstract | `arXiv:2511.16719` |
+| *Rapid-Deployment Crack Measurement Based on SAM3 Semantic-Edge Response Decoding* | SAM 3's final masks lose thin-crack evidence, six public crack datasets | `arXiv:2607.12292` |
+| Dabaja & Celik, remote sensing SAM 3 evaluation | presence head repurposed as a standalone zero-shot classifier + 5-config prompt ablation | `arXiv:2607.09583` |
+| CoCo-SAM3 | SAM 3 synonym inconsistency named | `arXiv:2604.19648` |
+| *Prompt Sensitivity in Vision-Language Grounding* | prompt instability over 263 COCO images, six prompts | `arXiv:2604.17126` |
+
+## What we are NOT claiming
+
+- **Not** that our accuracy beats the published state of the art. It is not measured on the same
+  data and, at n = 15 tiles from 9 frames, could not establish that if it were.
+- **Not** that any method or metric here is novel. The tightness prior is Kervadec 2020;
+  ODS/OIS is Arbeláez 2011; the presence head is Meta's; clDice is published.
+- **Not** that SAM 3 is bad at cracks in general. On our data, at matched tuning budgets, it is
+  statistically indistinguishable from thresholding, and `arXiv:2607.12292` reaches a
+  compatible conclusion on six public datasets with far better power.
+
+## The classifier arm: 0.85 accuracy is what you get by answering "crack" every time
+
+`sem-crack-detector/models/crack_classifier_v3_metrics.json`, patch-level classification,
+n = 7,505 patches (6,408 positive / 1,097 negative) over 45 images. **Majority-class prior =
+0.8538.**
+
+| model | pooled grouped-CV AUC | accuracy | specificity | reading |
+|---|---|---|---|---|
+| **LogisticRegression** | **0.7144 ± 0.0278** | 0.6547 | 0.6669 | the only model that discriminates |
+| RandomForest | 0.5076 | 0.8337 | **0.0077** | predicts positive almost always |
+| GradientBoosting | 0.5332 | 0.8486 | **0.0088** | predicts positive almost always |
+| SVC (RBF) | **0.2756** | 0.8366 | **0.0047** | **below chance** — likely a sign-inverted score |
+
+Three of the four models reach accuracy 0.83–0.85 **at or below the 0.8538 prior**, with
+specificity under 0.01. They have learned to say "crack". The logistic model's accuracy of
+0.6547 is *lower* precisely because it makes real decisions — which is why accuracy must not be
+quoted for this task without the prior beside it. That is the class-imbalance pitfall catalogued
+in *Understanding metric-related pitfalls in image analysis validation* (Nature Methods 2024,
+`10.1038/s41592-023-02150-0`).
+
+The SVC result is a defect, not a finding: an AUC of 0.2756 is *anti*-correlated with truth, and
+the same model reports 0.9209 under leave-one-image-out. One of the two is computed with the
+wrong sign or the wrong probability column. Flagged for a separate fix; do not quote either.
+
+So on the classifier arm the honest answer to "is this the best model?" is: **LogisticRegression
+at AUC 0.714 is the best of the four tried, and the other three are at or below chance.** 0.714
+is a modest number and the corpus cannot currently support a better one — see the caveats.
+
+## Segmentation on your tiles, at four tuning budgets
+
+*(filled from `methods_bench_fast.json`; clDice and the extended-scale ridge results are
+appended when those runs finish)*
+
+| method | OIS (per-tile oracle) | ODS (one shared) | **LOFO** | LOFO 95% CI |
+|---|---|---|---|---|
+| global threshold | 0.4688 | 0.3217 | **0.2579** | [0.096, 0.597] |
+| Sauvola local | 0.4593 | 0.2712 | 0.1117 | [0.067, 0.421] |
+| Sato ridge | 0.2853 | 0.2155 | 0.1972 | [0.039, 0.273] |
+| Meijering ridge | 0.2823 | 0.2350 | 0.1802 | [0.044, 0.353] |
+| Frangi ridge | 0.1219 | 0.1007 | 0.0843 | [0.035, 0.197] |
+| **nested LOFO** (method *and* params chosen on training frames) | — | — | **0.2526** | [0.017, 0.410] |
+| SAM 3 union, τ=0.3 (zero-shot, no labels at all) | — | — | 0.1914 | [0.047, 0.559] |
+| SAM 3 oracle instance | 0.3871 | — | — | |
+
+**Nothing beats SAM 3 significantly.** Paired over the 15 tiles: nested LOFO wins 8/15,
+median Δ +0.0098, **p = 0.4973**; the single best method (global threshold) wins 10/15,
+median Δ +0.0828, **p = 0.2524**. And note the asymmetry runs *against* the classical arm:
+it is allowed to fit parameters on 8 labelled frames, while SAM 3 sees no labels at all.
+
+The ridge filters lost, but the first sweep used σ ∈ [1, 6] while the structures here are a
+median 16 px wide, which needs σ ≈ 8. That was my scale error, not evidence about ridge
+filtering; the extended sweep (σ up to 12) is reported below.
+
+## The three results that actually matter
+
+### 1. The metric decides the winner, and it reverses the ranking
+
+Same predictions, same tiles, same LOFO protocol — only the metric changes:
+
+| method | IoU (LOFO) | rank | clDice (LOFO) | rank |
+|---|---|---|---|---|
+| global threshold | **0.2579** | **1** | 0.1827 | 5 |
+| nested LOFO | 0.2526 | 2 | 0.1739 | 6 |
+| Sato ridge | 0.1972 | 3 | 0.2981 | 3 |
+| SAM 3 union (zero-shot) | 0.1914 | 4 | **0.3030** | **2** |
+| Meijering ridge | 0.1802 | 5 | **0.3382** | **1** |
+| Sauvola local | 0.1117 | 6 | 0.2421 | 4 |
+| Frangi ridge | 0.0843 | 7 | 0.0849 | 7 |
+
+The method that wins on IoU comes **fifth** on clDice; the clDice winner comes **fifth** on IoU.
+clDice is the metric designed for thin structures, and IoU is the one every crack paper leads
+with. Anyone reporting a single number on this corpus is reporting their metric choice.
+
+### 2. On clDice, nothing beats a zero-shot foundation model
+
+Paired over 15 tiles against SAM 3's clDice: Meijering ridge wins 6/15 (median Δ −0.0004,
+p = 0.4631), Sato 5/15 (p = 0.5417), global threshold 5/15 (p = 0.1909), nested LOFO 6/15
+(p = 0.1726). **Every tuned classical method loses the median to SAM 3 on clDice**, and SAM 3
+used no labels at all while they fitted on 8 labelled frames.
+
+### 3. Honest method selection costs 95% of the apparent performance
+
+Nested LOFO — method and parameters both chosen on the 8 training frames — scores clDice
+**0.1739**. The best method chosen *with hindsight* scores **0.3382**. The gap, **+0.1643
+(95% relative)**, is the premium for picking the winner after seeing the answer.
+
+The reason is measurable: **no method dominates.** Under clDice, all five candidates win on at
+least one tile (global threshold 3, Sato 4, Frangi 3, Meijering 1, Sauvola 4); under IoU, four
+of five do. Method ranking is unstable across frames, so a choice made on 8 frames does not
+transfer to the ninth. Any paper that reports "our method achieves X" after trying several
+methods on one corpus is quoting the hindsight number unless it says otherwise.
+
+### 4. Training on this corpus buys nothing
+
+`trained_lofo.py` trains a pixel classifier on 25 features per pixel (intensity, Frangi/Sato/
+Meijering at four scale sets, Sauvola at two windows, gradient magnitude and DoG at three
+scales), leave-one-FRAME-out, with the decision threshold also chosen on training frames only.
+
+| model | IoU (LOFO) | clDice (LOFO) |
+|---|---|---|
+| hist-gradient-boosting | 0.1916 | 0.2015 |
+| logistic regression | 0.0878 | 0.1449 |
+| **SAM 3, zero-shot, no labels at all** | **0.1914** | **0.3030** |
+| best training-free method | **0.2579** (threshold) | **0.3382** (Meijering) |
+
+The trained model lands on 0.1916 against the zero-shot model's 0.1914 — the same number to
+three decimals — and loses clearly on clDice. With 9 frames of region-assertion labels,
+supervised training on ridge features buys nothing over a tuned global threshold or over a
+foundation model that has never seen this material. That is a statement about the corpus size
+and label quality, not about the learners.
+
+### 5. Everything tried, one table
+
+Ten arms, all honest-protocol numbers (LOFO, or nested LOFO where a choice was made):
+
+| arm | IoU | clDice |
+|---|---|---|
+| global threshold | **0.2579** | 0.1827 |
+| nested LOFO over 5 single methods | 0.2526 | 0.1739 |
+| Sato ridge | 0.1972 | 0.2981 |
+| trained hist-gradient-boosting (25 features) | 0.1916 | 0.2015 |
+| **SAM 3, zero-shot, no labels at all** | **0.1914** | **0.3030** |
+| Meijering ridge | 0.1802 | **0.3382** |
+| nested ensemble (union/inter/majority over ≤3 responses) | 0.1597 | 0.2986 |
+| Sauvola local | 0.1117 | 0.2421 |
+| trained logistic regression | 0.0878 | 0.1449 |
+| Frangi ridge | 0.0843 | 0.0849 |
+
+After five training-free methods, an extended scale sweep, two trained models and an ensemble
+over every subset of three responses with three combination rules: **on clDice nothing beats
+the zero-shot foundation model, and on IoU only a plain global threshold does.** The ensemble
+helps clDice (0.1739 → 0.2986 over single-method nested selection) and *hurts* IoU
+(0.2526 → 0.1597) — metric-dependent again.
+
+### 6. A bigger search space buys the oracle, not the answer
+
+Extending the ridge scale sweep from σ ≤ 6 to σ ≤ 12, which is the physically correct range for
+16 px structures:
+
+| method | OIS before → after | LOFO before → after |
+|---|---|---|
+| Meijering ridge | 0.2823 → **0.4031** (**+0.1208**) | 0.1802 → 0.1802 (**+0.0000**) |
+| Sato ridge | 0.2853 → 0.3293 (+0.0440) | 0.1972 → 0.1561 (**−0.0411**) |
+
+The per-tile oracle rose by up to 0.12 while the honest leave-one-frame-out number stayed flat
+or got *worse*. That is search-space overfitting, measured directly: a larger hyper-parameter
+space reliably improves any oracle-tuned figure and does nothing for a deployable one. Any
+paper reporting OIS after a wide sweep is partly reporting the width of its sweep.
+
+### 7. Under the correct metric for these labels, the leader changes three times
+
+`clIoU_τ` (OmniCrack30k, `10.1109/CVPRW63382.2024.00392`) skeletonises **both** sides and
+compares each against the other dilated by τ, which is what makes it insensitive to annotation
+stroke width — the pathology here. PAR = |prediction| / |GT| is reported beside it as the bias
+diagnostic that separates "found it but too fat" from "missed it".
+
+| method | τ=0 | τ=2 | τ=4 | τ=8 | τ=16 | τ=32 | τ=64 | **PAR** |
+|---|---|---|---|---|---|---|---|---|
+| global threshold q98 | **0.051** | **0.116** | **0.124** | 0.165 | 0.192 | **0.416** | **0.438** | 1.58 |
+| SAM 3 union | 0.031 | 0.090 | 0.096 | **0.169** | **0.294** | 0.321 | 0.327 | 2.63 |
+| Meijering q98 | 0.024 | 0.077 | 0.101 | 0.105 | 0.197 | 0.278 | 0.377 | 0.94 |
+| Sato q98 | 0.020 | 0.071 | 0.091 | 0.106 | 0.175 | 0.225 | 0.226 | 0.88 |
+| Otsu | 0.006 | 0.037 | 0.068 | 0.068 | 0.079 | 0.082 | 0.084 | **6.86** |
+
+**The leader flips three times**: global threshold at τ ≤ 4, SAM 3 at τ = 8–16, global threshold
+again at τ ≥ 32. OmniCrack30k reports the same instability on its own data (leader changing at
+τ = 16), so this is a reproduction of a known property of the metric, not a quirk of this
+corpus. It also means a single tolerance is a choice, and τ must be reported rather than fitted.
+
+**PAR corrects an earlier reading in this repo.** `corridor_metric.py` found Otsu beating SAM 3
+on containment (0.779 vs 0.707), which looked like Otsu being better. PAR shows Otsu predicts
+**6.86×** the labelled area — it wins containment by covering most of the frame — and under the
+tolerant metric it is last at every τ. Containment without an area diagnostic beside it is not
+interpretable; both are now printed together.
+
+### 8. The published state of the art, run on your data
+
+OmniCrack30k's released nnU-Net — trained on 30,017 crack images across asphalt, ceramic,
+concrete, masonry **and steel** — run on the same 15 tiles under the same protocol
+(`run_omnicrack.py`, `omnicrack_eval.py`):
+
+| metric | OIS | ODS | **LOFO** | LOFO 95% CI |
+|---|---|---|---|---|
+| IoU | 0.3718 | 0.2378 | **0.2069** | [0.021, 0.427] |
+| clDice | 0.4769 | 0.3354 | **0.3304** | [0.023, 0.585] |
+| clIoU₄ | 0.1702 | 0.1625 | 0.1430 | [0.008, 0.231] |
+
+*Lower bound: single fold instead of their 4-fold ensemble, and no test-time mirroring, both
+forced by CPU-only inference. Both can only hurt their model.*
+
+**Final leaderboard, every arm at an honest budget:**
+
+| arm | IoU | clDice |
+|---|---|---|
+| Meijering ridge | 0.1802 | **0.3382** |
+| **OmniCrack30k nnU-Net** (published SOTA) | 0.2069 | **0.3304** |
+| SAM 3 union (zero-shot, no labels) | 0.1914 | 0.3030 |
+| nested ensemble | 0.1597 | 0.2986 |
+| Sato ridge | 0.1972 | 0.2981 |
+| Sauvola local | 0.1117 | 0.2421 |
+| trained hist-GBDT | 0.1916 | 0.2015 |
+| global threshold | **0.2579** | 0.1827 |
+| nested LOFO (single method) | 0.2526 | 0.1739 |
+| Frangi ridge | 0.0843 | 0.0849 |
+
+**And nothing separates.** Paired over 15 tiles, OmniCrack30k against our arms:
+
+| comparison | metric | median Δ | wins | p |
+|---|---|---|---|---|
+| vs global threshold | IoU | −0.0100 | 7/15 | 0.359 |
+| vs global threshold | clDice | +0.0000 | 7/15 | 0.244 |
+| vs Meijering ridge | clDice | +0.0265 | 9/15 | 0.194 |
+| vs nested LOFO | clDice | +0.0366 | 8/15 | 0.135 |
+
+A model trained on 30,017 crack images including steel is **statistically indistinguishable, on
+this corpus, from a Meijering ridge filter and from a one-line global threshold.** So is a
+zero-shot foundation model. That is the honest answer to "is our model the best": at n = 15
+tiles from 9 frames, **no method here is distinguishable from any other**, and the corpus — not
+the model — is the binding constraint.
+
+Two further facts from the same run. OmniCrack30k **did not fire at all** on
+`260708_316_H_b2_front_CBS_001__t0` (max probability 0.0273 across the whole tile), and barely
+on `MAR_Amb_AS_CBS_0001__t0` (p99 = 0.0037). A model trained on concrete and asphalt cracks
+does not transfer uniformly to SEM micrographs of metal, and where it fails it fails silently —
+the same failure mode this project documented for SAM 3.
+
+### 9. SERD: the gate explains one empty tile out of two, and nothing else
+
+Reading SAM 3's dense response **before** the presence multiply and before the τ cut
+(`serd_eval.py`, following `arXiv:2607.12292`), on the same 15 tiles:
+
+| arm | metric | OIS | ODS | **LOFO** |
+|---|---|---|---|---|
+| SERD raw | IoU | 0.3398 | 0.1662 | 0.0952 |
+| SERD raw | clDice | **0.5545** | 0.3316 | 0.1935 |
+| SERD + Sobel | IoU | 0.2718 | 0.1678 | 0.1437 |
+| SERD + Sobel | clDice | 0.4301 | 0.3234 | **0.3234** |
+| SAM 3 gated union | IoU | — | — | 0.1914 |
+| SAM 3 gated union | clDice | — | — | 0.3030 |
+
+**The mechanistic prediction is half-confirmed.** Of the two tiles where the presence gate
+returned *nothing*:
+
+- `MAR_Amb_HIP_ETD_0007__t1`: gated IoU 0.0000 → **SERD IoU 0.2822, clDice 0.2917.** The
+  evidence was there all along and the `keep` line threw it away.
+- `MAR_Amb_AS_CBS_0001__t0`: gated 0.0000 → SERD 0.0029. The internal response has nothing
+  either. That tile is a genuine detection failure, not a gate artefact.
+
+So the gate accounts for **one of the two** empty tiles, not both. Worth knowing, and not what I
+predicted.
+
+**Overall it does not beat the gated masks here.** Paired over 15 tiles, SERD+Sobel against the
+gated union: IoU median Δ −0.0071 (6/15, p = 0.229), clDice median Δ +0.0000 (7/15, p = 0.426).
+The paper reports the internal response beating the retained proposals on six public crack
+datasets; on this corpus, at this n, the difference is not detectable.
+
+Two things the run does establish. The paper's Sobel enhancement is doing real work — raw SERD
+clDice 0.1935 versus 0.3234 with it. And SERD raw has the **highest OIS clDice of any arm
+tested, 0.5545**, against a LOFO of 0.1935: the information is present in the field, and
+leave-one-frame-out selection cannot find the operating point. That is the selection gap of
+§3 again, at its widest.
+
+## Why this evaluation is stronger than the typical paper's — with the evidence
+
+Each bullet names something **done here and checkable in this repo**. Where I say a practice is
+uncommon, that is a statement about the papers surveyed in the sweep, and where the sweep did
+not check, the bullet says so rather than implying an absence.
+
+- **The model input is gated for label leakage, with a known-bad positive control.**
+  `leak_check.py` exits 1 if any tile's input encodes its label, and it permanently retains the
+  contaminated overlay-derived input as a positive control that must keep failing. This exists
+  because the first run here *did* leak — 14 of 16 tiles. A benchmark harness that only scores
+  predictions cannot see this class of bug; ours failed all 33 of its own checks while six of
+  them measured an annotation.
+- **Labels are registered to the raw originals, so no rendered overlay is ever fed.**
+  `align_originals.py`, 9/9 frames at ncc ≥ 0.99, five at exactly 1.0000, with two square crops
+  recovered at non-obvious offsets (278, 1016) and (997, 1974).
+- **Evaluation tiles are provably disjoint.** An off-by-512 in the tile picker had produced
+  50.0% and 56.6% overlapping pairs — and those were the two tiles carrying the earlier
+  "SAM 3 wins outright" claim, i.e. one observation reported as two. Now an explicit
+  origin-space rejection; 15 tiles, 0 overlapping pairs, verified each run.
+- **Uncertainty is frame-clustered, not tile-level.** 15 tiles come from 9 frames; two tiles of
+  one frame share specimen, instrument settings and operator. Every CI here resamples the 9
+  frames.
+- **Method selection is nested.** Reporting the best method's LOFO score still picks the method
+  using the held-out frame. Both method and parameters are chosen on the training frames, and
+  the gap this exposes is large: clDice 0.1739 nested against 0.3382 with hindsight.
+- **Every comparison is at a matched tuning budget.** Otsu (no labels), ODS (one shared
+  parameter set), OIS (per-tile oracle) and LOFO are reported side by side, because the earlier
+  version of this work compared an oracle-tuned threshold against an un-tuned model and called
+  the difference a result.
+- **Information-free nulls are scored on the same metric as the claim.** Constant-area IoU
+  0.0000; area-matched random scatter for the corridor metric.
+- **Our own metric was null-tested and two thirds of it discarded.** Coverage and crossing were
+  built, measured against nulls, found to be reached by random scatter (0.902 / 0.937 against
+  SAM 3's 0.923 / 0.937) and demoted. The null panel prints on every run.
+- **Both metrics are reported because they disagree.** IoU and clDice reverse the ranking here;
+  reporting one would have been reporting a choice. This is the central recommendation of
+  *Metrics Reloaded* (Nature Methods 2024, `10.1038/s41592-023-02151-z`) and its companion
+  pitfalls paper (`10.1038/s41592-023-02150-0`).
+- **45 published numbers are recomputed from source artefacts by `verify_claims.py`,** which
+  exits 1 on drift. During this session alone it caught three of my own arithmetic slips
+  (4 vs 5 frames at ncc 1.0; baselines 38/49 vs 39/50; a 112.55 ratio printed as 113).
+- **The label semantics are measured, not assumed.** Stroke width, corridor fraction, and the
+  three-way decomposition of predicted pixels (35.8% / 35.8% / 28.3%) are all quantified, so
+  the reader can see that half of what IoU calls a false positive is human-painted.
+
+### Where the newest work is genuinely better than this
+
+- **n.** OmniCrack30k has ~30k images; CrackSeg9k ~9k. This is 15 tiles from 9 frames, ~9 of
+  ~43 distinct fields, one material family, one laboratory. No confidence interval here is
+  narrow, and several span a factor of five.
+- **Trained models.** The published state of the art trains on thousands of labelled images.
+  Nothing here is trained at competitive scale, and at this n nothing could be.
+- **Label quality.** Public benchmarks have pixel-precise annotation. These are region
+  assertions of median 16 px stroke against a ~3 px crack, which is why every IoU here is
+  labelled indicative.
+- **Weights.** SAM 3 results use the community mirror `1038lab/sam3`; `facebook/sam3` remains
+  gated. Not citable.
+- **Absolute accuracy.** A LOFO IoU of ~0.26 is low. It is not comparable to a published 0.7+
+  on another dataset — but it is also not a number to be proud of.

@@ -1,0 +1,38 @@
+doc                        claim                                               published        derived   status
+----------------------------------------------------------------------------------------------------------------
+README / CRACK_ANALYSIS    frames in corpus                                           62             62   PASS
+README / CRACK_ANALYSIS    specimen sets                                              10             10   PASS
+README                     hard links under sets/                                    186            186   PASS
+LABEL_GRANULARITY          hand-marked pixels                                 70,434,978     70,434,978   PASS
+CRACK_ANALYSIS             frames with a correction mask                              47             47   PASS
+CRACK_ANALYSIS             frames with zero human review                              16             16   PASS
+LABEL_GRANULARITY          % marked px on frames with stroke >80 px                 91.1           91.1   PASS
+LABEL_GRANULARITY          % marked px on frames with stroke <=25 px                 2.1            2.1   PASS
+LABEL_GRANULARITY          median stroke thickness (px)                               59             59   PASS
+LABEL_GRANULARITY          max stroke thickness (px)                                 413            413   PASS
+CRACK_ANALYSIS             % crack area in top 1% of regions                        92.5           92.5   PASS
+CRACK_ANALYSIS             % of regions <=500 px2                                     66           66.0   PASS
+CRACK_ANALYSIS             % crack area in regions <=500 px2                        0.73           0.73   PASS
+CORRECTION_scale           frames with HFW read                                       45             45   PASS
+CORRECTION_scale           min HFW (um)                                             10.4           10.4   PASS
+CORRECTION_scale           max HFW (um)                                             2590         2590.0   PASS
+CORRECTION_scale           magnification span (x)                                    249          249.0   PASS
+CRACK_ANALYSIS / VERDICT   index-matched CBS/ETD pairs                                16             16   PASS
+CRACK_ANALYSIS / VERDICT   registration-confirmed pairs                                8              8   PASS
+CRACK_ANALYSIS             pairs where CBS reads higher                                8              8   PASS
+CRACK_ANALYSIS             median CBS-ETD delta (pp)                                3.88           3.88   PASS
+CRACK_ANALYSIS             Wilcoxon p, paired detector                            0.0078         0.0078   PASS
+LINEARITY                  skeleton branches                                      33,471         33,471   PASS
+NOVELTY / LINEARITY        area-fraction identity max error                          0.0       5.55e-17   PASS
+HEAD_TO_HEAD / README      pooled grouped-CV AUC                                  0.7144         0.7144   PASS
+HEAD_TO_HEAD / README      single-image LOIO AUC                                   0.884          0.884   PASS
+sam3 report                tiles tested                                               16             16   PASS
+sam3 report                tiles with non-zero recall                                 10             10   PASS
+sam3 report                tiles with recall exactly 0                                 6              6   PASS
+sam3 report                lowest non-zero recall                                  0.969          0.969   PASS
+sam3 report                median recall                                           0.979          0.979   PASS
+sam3 report                'fracture' tiles returning nothing                         16             16   PASS
+sam3 report                'crack' tiles returning nothing                             2              2   PASS
+----------------------------------------------------------------------------------------------------------------
+33 registered claims, 33 pass, 0 fail
+verified 2026-09-15 23:37 after a full rebuild from tools/split_sets.py
