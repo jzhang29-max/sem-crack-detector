@@ -7,9 +7,9 @@
   "survives": true
  },
  "260622_316_H_b2_front_CBS_01__t0|a crack in metal": {
-  "presence": 0.206055,
+  "presence": 0.204102,
   "max_q": 0.613281,
-  "gated_max": 0.126369,
+  "gated_max": 0.125172,
   "tau": 0.3,
   "survives": false
  },
@@ -176,8 +176,8 @@
  },
  "MAR_Amb_AS_CBS_0001__t0|a crack in metal": {
   "presence": 0.031738,
-  "max_q": 0.478516,
-  "gated_max": 0.015187,
+  "max_q": 0.480469,
+  "gated_max": 0.015249,
   "tau": 0.3,
   "survives": false
  },
@@ -204,8 +204,8 @@
  },
  "MAR_Amb_AS_CBS_0001__t1|a crack in metal": {
   "presence": 0.091309,
-  "max_q": 0.5,
-  "gated_max": 0.045654,
+  "max_q": 0.503906,
+  "gated_max": 0.046011,
   "tau": 0.3,
   "survives": false
  },
@@ -259,9 +259,9 @@
   "survives": true
  },
  "MAR_Amb_AS_CBS_0004__t1|a crack in metal": {
-  "presence": 0.137695,
-  "max_q": 0.546875,
-  "gated_max": 0.075302,
+  "presence": 0.136719,
+  "max_q": 0.542969,
+  "gated_max": 0.074234,
   "tau": 0.3,
   "survives": false
  },
@@ -315,9 +315,9 @@
   "survives": true
  },
  "MAR_Amb_Cast_ETD_0003__t0|a crack in metal": {
-  "presence": 0.200195,
+  "presence": 0.199219,
   "max_q": 0.675781,
-  "gated_max": 0.135288,
+  "gated_max": 0.134628,
   "tau": 0.3,
   "survives": false
  },
@@ -343,9 +343,9 @@
   "survives": true
  },
  "MAR_Amb_Cast_ETD_0003__t1|a crack in metal": {
-  "presence": 0.140625,
+  "presence": 0.139648,
   "max_q": 0.691406,
-  "gated_max": 0.097229,
+  "gated_max": 0.096554,
   "tau": 0.3,
   "survives": false
  },

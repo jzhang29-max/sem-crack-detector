@@ -116,9 +116,17 @@ def main():
         if SAVE_SERD:
             try:
                 import torch.nn.functional as F
-                pm = out["pred_masks"].float()          # [Q, h, w] logits
-                pl = out["pred_logits"].float().sigmoid().flatten()   # [Q]
-                q = (pm.sigmoid() * pl[:, None, None]).max(0).values  # NO presence, NO keep
+                # pred_masks is [B, Q, h, w] here, not [Q, h, w]: the processor's
+                # out_probs.squeeze(-1) at line 197 implies pred_logits is [B, Q, 1], and the
+                # keep-mask is [B, Q], so out_masks[keep] collapses the first TWO dims. The
+                # first attempt assumed [Q, h, w], took max over the batch axis and handed
+                # interpolate a 5-D tensor. Handle both ranks explicitly.
+                pm = out["pred_masks"].float()
+                if pm.dim() == 4:
+                    pm = pm[0]                                        # [Q, h, w]
+                pl = out["pred_logits"].float().sigmoid().reshape(-1)  # [Q]
+                assert pm.shape[0] == pl.shape[0], (pm.shape, pl.shape)
+                q = (pm.sigmoid() * pl[:, None, None]).max(0).values   # NO presence, NO keep
                 q = F.interpolate(q[None, None], size=(1024, 1024), mode="bilinear",
                                   align_corners=False)[0, 0]
                 q = q.detach().cpu().numpy()
