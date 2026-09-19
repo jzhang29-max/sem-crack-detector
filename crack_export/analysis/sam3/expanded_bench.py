@@ -11,8 +11,19 @@ trace down the label centreline scores median IoU 0.1662 on the fine frames; on 
 frames, whose brush is wider still, the ceiling is lower again. Ranking by a quantity whose
 maximum is set by the annotator's brush is not measurement. So:
 
-  clIoU_4      OmniCrack30k's tolerant IoU at tau = 4 px, both sides skeletonised
-  containment  fraction of predicted pixels inside the human's asserted corridor
+  clIoU_tau    OmniCrack30k's tolerant IoU, both sides skeletonised. TAU IS SET PER FRAME to
+               half that frame's median brush width, NOT to the fixed 4 px of the fine-subset
+               analysis. The first run of this script used tau = 4 everywhere and clIoU
+               collapsed to 0.03-0.05: against a 59 px median brush (max 413 px) the label's
+               skeleton can lie 206 px from a correct thin crack, so a 4 px tolerance cannot
+               match them and every method scores near zero for the same reason. A fixed tau is
+               only meaningful when the brush is roughly constant, which is exactly what this
+               corpus is not.
+  cont_lift    containment DIVIDED BY the corridor's own area fraction, i.e. by what an
+               all-ones prediction would score on that frame. Raw containment is unusable here:
+               the corridor covers a median 42.2% of a coarse tile against 5.5% of a fine one,
+               so 0.99 containment on a coarse frame is nearly unavoidable and means almost
+               nothing. Lift of 1.0 is chance; the ceiling is 1/corridor_fraction.
   PAR          predicted area / labelled area -- the bias diagnostic that exposes a method
                winning containment by painting everything (Otsu scored 0.779 at PAR 6.86)
 
@@ -36,15 +47,24 @@ rng = np.random.default_rng(20260919)
 
 
 def cliou(p, g, tau=4):
+    """clIoU_tau via the Euclidean distance transform rather than a disk dilation.
+
+    dilate(X, disk(tau)) is exactly {pixels within tau of X}, i.e. EDT(~X) <= tau. Both give
+    identical results, but the EDT is computed ONCE per skeleton for any tau, whereas
+    binary_dilation costs more as the radius grows. With tau scaled per frame to half the brush
+    width, radii here reach 206 px and the dilation form was too slow to finish. This is an
+    exact reformulation, not an approximation.
+    """
     if p.sum() == 0 or g.sum() == 0:
         return 0.0
     sp, sg = skeletonize(p), skeletonize(g)
     if sp.sum() == 0 or sg.sum() == 0:
         return 0.0
-    k = disk(tau)
-    tp = int((sg & binary_dilation(sp, k)).sum())
-    fp = int((sp & ~(sp & binary_dilation(sg, k))).sum())
-    fn = int((sg & ~(sg & binary_dilation(sp, k))).sum())
+    near_p = ndi.distance_transform_edt(~sp) <= tau      # within tau of the prediction skeleton
+    near_g = ndi.distance_transform_edt(~sg) <= tau      # within tau of the label skeleton
+    tp = int((sg & near_p).sum())
+    fp = int((sp & ~(sp & near_g)).sum())
+    fn = int((sg & ~(sg & near_p)).sum())
     d = tp + fp + fn
     return float(tp / d) if d else 0.0
 
@@ -65,7 +85,9 @@ def main():
         gt = np.array(Image.open(f"{SC}/tiles_all/{n}_gt.png")) > 127
         cor = np.array(Image.open(f"{SC}/tiles_all/{n}_corridor.png")) > 127
         gf = g.astype(np.float32) / 255.0
-        data[n] = {"g": g, "gt": gt, "cor": cor | gt, "fine": m["fine"],
+        tau = max(2, int(round(m["median_thick_px"] / 2)))   # tolerance scaled to THIS brush
+        data[n] = {"g": g, "gt": gt, "cor": cor | gt, "fine": m["fine"], "tau": tau,
+                   "corfrac": float((cor | gt).mean()),
                    "sato": sato(gf, sigmas=np.arange(1, 5.0), black_ridges=True),
                    "meij": meijering(gf, sigmas=np.arange(1, 5.0), black_ridges=True)}
     names = list(data)
@@ -90,8 +112,9 @@ def main():
             for n in names:
                 p = predict(n, mth, q)
                 d = data[n]
-                sc[key][n] = (cliou(p, d["gt"]), iou(p, d["gt"]),
-                              float(p[d["cor"]].sum() / p.sum()) if p.sum() else 0.0,
+                cont = float(p[d["cor"]].sum() / p.sum()) if p.sum() else 0.0
+                sc[key][n] = (cliou(p, d["gt"], d["tau"]), iou(p, d["gt"]),
+                              cont / max(d["corfrac"], 1e-9),          # lift over the all-ones null
                               float(p.sum() / max(d["gt"].sum(), 1)))
         print(f"  scored {mth}", flush=True)
 
@@ -106,7 +129,7 @@ def main():
     out = {}
     for mth in METHODS:
         keys = [k for k in sc if k[0] == mth]
-        for idx, metric in ((0, "clIoU4"), (2, "containment"), (3, "PAR"), (1, "IoU")):
+        for idx, metric in ((0, "clIoU_adapt"), (2, "cont_lift"), (3, "PAR"), (1, "IoU")):
             ois = [max(sc[k][n][idx] for k in keys) for n in names]
             odsk = max(keys, key=lambda k: np.median([sc[k][n][idx] for n in names]))
             lofo = []
@@ -127,13 +150,19 @@ def main():
     json.dump(out, open(f"{SC}/expanded_bench.json", "w"), indent=1)
 
     from scipy.stats import wilcoxon
-    print(f"\nDOES THE EXPANDED n SEPARATE THEM?  (paired over {len(names)} frames, clIoU4)")
+    tt = [data[n]["tau"] for n in names]
+    print(f"\n  per-frame tau: median {int(np.median(tt))} px, range {min(tt)}-{max(tt)} px")
+    cfr = [data[n]["corfrac"] for n in names]
+    print(f"  all-ones containment null: median {np.median(cfr):.4f} "
+          f"(fine {np.median([data[n]['corfrac'] for n in names if data[n]['fine']]):.4f}, "
+          f"coarse {np.median([data[n]['corfrac'] for n in names if not data[n]['fine']]):.4f})")
+    print(f"\nDOES THE EXPANDED n SEPARATE THEM?  (paired over {len(names)} frames, clIoU_adapt)")
     for a in METHODS:
         for b in METHODS:
             if a >= b:
                 continue
-            d = [x - y for x, y in zip(out[f"{a}|clIoU4"]["per_frame"],
-                                       out[f"{b}|clIoU4"]["per_frame"])]
+            d = [x - y for x, y in zip(out[f"{a}|clIoU_adapt"]["per_frame"],
+                                       out[f"{b}|clIoU_adapt"]["per_frame"])]
             nz = [x for x in d if x != 0]
             if len(nz) < 6:
                 continue

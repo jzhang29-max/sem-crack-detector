@@ -1,0 +1,222 @@
+{
+ "260622_316_H_b2_back_CBS_01": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "260622_316_H_b2_front_CBS_01": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "260622_316_H_b2_front_CBS_03": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "260622_316_H_b2_front_CBS_04": {
+  "ncc": 0.9995,
+  "dy": 0,
+  "dx": 0
+ },
+ "260622_316_H_b4_CBS_02": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "260708_316_H_b2_front_CBS_001": {
+  "ncc": 1.0,
+  "dy": 278,
+  "dx": 1016
+ },
+ "260708_316_H_b2_front_CBS_002": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "260708_316_H_b2_front_CBS_003": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "260708_316_H_b2_front_CBS_004": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "260708_316_H_b2_front_CBS_005": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "260708_316_H_b2_front_CBS_006": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "260708_316_H_b2_front_CBS_007": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "260708_316_H_b2_front_CBS_008": {
+  "ncc": 0.9969,
+  "dy": 0,
+  "dx": 0
+ },
+ "260708_316_H_b2_front_CBS_011": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "260708_316_H_b2_front_CBS_012": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "260708_316_H_b2_front_CBS_013": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "260708_316_H_b2_front_CBS_014": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "260708_316_H_b2_front_CBS_015": {
+  "ncc": 0.9993,
+  "dy": 0,
+  "dx": 0
+ },
+ "260708_316_H_b2_front_CBS_016": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "AS_24hr_BSE_Side_008": {
+  "ncc": 0.9992,
+  "dy": 0,
+  "dx": 0
+ },
+ "Cast_24hr_SE_Side_006": {
+  "ncc": 0.9999,
+  "dy": 0,
+  "dx": 0
+ },
+ "HIP_24hr_SE_Side_006": {
+  "ncc": 0.9999,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_AS_CBS_0001": {
+  "ncc": 1.0,
+  "dy": 997,
+  "dx": 1974
+ },
+ "MAR_Amb_AS_CBS_0003": {
+  "ncc": 0.9997,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_AS_CBS_0004": {
+  "ncc": 0.9995,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_AS_CBS_0005": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_AS_ETD_0001": {
+  "ncc": 1.0,
+  "dy": 914,
+  "dx": 1957
+ },
+ "MAR_Amb_AS_ETD_0002": {
+  "ncc": 0.9999,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_AS_ETD_0003": {
+  "ncc": 0.9999,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_AS_ETD_0004": {
+  "ncc": 0.9993,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_Cast_CBS_0005": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_Cast_ETD_0003": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_Cast_ETD_0004": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_HIP_CBS_0003": {
+  "ncc": 0.9999,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_HIP_CBS_0005": {
+  "ncc": 0.9997,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_HIP_CBS_0006": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_HIP_CBS_0008": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_HIP_CBS_0010": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_HIP_ETD_0003": {
+  "ncc": 0.9999,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_HIP_ETD_0005": {
+  "ncc": 0.9999,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_HIP_ETD_0006": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_HIP_ETD_0007": {
+  "ncc": 0.9995,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_HIP_ETD_0008": {
+  "ncc": 1.0,
+  "dy": 0,
+  "dx": 0
+ },
+ "MAR_Amb_HIP_ETD_0010": {
+  "ncc": 0.9999,
+  "dy": 0,
+  "dx": 0
+ }
+}
