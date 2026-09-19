@@ -318,6 +318,40 @@ tested, 0.5545**, against a LOFO of 0.1935: the information is present in the fi
 leave-one-frame-out selection cannot find the operating point. That is the selection gap of
 §3 again, at its widest.
 
+### 10. How much data would it actually take?
+
+"The corpus is the binding constraint" was an assertion until `power_analysis.py` put a number
+on it. Bootstrap over the 9 **source frames**, resample n frames, rerun the same paired
+Wilcoxon, count how often p < 0.05:
+
+| comparison (clDice) | observed Δ | n=9 | n=15 | n=25 | n=40 | n=60 | n=150 |
+|---|---|---|---|---|---|---|---|
+| OmniCrack30k vs global threshold | +0.0000 | 0.26 | 0.42 | 0.51 | 0.71 | 0.88 | 1.00 |
+| OmniCrack30k vs Meijering ridge | +0.0265 | 0.26 | 0.40 | 0.63 | 0.82 | 0.95 | 1.00 |
+| global threshold vs SAM 3 | −0.0215 | 0.23 | 0.41 | 0.65 | 0.89 | 0.98 | 1.00 |
+| Meijering ridge vs SAM 3 | −0.0004 | 0.09 | 0.12 | 0.24 | 0.39 | 0.53 | 0.90 |
+
+**80% power needs ~40 frames for two of these, ~60 for a third, ~150 for the closest pair. The
+corpus has 9.** Every "not significant" in this document is therefore a statement about the
+design, not evidence that the methods are equivalent. It must not be read as the latter.
+
+### 11. The 38 frames that were being thrown away
+
+47 frames carry a correction mask. Only 9 were used, because the other 38 have a median brush
+wider than 25 px and pixel IoU against them is meaningless — the ceiling falls below even the
+0.1662 measured on the fine frames. But **clIoU_τ and containment are width-insensitive by
+construction**: that is what they were built for. The exclusion was a property of the metric,
+not of the data.
+
+`expand_corpus.py` registers all 47 to their raw originals and cuts one tile per frame — one, so
+that the tile count *is* the frame count and leave-one-frame-out cannot alias into
+leave-one-tile-out. `expanded_bench.py` then reruns the training-free arms on all of them with
+clIoU₄, containment and PAR, reporting pixel IoU for the fine subset only so the expanded result
+can be checked against the 15-tile result on common ground.
+
+Brush widths across the 47 run from 10 px to 288 px, which is the clearest possible statement of
+why a width-insensitive metric is not optional here.
+
 ## Why this evaluation is stronger than the typical paper's — with the evidence
 
 Each bullet names something **done here and checkable in this repo**. Where I say a practice is
