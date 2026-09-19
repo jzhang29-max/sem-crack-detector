@@ -26,6 +26,18 @@ IoU rewards exactly that. A perfect 3 px trace down the label centreline scores 
 thickness, not of detection. Meijering's PAR of 0.553 means it predicts about half the labelled
 area -- which is what a correct thin detection looks like against a broad brush.
 
+AN OPTIONAL SCRATCH REJECTOR is available via reject_scratches=True and is OFF by default.
+Dropping components that are BOTH near-straight (tortuosity < 1.08) AND aligned within 20
+degrees of the frame's dominant axial direction raises the whole-frame median clIoU_adapt from
+0.1514 to 0.1684, keeping 73% of predicted pixels. It does not reach significance: median
+paired delta +0.0037, 26/38 wins, p = 0.064. Notably its leave-one-frame-out selection was
+STABLE -- the same setting won on every fold -- unlike every method sweep in this project.
+
+REJECTING ROUND COMPONENTS MAKES THINGS WORSE and is not offered. Every setting that included
+an eccentricity cut scored below filter-off (0.1416, 0.1379, 0.1336, 0.1309 against 0.1514).
+Round components are not simply carbides: crack junctions and blobby crack mouths are round
+too. That was half of the filter I designed, and the data rejected it.
+
 DO NOT read the absolute numbers as quality. Every metric here is scored against region
 assertions, not pixel-precise ground truth. They rank methods; they do not measure correctness.
 
@@ -41,7 +53,7 @@ CFG = json.load(open(f"{SC}/best_config.json")) if os.path.exists(f"{SC}/best_co
     "sigmas": [1, 2, 3, 4], "quantile": 98, "min_object_px": 32}
 
 
-def detect(grey, quantile=None, sigmas=None, min_object_px=None):
+def detect(grey, quantile=None, sigmas=None, min_object_px=None, reject_scratches=False):
     """Return a boolean crack mask for a uint8 greyscale SEM tile.
 
     `grey` must be the RAW micrograph. Never pass a rendered overlay: doing so is what
@@ -56,7 +68,15 @@ def detect(grey, quantile=None, sigmas=None, min_object_px=None):
         g = g / 255.0
     r = meijering(g, sigmas=np.asarray(sg, dtype=float), black_ridges=True)
     mask = r >= np.percentile(r, q)
-    return remove_small_objects(mask, max_size=mn) if mn else mask
+    mask = remove_small_objects(mask, max_size=mn) if mn else mask
+    if reject_scratches:
+        # OFF BY DEFAULT and deliberately so: it raises the median clIoU_adapt from 0.1514 to
+        # 0.1684 (+11%) but the paired test is p = 0.064 over 38 frames, 26 wins. Promising,
+        # unproven. Turn it on if you would rather lose a straight crack than keep a polishing
+        # scratch; leave it off if recall on straight cracks matters.
+        from artefact_filter import apply_filter
+        mask, _ = apply_filter(mask, 0.0, 1.08, 20)
+    return mask
 
 
 if __name__ == "__main__":
