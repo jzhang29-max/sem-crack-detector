@@ -62,9 +62,9 @@ def sobel_enh(r, g8):
     gx = ndi.sobel(g8.astype(np.float32), 0)
     gy = ndi.sobel(g8.astype(np.float32), 1)
     e = np.hypot(gx, gy)
-    e = (e - e.min()) / max(e.ptp(), 1e-9)
+    e = (e - e.min()) / max(np.ptp(e), 1e-9)
     out = r * (1.0 + e)
-    return (out - out.min()) / max(out.ptp(), 1e-9)
+    return (out - out.min()) / max(np.ptp(out), 1e-9)
 
 
 def main():
@@ -83,7 +83,7 @@ def main():
         if not os.path.exists(f):
             continue
         r = np.load(f)["r"].astype(np.float32)
-        r = (r - r.min()) / max(r.ptp(), 1e-9)
+        r = (r - r.min()) / max(np.ptp(r), 1e-9)
         g8 = np.array(Image.open(f"{SC}/tiles/{t}_gray.png").convert("L"))
         gt = np.array(Image.open(f"{SC}/tiles/{t}_gt.png")) > 127
         data[t] = {"raw": r, "enh": sobel_enh(r, g8), "gt": gt}

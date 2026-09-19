@@ -282,6 +282,42 @@ on `MAR_Amb_AS_CBS_0001__t0` (p99 = 0.0037). A model trained on concrete and asp
 does not transfer uniformly to SEM micrographs of metal, and where it fails it fails silently —
 the same failure mode this project documented for SAM 3.
 
+### 9. SERD: the gate explains one empty tile out of two, and nothing else
+
+Reading SAM 3's dense response **before** the presence multiply and before the τ cut
+(`serd_eval.py`, following `arXiv:2607.12292`), on the same 15 tiles:
+
+| arm | metric | OIS | ODS | **LOFO** |
+|---|---|---|---|---|
+| SERD raw | IoU | 0.3398 | 0.1662 | 0.0952 |
+| SERD raw | clDice | **0.5545** | 0.3316 | 0.1935 |
+| SERD + Sobel | IoU | 0.2718 | 0.1678 | 0.1437 |
+| SERD + Sobel | clDice | 0.4301 | 0.3234 | **0.3234** |
+| SAM 3 gated union | IoU | — | — | 0.1914 |
+| SAM 3 gated union | clDice | — | — | 0.3030 |
+
+**The mechanistic prediction is half-confirmed.** Of the two tiles where the presence gate
+returned *nothing*:
+
+- `MAR_Amb_HIP_ETD_0007__t1`: gated IoU 0.0000 → **SERD IoU 0.2822, clDice 0.2917.** The
+  evidence was there all along and the `keep` line threw it away.
+- `MAR_Amb_AS_CBS_0001__t0`: gated 0.0000 → SERD 0.0029. The internal response has nothing
+  either. That tile is a genuine detection failure, not a gate artefact.
+
+So the gate accounts for **one of the two** empty tiles, not both. Worth knowing, and not what I
+predicted.
+
+**Overall it does not beat the gated masks here.** Paired over 15 tiles, SERD+Sobel against the
+gated union: IoU median Δ −0.0071 (6/15, p = 0.229), clDice median Δ +0.0000 (7/15, p = 0.426).
+The paper reports the internal response beating the retained proposals on six public crack
+datasets; on this corpus, at this n, the difference is not detectable.
+
+Two things the run does establish. The paper's Sobel enhancement is doing real work — raw SERD
+clDice 0.1935 versus 0.3234 with it. And SERD raw has the **highest OIS clDice of any arm
+tested, 0.5545**, against a LOFO of 0.1935: the information is present in the field, and
+leave-one-frame-out selection cannot find the operating point. That is the selection gap of
+§3 again, at its widest.
+
 ## Why this evaluation is stronger than the typical paper's — with the evidence
 
 Each bullet names something **done here and checkable in this repo**. Where I say a practice is
