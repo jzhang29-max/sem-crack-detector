@@ -36,8 +36,19 @@ from PIL import Image
 from skimage.feature import match_template
 Image.MAX_IMAGE_PIXELS = None
 
-ROOT = "/Users/jiamingzhang/Desktop/crack_export"
-ORIG = "/Users/jiamingzhang/Desktop/sem-crack-detector/original"
+# --- portable roots -------------------------------------------------------------
+# Resolved from this file's own location so the analysis runs from a fresh clone.
+# crack_export used to be a separate repo beside sem-crack-detector, and every script
+# hard-coded /Users/jiamingzhang/Desktop/... Now that it lives inside the repo, those
+# literals would have made a clone unrunnable for anyone but this laptop.
+import os as _os
+_CE = _os.path.dirname(_os.path.abspath(__file__))
+while _os.path.basename(_CE) != "crack_export" and _os.path.dirname(_CE) != _CE:
+    _CE = _os.path.dirname(_CE)
+_REPO = _os.path.dirname(_CE)
+# --------------------------------------------------------------------------------
+ROOT = _CE
+ORIG = f"{_REPO}/original"
 OUT  = os.path.dirname(os.path.abspath(__file__))
 P     = 512      # patch side
 NPEAK = 8        # patch-correlation peaks refined by full-frame ncc

@@ -24,7 +24,18 @@ import os, sys, json, time
 import numpy as np
 from PIL import Image
 
-SC = "/Users/jiamingzhang/Desktop/crack_export/analysis/sam3"
+# --- portable roots -------------------------------------------------------------
+# Resolved from this file's own location so the analysis runs from a fresh clone.
+# crack_export used to be a separate repo beside sem-crack-detector, and every script
+# hard-coded /Users/jiamingzhang/Desktop/... Now that it lives inside the repo, those
+# literals would have made a clone unrunnable for anyone but this laptop.
+import os as _os
+_CE = _os.path.dirname(_os.path.abspath(__file__))
+while _os.path.basename(_CE) != "crack_export" and _os.path.dirname(_CE) != _CE:
+    _CE = _os.path.dirname(_CE)
+_REPO = _os.path.dirname(_CE)
+# --------------------------------------------------------------------------------
+SC = f"{_CE}/analysis/sam3"
 sys.path.insert(0, "/private/tmp/claude-501/-Users-jiamingzhang-Desktop-APP/48e14b5c-6bee-4570-a55e-3f87da7069da/scratchpad/omnicrack30k/src")
 from omnicrack30k.inference import OmniCrack30kModel
 

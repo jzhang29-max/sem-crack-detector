@@ -23,10 +23,21 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from collections import defaultdict
-sys.path.insert(0, "/Users/jiamingzhang/Desktop/sem-crack-detector/interior_active_learning/code")
+# --- portable roots -------------------------------------------------------------
+# Resolved from this file's own location so the analysis runs from a fresh clone.
+# crack_export used to be a separate repo beside sem-crack-detector, and every script
+# hard-coded /Users/jiamingzhang/Desktop/... Now that it lives inside the repo, those
+# literals would have made a clone unrunnable for anyone but this laptop.
+import os as _os
+_CE = _os.path.dirname(_os.path.abspath(__file__))
+while _os.path.basename(_CE) != "crack_export" and _os.path.dirname(_CE) != _CE:
+    _CE = _os.path.dirname(_CE)
+_REPO = _os.path.dirname(_CE)
+# --------------------------------------------------------------------------------
+sys.path.insert(0, f"{_REPO}/interior_active_learning/code")
 from aggregate import parse_name, specimen_key
 
-os.chdir("/Users/jiamingzhang/Desktop/crack_export")
+os.chdir(_CE)
 OUTD = "analysis/figures/per_set"
 os.makedirs(OUTD, exist_ok=True)
 FAMCOL = {"steel": "#4C72B0", "superalloy": "#DD8452", "exposure": "#55A868"}

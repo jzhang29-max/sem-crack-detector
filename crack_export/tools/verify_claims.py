@@ -20,8 +20,19 @@ import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
-PAINT = "/Users/jiamingzhang/Desktop/sem-crack-detector/interior_active_learning/paint"
-REPO = "/Users/jiamingzhang/Desktop/sem-crack-detector"
+# --- portable roots -------------------------------------------------------------
+# Resolved from this file's own location so the analysis runs from a fresh clone.
+# crack_export used to be a separate repo beside sem-crack-detector, and every script
+# hard-coded /Users/jiamingzhang/Desktop/... Now that it lives inside the repo, those
+# literals would have made a clone unrunnable for anyone but this laptop.
+import os as _os
+_CE = _os.path.dirname(_os.path.abspath(__file__))
+while _os.path.basename(_CE) != "crack_export" and _os.path.dirname(_CE) != _CE:
+    _CE = _os.path.dirname(_CE)
+_REPO = _os.path.dirname(_CE)
+# --------------------------------------------------------------------------------
+PAINT = f"{_REPO}/interior_active_learning/paint"
+REPO = _REPO
 
 
 def _f(v, d=float("nan")):
@@ -450,16 +461,49 @@ CLAIMS = [
 ]
 
 
+# Artefacts that are regenerable and therefore not committed. If one is absent the affected
+# claims cannot be checked -- which is NOT the same thing as a claim having drifted, and must
+# not be reported as a failure. A fresh clone has none of these until the reproduce sequence in
+# analysis/README.md has been run, and it should not look broken for that reason.
+REGENERABLE = {
+    "masks": "masks/ (run the export)",
+    "sets": "sets/ (tools/split_sets.py)",
+    "analysis/regions.csv": "analysis/regions.csv (tools/analyse_sets.py)",
+    "analysis/sam3/tiles": "analysis/sam3/tiles/ (analysis/sam3/make_tiles.py)",
+    "analysis/sam3/masks": "analysis/sam3/masks/ (SAM3_SAVE_MASKS=1 run_real.py)",
+}
+
+
+def missing_artefacts():
+    return {p: how for p, how in REGENERABLE.items() if not _os.path.exists(f"{_CE}/{p}")}
+
+
 def main():
+    absent = missing_artefacts()
+    if absent:
+        print("NOTE: regenerable artefacts are absent, so some claims cannot be checked.")
+        print("      This is not drift. Regenerate with:")
+        for how in absent.values():
+            print(f"        - {how}")
+        print()
     print(f"{'doc':<26} {'claim':<46} {'published':>14} {'derived':>14}   status")
     print("-" * 112)
-    bad = 0
+    bad = skipped = 0
     for doc, name, pub, fn, tol in CLAIMS:
         try:
             got = fn()
+        except (FileNotFoundError, StopIteration, IndexError) as e:
+            print(f"{doc[:26]:<26} {name:<46} {pub:>14} {'--':>14}   SKIP (artefact absent)")
+            skipped += 1
+            continue
         except Exception as e:
             print(f"{doc[:26]:<26} {name:<46} {pub:>14} {'ERROR':>14}   {type(e).__name__}: {str(e)[:40]}")
             bad += 1
+            continue
+        # an empty glob silently yields 0 or nan; that is an absent artefact, not a drifted value
+        if absent and (got == 0 and pub != 0 or (isinstance(got, float) and got != got)):
+            print(f"{doc[:26]:<26} {name:<46} {pub:>14} {'--':>14}   SKIP (artefact absent)")
+            skipped += 1
             continue
         ok = abs(float(got) - float(pub)) <= tol
         bad += 0 if ok else 1
@@ -472,7 +516,8 @@ def main():
         print(f"{doc[:26]:<26} {name:<46} {fmt(pub):>14} {fmt(got):>14}   "
               f"{'PASS' if ok else '*** FAIL ***'}")
     print("-" * 112)
-    print(f"{len(CLAIMS)} registered claims, {len(CLAIMS)-bad} pass, {bad} fail")
+    print(f"{len(CLAIMS)} registered claims, {len(CLAIMS)-bad-skipped} pass, {bad} fail"
+          + (f", {skipped} skipped (artefact absent)" if skipped else ""))
     if bad:
         print("\nFAIL means a document quotes a number its artefact no longer produces.")
     return 1 if bad else 0

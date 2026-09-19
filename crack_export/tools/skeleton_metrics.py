@@ -24,7 +24,18 @@ from skimage.morphology import skeletonize
 from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
 
-ROOT = "/Users/jiamingzhang/Desktop/crack_export"
+# --- portable roots -------------------------------------------------------------
+# Resolved from this file's own location so the analysis runs from a fresh clone.
+# crack_export used to be a separate repo beside sem-crack-detector, and every script
+# hard-coded /Users/jiamingzhang/Desktop/... Now that it lives inside the repo, those
+# literals would have made a clone unrunnable for anyone but this laptop.
+import os as _os
+_CE = _os.path.dirname(_os.path.abspath(__file__))
+while _os.path.basename(_CE) != "crack_export" and _os.path.dirname(_CE) != _CE:
+    _CE = _os.path.dirname(_CE)
+_REPO = _os.path.dirname(_CE)
+# --------------------------------------------------------------------------------
+ROOT = _CE
 OUT = os.path.join(ROOT, "analysis", "skeleton")
 os.makedirs(OUT, exist_ok=True)
 

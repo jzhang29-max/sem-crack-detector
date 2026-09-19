@@ -21,7 +21,18 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-ROOT = "/Users/jiamingzhang/Desktop/crack_export"
+# --- portable roots -------------------------------------------------------------
+# Resolved from this file's own location so the analysis runs from a fresh clone.
+# crack_export used to be a separate repo beside sem-crack-detector, and every script
+# hard-coded /Users/jiamingzhang/Desktop/... Now that it lives inside the repo, those
+# literals would have made a clone unrunnable for anyone but this laptop.
+import os as _os
+_CE = _os.path.dirname(_os.path.abspath(__file__))
+while _os.path.basename(_CE) != "crack_export" and _os.path.dirname(_CE) != _CE:
+    _CE = _os.path.dirname(_CE)
+_REPO = _os.path.dirname(_CE)
+# --------------------------------------------------------------------------------
+ROOT = _CE
 AN = os.path.join(ROOT, "analysis")
 FIG = os.path.join(AN, "figures")
 os.makedirs(FIG, exist_ok=True)
@@ -125,7 +136,7 @@ for m in hi:
 
 print("\n=== MAR_Amb: process x detector, medians (crossed design) ===")
 import sys
-sys.path.insert(0, "/Users/jiamingzhang/Desktop/sem-crack-detector/interior_active_learning/code")
+sys.path.insert(0, f"{_REPO}/interior_active_learning/code")
 from aggregate import parse_name
 cell = defaultdict(list)
 for m in frames:

@@ -13,7 +13,18 @@ import csv, os, re, sys, shutil
 from collections import defaultdict
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REPO_CODE = "/Users/jiamingzhang/Desktop/sem-crack-detector/interior_active_learning/code"
+# --- portable roots -------------------------------------------------------------
+# Resolved from this file's own location so the analysis runs from a fresh clone.
+# crack_export used to be a separate repo beside sem-crack-detector, and every script
+# hard-coded /Users/jiamingzhang/Desktop/... Now that it lives inside the repo, those
+# literals would have made a clone unrunnable for anyone but this laptop.
+import os as _os
+_CE = _os.path.dirname(_os.path.abspath(__file__))
+while _os.path.basename(_CE) != "crack_export" and _os.path.dirname(_CE) != _CE:
+    _CE = _os.path.dirname(_CE)
+_REPO = _os.path.dirname(_CE)
+# --------------------------------------------------------------------------------
+REPO_CODE = f"{_REPO}/interior_active_learning/code"
 sys.path.insert(0, REPO_CODE)
 from aggregate import parse_name, specimen_key   # the project's own taxonomy
 
