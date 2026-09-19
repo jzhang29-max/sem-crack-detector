@@ -369,6 +369,71 @@ def d_leak_paired_p():
     return round(float(wilcoxon(d).pvalue), 4)
 
 
+# ---- the 2026-09-19 benchmark round ---------------------------------------------------------
+def _bench():
+    return json.load(open("analysis/sam3/methods_bench.json"))
+
+
+def d_bench_thr_iou():
+    """Best IoU arm: a plain global threshold at leave-one-frame-out."""
+    return round(_bench()["global threshold|IoU"]["LOFO"], 4)
+
+
+def d_bench_meij_cldice():
+    """Best clDice arm: a Meijering ridge filter. The IoU and clDice leaders differ."""
+    return round(_bench()["Meijering ridge|clDice"]["LOFO"], 4)
+
+
+def d_bench_nested_cldice():
+    """Nested LOFO clDice -- method AND parameters chosen on the training frames."""
+    return round(_bench()["NESTED LOFO|clDice"]["LOFO"], 4)
+
+
+def d_selection_premium():
+    """clDice gained by picking the method with hindsight instead of nested selection."""
+    b = _bench()
+    best = max(v["LOFO"] for k, v in b.items()
+               if k.endswith("|clDice") and isinstance(v, dict) and "LOFO" in v
+               and not k.startswith("NESTED"))
+    return round(best - b["NESTED LOFO|clDice"]["LOFO"], 4)
+
+
+def d_iou_ceiling():
+    """Median IoU of a PERFECT 3 px trace down the label centreline.
+
+    The single most consequential number here: pixel IoU on this corpus cannot exceed about
+    0.17 for a physically correct crack, so every IoU above it was bought by being thicker
+    than a crack.
+    """
+    return round(json.load(open("analysis/sam3/iou_ceiling.json"))["ceiling_IoU"], 4)
+
+
+def d_omnicrack_cldice():
+    """OmniCrack30k's released nnU-Net, LOFO clDice, on our tiles. Single fold, no mirroring."""
+    return round(json.load(open("analysis/sam3/omnicrack_eval.json"))["clDice"]["LOFO"], 4)
+
+
+def d_omnicrack_iou():
+    return round(json.load(open("analysis/sam3/omnicrack_eval.json"))["IoU"]["LOFO"], 4)
+
+
+def d_serd_cldice():
+    """SERD + Sobel, reading SAM 3's field before the presence gate."""
+    return round(json.load(open("analysis/sam3/serd_eval.json"))["SERD +Sobel|clDice"]["LOFO"], 4)
+
+
+def d_corridor_allones():
+    """Containment scored by predicting the ENTIRE tile. Shows containment is not gameable."""
+    n = json.load(open("analysis/sam3/corridor_scores.json"))["nulls"]
+    return round(n["all-ones"][0], 3)
+
+
+def d_corridor_random_coverage():
+    """Coverage reached by an area-matched RANDOM SCATTER -- why coverage is not quotable."""
+    n = json.load(open("analysis/sam3/corridor_scores.json"))["nulls"]
+    return round(n["area-matched random"][1], 2)
+
+
 def _leak():
     return json.load(open("analysis/sam3/leak_check.json"))
 
@@ -458,6 +523,16 @@ CLAIMS = [
     ("sam3 clean run", "max instances returned (of 200 queries)", 62, d_max_instances, 0),
     ("sam3 clean run", "median presence scalar, 'crack'", 0.9062, d_pres_crack, 0.0005),
     ("sam3 clean run", "median presence scalar, 'fracture'", 0.0086, d_pres_fracture, 0.0005),
+    ("POSITION_VS_2026", "IoU ceiling, perfect 3 px trace", 0.1662, d_iou_ceiling, 0.0005),
+    ("POSITION_VS_2026", "best IoU arm (global threshold, LOFO)", 0.2579, d_bench_thr_iou, 0.0005),
+    ("POSITION_VS_2026", "best clDice arm (Meijering, LOFO)", 0.3382, d_bench_meij_cldice, 0.0005),
+    ("POSITION_VS_2026", "nested-LOFO clDice", 0.1739, d_bench_nested_cldice, 0.0005),
+    ("POSITION_VS_2026", "hindsight selection premium, clDice", 0.1643, d_selection_premium, 0.0005),
+    ("POSITION_VS_2026", "OmniCrack30k LOFO IoU", 0.2069, d_omnicrack_iou, 0.0005),
+    ("POSITION_VS_2026", "OmniCrack30k LOFO clDice", 0.3304, d_omnicrack_cldice, 0.0005),
+    ("POSITION_VS_2026", "SERD+Sobel LOFO clDice", 0.3234, d_serd_cldice, 0.0005),
+    ("corridor_metric", "containment of an all-ones prediction", 0.055, d_corridor_allones, 0.002),
+    ("corridor_metric", "coverage of area-matched random", 0.90, d_corridor_random_coverage, 0.01),
 ]
 
 
