@@ -1,0 +1,13 @@
+{
+ "method": "meijering",
+ "sigmas": [
+  1,
+  2,
+  3,
+  4
+ ],
+ "black_ridges": true,
+ "quantile": 98,
+ "min_object_px": 32,
+ "clIoU_adapt_ODS": 0.2847993613951061
+}
