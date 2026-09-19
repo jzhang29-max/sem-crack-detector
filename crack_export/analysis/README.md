@@ -61,12 +61,14 @@ benchmark.
 
 ## Every quoted statistic is machine-verified
 
-`tools/verify_claims.py` recomputes **33 registered statistics** from their source
+`tools/verify_claims.py` recomputes **55 registered statistics** from their source
 artefacts and fails if a document quotes a number the artefact no longer produces. Last
-run: **33/33 pass** (`CLAIM_VERIFICATION.txt`). Run it before sending anything:
+run: **55/55 pass**. In an unbuilt tree the claims whose regenerable artefacts are absent
+report SKIP rather than FAIL, so a fresh clone does not look broken. Run it before sending
+anything:
 
 ```bash
-python tools/verify_claims.py    # exit 1 if any claim drifted
+python tools/verify_claims.py    # 55 claims; exit 1 if any drifted
 ```
 
 It exists because re-reading prose does not catch drift. A recall-threshold count that was
@@ -113,17 +115,66 @@ sam3/                                      SAM 3 run: results, figure, scripts, 
 
 ## Reproduce
 
+Everything resolves paths from its own location, so any working directory works. Nothing here
+needs a GPU. Artefacts marked *regenerable* are gitignored; until they exist
+`tools/verify_claims.py` reports the claims that need them as SKIP, not FAIL.
+
+### A. Corpus analysis — pure CPU, project environment
+
 ```bash
-python3 tools/split_sets.py          # sets/ (hard links, ~0 extra disk)
+python3 tools/split_sets.py          # sets/ (hard links, ~0 extra disk) -- run BEFORE per_set_diagram
 python3 tools/analyse_sets.py        # per-frame + per-set metrics
-python3 tools/review_coverage.py     # read-only over paint/
+python3 tools/review_coverage.py     # read-only over interior_active_learning/paint/
 python3 tools/skeleton_metrics.py    # 62 frames, parallelisable by index range
 python3 tools/holes.py
 python3 tools/report_sets.py ; python3 tools/linearity_figs.py
 python3 tools/csv_shape_figs.py ; python3 tools/per_set_diagram.py
 python3 tools/paired_detector.py
-python3 tools/verify_claims.py     # 33/33 must pass
+python3 tools/verify_claims.py       # 55 claims; exit 1 on drift
 ```
 
-`cracktrace/` is a separate **prototype**, validated on synthetic data only — see its own
-README.
+### B. Benchmark round — `analysis/sam3/`
+
+The order matters: registration before tiling, tiling before the leak gate, the gate before any
+model run. `run_real.py` refuses to start if the gate fails.
+
+```bash
+cd analysis/sam3
+python3 align_originals.py     # register label frames to the raw original/*.tif (9/9, ncc >= 0.99)
+python3 make_tiles.py          # 15 PROVABLY DISJOINT tiles; grey from the original, never an overlay
+python3 leak_check.py          # must print 0/N contaminated; keeps the known-bad input as a control
+```
+
+Model runs need **isolated** virtualenvs — installing either package into the project
+environment downgrades numpy and breaks scipy/tifffile/opencv/zarr:
+
+```bash
+SAM3_SAVE_MASKS=1 SAM3_SAVE_SERD=1 python3 run_real.py   # ~28 min CPU; needs the sam3 venv
+python3 run_omnicrack.py                                  # ~3 min + a 1.25 GB weight download
+```
+
+Scoring and analysis, all pure CPU in the project environment:
+
+```bash
+python3 analyse_clean_run.py   # per-prompt table, paired against the contaminated run
+python3 permutation_test.py    # nulls for the presence-magnitude claim (20k draws, seeded)
+python3 iou_ceiling.py         # THE number: a perfect 3 px trace scores IoU 0.1662 here
+python3 methods_bench.py       # 5 methods x OIS / ODS / LOFO / nested LOFO  (~40 min)
+python3 baseline_matched.py    # Otsu / ODS / OIS / information-free null at matched budgets
+python3 tolerance_sweep.py     # clIoU_tau; the leader changes with tau
+python3 corridor_metric.py     # superset-label scoring -- ALWAYS read its null panel
+python3 trained_lofo.py        # supervised arms, leave-one-frame-out
+python3 ensemble_lofo.py       # union / intersection / majority, nested
+python3 omnicrack_eval.py      # the published SOTA, scored on our tiles
+python3 serd_eval.py           # SAM 3's field read before the presence gate
+python3 make_figures.py        # regenerates every figure from committed artefacts
+```
+
+### Read the results in this order
+
+1. `sam3/POSITION_VS_2026.md` — where this stands, what is stronger, what is weaker
+2. `sam3/SOTA_2026.md` — the verified 2026 literature and the model that is the one to beat
+3. `sam3/PRIOR_ART_KILL.md` — why the SAM 3 finding is not a contribution
+4. `sam3/LEAK_POSTMORTEM.md` — how the first run measured its own annotation
+5. `LABEL_GRANULARITY.md` — why pixel IoU cannot rank methods on this corpus
+

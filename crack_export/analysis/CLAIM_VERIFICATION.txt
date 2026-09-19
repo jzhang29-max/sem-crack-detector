@@ -1,3 +1,7 @@
+NOTE: regenerable artefacts are absent, so some claims cannot be checked.
+      This is not drift. Regenerate with:
+        - analysis/regions.csv (tools/analyse_sets.py)
+
 doc                        claim                                               published        derived   status
 ----------------------------------------------------------------------------------------------------------------
 README / CRACK_ANALYSIS    frames in corpus                                           62             62   PASS
@@ -26,13 +30,34 @@ LINEARITY                  skeleton branches                                    
 NOVELTY / LINEARITY        area-fraction identity max error                          0.0       5.55e-17   PASS
 HEAD_TO_HEAD / README      pooled grouped-CV AUC                                  0.7144         0.7144   PASS
 HEAD_TO_HEAD / README      single-image LOIO AUC                                   0.884          0.884   PASS
-sam3 report                tiles tested                                               16             16   PASS
-sam3 report                tiles with non-zero recall                                 10             10   PASS
-sam3 report                tiles with recall exactly 0                                 6              6   PASS
-sam3 report                lowest non-zero recall                                  0.969          0.969   PASS
-sam3 report                median recall                                           0.979          0.979   PASS
-sam3 report                'fracture' tiles returning nothing                         16             16   PASS
-sam3 report                'crack' tiles returning nothing                             2              2   PASS
+sam3 tiles                 disjoint tiles tested                                      15             15   PASS
+LEAK_POSTMORTEM            tiles the invalid input contaminated                       13             13   PASS
+LEAK_POSTMORTEM            tiles the current input contaminates                        0              0   PASS
+LEAK_POSTMORTEM            median best-threshold IoU (OIS), clean input            0.409          0.409   PASS
+LEAK_POSTMORTEM            label frames registered at ncc >= 0.99                      9              9   PASS
+LEAK_POSTMORTEM            frames registering at ncc exactly 1.0                       5              5   PASS
+LEAK_POSTMORTEM            distinct RGB triples in the burn-in                         1              1   PASS
+LEAK_POSTMORTEM            green value the burn-in writes                             25             25   PASS
+sam3 clean run             tiles where 'crack' returned instances                     13             13   PASS
+sam3 clean run             median union IoU, 'crack', 15 disjoint tiles           0.1914         0.1914   PASS
+sam3 clean run             median oracle IoU, 'crack', 15 disjoint tiles          0.3871         0.3871   PASS
+sam3 clean run             gate self-check (IDENTITY, not a result)                   60             60   PASS
+sam3 clean run             presence span, best/worst prompt                        105.3          105.3   PASS
+sam3 clean run             R2 of logit(presence) by prompt                        0.8148         0.8147   PASS
+sam3 clean run             always-empty baseline (of 60)                              39             39   PASS
+sam3 clean run             prompt-identity-only baseline (of 60)                      50             50   PASS
+sam3 clean run             max instances returned (of 200 queries)                    62             62   PASS
+sam3 clean run             median presence scalar, 'crack'                        0.9062         0.9062   PASS
+sam3 clean run             median presence scalar, 'fracture'                     0.0086         0.0086   PASS
+POSITION_VS_2026           IoU ceiling, perfect 3 px trace                        0.1662         0.1662   PASS
+POSITION_VS_2026           best IoU arm (global threshold, LOFO)                  0.2579         0.2579   PASS
+POSITION_VS_2026           best clDice arm (Meijering, LOFO)                      0.3382         0.3382   PASS
+POSITION_VS_2026           nested-LOFO clDice                                     0.1739         0.1739   PASS
+POSITION_VS_2026           hindsight selection premium, clDice                    0.1643         0.1643   PASS
+POSITION_VS_2026           OmniCrack30k LOFO IoU                                  0.2069         0.2069   PASS
+POSITION_VS_2026           OmniCrack30k LOFO clDice                               0.3304         0.3304   PASS
+POSITION_VS_2026           SERD+Sobel LOFO clDice                                 0.3234         0.3234   PASS
+corridor_metric            containment of an all-ones prediction                   0.055          0.055   PASS
+corridor_metric            coverage of area-matched random                           0.9            0.9   PASS
 ----------------------------------------------------------------------------------------------------------------
-33 registered claims, 33 pass, 0 fail
-verified 2026-09-15 23:37 after a full rebuild from tools/split_sets.py
+55 registered claims, 55 pass, 0 fail
