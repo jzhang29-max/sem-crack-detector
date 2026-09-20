@@ -44,8 +44,24 @@ direction; it cannot say whether that direction belongs to polishing marks or to
 directionally solidified or rolled microstructure. The leave-one-out axis does not help when
 hundreds of parallel crack segments each set the axis for the others.
 
-Enable it only on material where you know cracking is NOT directional, and check the affected
-frames by eye.
+A WIDTH-UNIFORMITY GUARD WAS ADDED AND REMOVED. The idea was sound: a polishing mark has
+constant width along its length, a crack tapers and branches, so requiring uniform width before
+deleting should protect cracks. Measured from the binary mask it carries NO signal at all --
+after a q99 cut both populations are 3-4 px wide because the cut sets the width, giving CV
+0.271 for cracks against 0.284 for striations, indistinguishable and backwards. Measured from
+the GREY, as the sigma of maximum single-scale Meijering response, it does carry signal: 0.269
+against 0.208, AUC 0.680, correct direction.
+
+It still does not work, and the reason is worth keeping. Forced onto the frame it was meant to
+save, it recovers the score almost completely -- 0.2289 -> 0.5002 against 0.5118 for no filter
+-- but it does so while keeping 97% of predicted pixels. It rescues the frame by switching the
+filter OFF, not by telling cracks from scratches. Tightening it is monotonically harmful across
+the corpus (0.1691 -> 0.1669 -> 0.1654 -> 0.1605) and leave-one-frame-out rejects it outright.
+AUC 0.680 is real but too weak: every setting that protects cracks also stops the filter doing
+anything.
+
+Enable reject_scratches only on material where you know cracking is NOT directional, and check
+the affected frames by eye.
 
 REJECTING ROUND COMPONENTS MAKES THINGS WORSE and is not offered. Every setting that included
 an eccentricity cut scored below filter-off (0.1416, 0.1379, 0.1336, 0.1309 against 0.1514).
