@@ -5,8 +5,8 @@ in the repo and was built from the contaminated input.
   fig_presence_gate.png  -- the finding: one global scalar per (image, prompt) decides whether
                             an image returns anything at all
   fig_leak_evidence.png  -- the postmortem's evidence: the old input beside the new one
-  fig_qualitative.png    -- clean SEM | hand label | best global threshold | SAM 3 union
-                            (needs masks/, produced by SAM3_SAVE_MASKS=1 run_real.py)
+  (fig_qualitative.png was removed in the 2026-09-19 cleanup along with masks/: it showed the
+   SAM 3 tile arm, which is closed, and detector_contact_sheet.png supersedes it.)
 
 Every panel is generated from committed artifacts so it can be rebuilt.
 """
@@ -165,4 +165,4 @@ def fig_qualitative():
 if __name__ == "__main__":
     fig_presence_gate()
     fig_leak_evidence()
-    fig_qualitative()
+    # fig_qualitative() -- removed with masks/; see the module docstring

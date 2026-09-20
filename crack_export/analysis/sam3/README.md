@@ -71,5 +71,8 @@ Run in this order. Registration before tiling, tiling before the gate, the gate 
 `runs/` — roughly 250 MB. `detect_all_frames.py` rebuilds the detector outputs in ~15 min; the
 SAM 3 arms need the isolated venvs described in `../README.md`.
 
-`sam3_examples_INVALID_contaminated_input.png` is kept **only** as the record of the retracted
-run. It visualises the leaked input. Do not use it for anything.
+Deleted 2026-09-19 as part of a cleanup: `serd/`, `omnicrack/`, `masks/` and
+`__pycache__/` (concluded experiments, all regenerable); `sam3_examples_…png` (it rendered the
+LEAKED input — the retraction text in `LEAK_POSTMORTEM.md` is the surviving record, and keeping
+a contaminated artefact around is a liability); and `fig_qualitative.png` (a SAM 3 tile view,
+superseded by `detector_contact_sheet.png`).

@@ -50,6 +50,13 @@ def gt_side(g, tau):
     return sg, (ndi.distance_transform_edt(~sg) <= tau)
 
 
+def image_area_grey(n):
+    a = np.array(Image.open(f"{_REPO}/original/{n}.tif")).astype(np.float64)
+    lo, hi = np.percentile(a, 0.5), np.percentile(a, 99.5)
+    g = np.clip((a - lo) / max(hi - lo, 1) * 255, 0, 255).astype(np.uint8)
+    return g[:int(round(g.shape[1] * 2 / 3))]
+
+
 def cliou(p, g, tau, cache=None):
     if p.sum() == 0 or g.sum() == 0:
         return 0.0
@@ -104,7 +111,25 @@ def tortuosity_of(sub):
     return float(L / chord) if chord > 1 else 1.0
 
 
-def describe(mask):
+def scale_map(grey, sigmas=(1.0, 1.5, 2.0, 3.0, 4.0, 6.0)):
+    """Local structure width taken from the GREY image, not from the binary mask.
+
+    For each pixel, the sigma whose single-scale Meijering response is strongest. This is a
+    width estimate that never touches the threshold. Measuring width as 2*EDT on the mask does
+    NOT work here and was tried first: after a q99 cut both cracks and polishing striations come
+    out 3-4 px wide because the cut, not the feature, sets the width, and their width-CV
+    distributions were 0.271 vs 0.284 -- indistinguishable and in the wrong direction. Read off
+    the grey instead, the same two populations give 0.269 vs 0.208, AUC 0.680, correct direction.
+    """
+    from skimage.filters import meijering as _mj
+    g = grey.astype(np.float32)
+    if g.max() > 1.0:
+        g = g / 255.0
+    r = np.stack([_mj(g, sigmas=[s], black_ridges=True) for s in sigmas])
+    return np.asarray(sigmas, dtype=np.float32)[np.argmax(r, axis=0)]
+
+
+def describe(mask, scale=None):
     """Per-component shape features, plus the frame's dominant axial orientation."""
     lab = cc_label(mask)
     props = regionprops(lab)
@@ -114,6 +139,11 @@ def describe(mask):
             continue
         sk = skeletonize(p.image)
         L = float(metric_skeleton_length(sk))
+        wcv = np.nan
+        if scale is not None:
+            sl = scale[p.slice][sk]
+            if len(sl) >= 5 and sl.mean() > 0:
+                wcv = float(sl.std() / sl.mean())
         comps.append({"label": p.label, "area": int(p.area),
                       "ecc": float(p.eccentricity),
                       "orient": float(p.orientation),          # radians, from the ROW axis
@@ -125,6 +155,7 @@ def describe(mask):
                       # protects SHORT cracks: a component too short to have a meaningful
                       # straightness must not be judged on its straightness.
                       "elong_ok": (L * L) >= 8.0 * float(p.area),
+                      "wcv": wcv,
                       "tort": tortuosity_of(p.image)})
     if not comps:
         return lab, comps, 0.0, 0.0
@@ -137,7 +168,7 @@ def describe(mask):
     return lab, comps, dom, R
 
 
-def apply_filter(mask, ecc_min, tort_min, align_deg, cached=None, r_min=0.40):
+def apply_filter(mask, ecc_min, tort_min, align_deg, cached=None, r_min=0.40, wcv_max=None):
     """Drop round components, and straight ones aligned with the frame's dominant direction.
 
     `cached` is the (lab, comps, dom, R) tuple from describe(). It MUST be passed when sweeping
@@ -175,6 +206,11 @@ def apply_filter(mask, ecc_min, tort_min, align_deg, cached=None, r_min=0.40):
             continue
         mu = 0.5 * np.arctan2(Sl, Cl)
         da = abs(np.angle(np.exp(1j * 2 * (c["orient"] - mu)))) / 2   # signed, period pi
+        # WIDTH GUARD: only delete if the width is also UNIFORM along the path. A crack tapers
+        # and branches; a polishing mark does not. This can only make the rule stricter, which
+        # is what the catastrophic frame needs -- it deleted 57% of real, parallel cracks.
+        if wcv_max is not None and not (c["wcv"] == c["wcv"] and c["wcv"] < wcv_max):
+            continue
         if c["tort"] < tort_min and da < thr:                    # straight AND aligned -> scratch
             drop.append(c["label"]); ds += 1
     if not drop:
@@ -194,11 +230,9 @@ def main():
     # previous sweep (0.1416, 0.1379, 0.1336, 0.1309 against 0.1514). Round components are not
     # simply carbides -- crack junctions and blobby crack mouths are round too.
     GRID = [(0.0, 0.0, 0),          # filter off -- must be able to win
-            (0.0, 1.05, 20),
-            (0.0, 1.08, 10),
-            (0.0, 1.08, 20),        # the recommended setting
-            (0.0, 1.08, 30),
-            (0.0, 1.12, 20)]
+            (0.0, 1.08, 30),        # best WITHOUT the width guard; destroys AS_24hr
+            (0.0, 1.08, 20)]
+    WCV = [None, 0.28, 0.24, 0.20]  # None = no width guard
     sc, t0 = {}, time.time()
     for i, r in enumerate(rows):
         n = r["frame"]
@@ -212,21 +246,28 @@ def main():
         tau = max(2, int(round(gran[n] / 2)))
         gcache = gt_side(gt, tau)
         sc[n] = {}
-        cached = describe(m)                      # once per frame, not once per setting
+        gimg = image_area_grey(n)
+        cached = describe(m, scale=scale_map(gimg))                      # once per frame, not once per setting
         print(f"      {len(cached[1])} components, orientation coherence R={cached[3]:.3f}",
               flush=True)
         for g in GRID:
-            p, info = apply_filter(m, *g, cached=cached) if g != (0.0, 0.0, 0) else (m, {})
-            sc[n][g] = {"clIoU": cliou(p, gt, tau, cache=gcache), "PAR": float(p.sum() / max(gt.sum(), 1)),
-                        "kept": float(p.sum() / max(m.sum(), 1))}
+            for wc in (WCV if g != (0.0, 0.0, 0) else [None]):
+                key = g + (wc,)
+                p, info = apply_filter(m, *g, cached=cached, wcv_max=wc) \
+                    if g != (0.0, 0.0, 0) else (m, {})
+                sc[n][key] = {"clIoU": cliou(p, gt, tau, cache=gcache),
+                              "PAR": float(p.sum() / max(gt.sum(), 1)),
+                              "kept": float(p.sum() / max(m.sum(), 1))}
         b = max(sc[n], key=lambda k: sc[n][k]["clIoU"])
-        print(f"  [{i+1}/{len(rows)}] {n[:34]:<36} off {sc[n][(0.0,0.0,0)]['clIoU']:.3f} "
+        print(f"  [{i+1}/{len(rows)}] {n[:34]:<36} off {sc[n][(0.0,0.0,0,None)]['clIoU']:.3f} "
               f"-> best {sc[n][b]['clIoU']:.3f} @ {b}   ({time.time()-t0:.0f}s)", flush=True)
     names = list(sc)
-    off = np.array([sc[n][(0.0, 0.0, 0)]["clIoU"] for n in names])
+    OFFK = (0.0, 0.0, 0, None)
+    off = np.array([sc[n][OFFK]["clIoU"] for n in names])
     print(f"\n{'setting (ecc,tort,align)':<26} {'median clIoU':>13} {'median kept':>12}")
     best = []
-    for g in GRID:
+    KEYS = list(next(iter(sc.values())))
+    for g in KEYS:
         v = np.array([sc[n][g]["clIoU"] for n in names])
         k = np.median([sc[n][g]["kept"] for n in names])
         best.append((float(np.median(v)), g, k))
@@ -237,7 +278,7 @@ def main():
     lofo = []
     for n in names:
         tr = [u for u in names if u != n]
-        bg = max(GRID, key=lambda g: np.median([sc[u][g]["clIoU"] for u in tr]))
+        bg = max(KEYS, key=lambda g: np.median([sc[u][g]["clIoU"] for u in tr]))
         lofo.append(sc[n][bg]["clIoU"])
     from scipy.stats import wilcoxon
     d = np.array(lofo) - off
