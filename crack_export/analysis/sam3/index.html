@@ -1,0 +1,84 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>SEM crack detector — results</title>
+<style>
+ :root{--bg:#faf9f7;--fg:#1a1a19;--mut:#6b6a65;--line:#e1e0d9;--card:#fff}
+ @media(prefers-color-scheme:dark){:root{--bg:#141413;--fg:#f0efec;--mut:#9a9890;--line:#2c2c2a;--card:#1c1c1a}}
+ *{box-sizing:border-box}
+ body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+ header{padding:28px 32px 18px;border-bottom:1px solid var(--line)}
+ h1{margin:0 0 6px;font-size:21px;font-weight:500}
+ .sub{color:var(--mut);font-size:13px}
+ .stats{display:flex;gap:26px;margin-top:16px;flex-wrap:wrap}
+ .stat b{display:block;font-size:22px;font-weight:500;font-variant-numeric:tabular-nums}
+ .stat span{color:var(--mut);font-size:12px}
+ .bar{padding:14px 32px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+ input,select{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--fg)}
+ .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;padding:22px 32px}
+ .card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer}
+ .card img{width:100%;display:block;aspect-ratio:3/2;object-fit:cover;background:var(--line)}
+ .meta{padding:9px 11px}
+ .nm{font-size:11.5px;word-break:break-all;line-height:1.35}
+ .sc{font-size:12px;margin-top:5px;font-variant-numeric:tabular-nums}
+ .pill{display:inline-block;padding:1px 7px;border-radius:20px;font-size:11px;color:#fff}
+ dialog{border:none;border-radius:12px;padding:0;max-width:96vw;background:var(--card);color:var(--fg)}
+ dialog::backdrop{background:rgba(0,0,0,.75)}
+ dialog img{max-width:92vw;max-height:78vh;display:block}
+ .dh{padding:12px 16px;display:flex;justify-content:space-between;gap:20px;align-items:center;border-bottom:1px solid var(--line)}
+ button{font:inherit;padding:5px 12px;border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--fg);cursor:pointer}
+</style>
+<header>
+  <h1>SEM crack detector — all frames</h1>
+  <div class="sub">Meijering ridge, &sigma; 1–4, top 1% of response, components &le; 32 px dropped. Orange = prediction.</div>
+  <div class="stats" id="stats"></div>
+</header>
+<div class="bar">
+  <input id="q" placeholder="filter by frame name…" size="26">
+  <select id="sort">
+    <option value="score">sort: score, best first</option>
+    <option value="score_asc">sort: score, worst first</option>
+    <option value="name">sort: name</option>
+    <option value="area">sort: predicted area</option>
+  </select>
+  <label><input type="checkbox" id="onlyscored"> only frames with a hand label</label>
+  <span class="sub" id="count"></span>
+</div>
+<div class="grid" id="grid"></div>
+<dialog id="dlg"><div class="dh"><b id="dnm"></b><span id="dsc" class="sub"></span><button onclick="dlg.close()">close</button></div><img id="dimg"></dialog>
+<script>
+const col=s=>s==null?'#6b6a65':s>=.30?'#1d9e75':s>=.15?'#ba7517':'#d03b3b';
+let rows=[];
+fetch('detector_all.json').then(r=>r.json()).then(d=>{
+  rows=d;
+  const sc=d.filter(r=>r.clIoU_adapt!=null).map(r=>r.clIoU_adapt).sort((a,b)=>a-b);
+  const med=sc.length%2?sc[(sc.length-1)/2]:(sc[sc.length/2-1]+sc[sc.length/2])/2;
+  stats.innerHTML=[['frames',d.length],['with a hand label',sc.length],
+    ['median clIoU_adapt',med.toFixed(4)],['best',sc[sc.length-1].toFixed(3)],
+    ['median predicted area',(100*d.map(r=>r.pred_frac).sort((a,b)=>a-b)[Math.floor(d.length/2)]).toFixed(2)+'%']]
+    .map(([k,v])=>`<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
+  draw();
+});
+function draw(){
+  const t=q.value.toLowerCase(), only=onlyscored.checked;
+  let r=rows.filter(x=>x.frame.toLowerCase().includes(t)&&(!only||x.clIoU_adapt!=null));
+  const s=sort.value;
+  r.sort((a,b)=> s==='name'?a.frame.localeCompare(b.frame)
+    : s==='area'?b.pred_frac-a.pred_frac
+    : s==='score_asc'?(a.clIoU_adapt??9)-(b.clIoU_adapt??9)
+    : (b.clIoU_adapt??-1)-(a.clIoU_adapt??-1));
+  count.textContent=`${r.length} shown`;
+  grid.innerHTML=r.map(x=>`<div class="card" data-f="${x.frame}">
+    <img loading="lazy" src="detector_overlays/${x.frame}.png" alt="${x.frame}">
+    <div class="meta"><div class="nm">${x.frame}</div><div class="sc">
+    ${x.clIoU_adapt!=null?`<span class="pill" style="background:${col(x.clIoU_adapt)}">clIoU ${x.clIoU_adapt.toFixed(3)}</span>`
+      :`<span class="pill" style="background:#6b6a65">no label</span>`}
+    &nbsp;${(100*x.pred_frac).toFixed(2)}% predicted</div></div></div>`).join('');
+  [...grid.children].forEach(c=>c.onclick=()=>{
+    const x=rows.find(r=>r.frame===c.dataset.f);
+    dnm.textContent=x.frame;
+    dsc.textContent=(x.clIoU_adapt!=null?`clIoU_adapt ${x.clIoU_adapt.toFixed(4)} · `:'no hand label · ')+`${(100*x.pred_frac).toFixed(2)}% predicted`;
+    dimg.src='detector_overlays/'+x.frame+'.png'; dlg.showModal();
+  });
+}
+q.oninput=draw; sort.onchange=draw; onlyscored.onchange=draw;
+</script>
