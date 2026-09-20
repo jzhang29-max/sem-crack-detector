@@ -112,10 +112,19 @@ def describe(mask):
     for p in props:
         if p.area < 8:
             continue
+        sk = skeletonize(p.image)
+        L = float(metric_skeleton_length(sk))
         comps.append({"label": p.label, "area": int(p.area),
                       "ecc": float(p.eccentricity),
                       "orient": float(p.orientation),          # radians, from the ROW axis
                       "major": float(p.major_axis_length),
+                      "L": L,
+                      # elongation gate: geodesic diameter >= 8 * mean width, with L standing in
+                      # for the geodesic diameter (equal for a simple curve) and w_bar = area/L.
+                      # L >= 8*(area/L)  <=>  L^2 >= 8*area. Cheap, scale-free, and it is what
+                      # protects SHORT cracks: a component too short to have a meaningful
+                      # straightness must not be judged on its straightness.
+                      "elong_ok": (L * L) >= 8.0 * float(p.area),
                       "tort": tortuosity_of(p.image)})
     if not comps:
         return lab, comps, 0.0, 0.0
@@ -128,7 +137,7 @@ def describe(mask):
     return lab, comps, dom, R
 
 
-def apply_filter(mask, ecc_min, tort_min, align_deg, cached=None):
+def apply_filter(mask, ecc_min, tort_min, align_deg, cached=None, r_min=0.40):
     """Drop round components, and straight ones aligned with the frame's dominant direction.
 
     `cached` is the (lab, comps, dom, R) tuple from describe(). It MUST be passed when sweeping
@@ -141,10 +150,31 @@ def apply_filter(mask, ecc_min, tort_min, align_deg, cached=None):
         return mask, {"dropped_round": 0, "dropped_scratch": 0, "R": R}
     drop, dr, ds = [], 0, 0
     thr = np.deg2rad(align_deg)
+    # frame-level totals for the leave-one-out axis
+    w_all = np.array([c["major"] for c in comps])
+    C_all = float((w_all * np.cos(2 * np.array([c["orient"] for c in comps]))).sum())
+    S_all = float((w_all * np.sin(2 * np.array([c["orient"] for c in comps]))).sum())
+    W_all = float(w_all.sum())
     for c in comps:
-        if c["ecc"] < ecc_min:                                   # round -> pit / carbide
+        if ecc_min > 0 and c["ecc"] < ecc_min:                   # round -> pit / carbide
             drop.append(c["label"]); dr += 1; continue
-        da = abs(np.angle(np.exp(1j * 2 * (c["orient"] - dom)))) / 2
+        if tort_min <= 0:
+            continue
+        # ABSTAIN: too short to have a meaningful straightness -> keep unconditionally
+        if not c["elong_ok"]:
+            continue
+        # LEAVE-ONE-OUT axis: without this the longest scratch sets the very axis that then
+        # deletes it, and a lone dominant crack votes for its own removal.
+        Cl = C_all - c["major"] * np.cos(2 * c["orient"])
+        Sl = S_all - c["major"] * np.sin(2 * c["orient"])
+        Wl = W_all - c["major"]
+        if Wl <= 0:
+            continue
+        R_lofo = float(np.hypot(Cl, Sl) / Wl)
+        if R_lofo < r_min:            # no scratch population -> the axis is noise
+            continue
+        mu = 0.5 * np.arctan2(Sl, Cl)
+        da = abs(np.angle(np.exp(1j * 2 * (c["orient"] - mu)))) / 2   # signed, period pi
         if c["tort"] < tort_min and da < thr:                    # straight AND aligned -> scratch
             drop.append(c["label"]); ds += 1
     if not drop:
@@ -160,12 +190,15 @@ def main():
     # A focused grid, not a full sweep. Each setting costs a skeletonize plus a distance
     # transform on a 27 Mpx frame, so 49 settings x 38 frames was about four hours. These six
     # cover the corners: eccentricity alone, tortuosity+alignment alone, both together, and off.
+    # No eccentricity branch: every setting containing one scored BELOW filter-off in the
+    # previous sweep (0.1416, 0.1379, 0.1336, 0.1309 against 0.1514). Round components are not
+    # simply carbides -- crack junctions and blobby crack mouths are round too.
     GRID = [(0.0, 0.0, 0),          # filter off -- must be able to win
-            (0.95, 0.0, 0),         # reject round components only
-            (0.98, 0.0, 0),
-            (0.0, 1.08, 20),        # reject straight+aligned components only
-            (0.95, 1.08, 20),       # both
-            (0.95, 1.03, 30)]
+            (0.0, 1.05, 20),
+            (0.0, 1.08, 10),
+            (0.0, 1.08, 20),        # the recommended setting
+            (0.0, 1.08, 30),
+            (0.0, 1.12, 20)]
     sc, t0 = {}, time.time()
     for i, r in enumerate(rows):
         n = r["frame"]

@@ -26,12 +26,26 @@ IoU rewards exactly that. A perfect 3 px trace down the label centreline scores 
 thickness, not of detection. Meijering's PAR of 0.553 means it predicts about half the labelled
 area -- which is what a correct thin detection looks like against a broad brush.
 
-AN OPTIONAL SCRATCH REJECTOR is available via reject_scratches=True and is OFF by default.
-Dropping components that are BOTH near-straight (tortuosity < 1.08) AND aligned within 20
-degrees of the frame's dominant axial direction raises the whole-frame median clIoU_adapt from
-0.1514 to 0.1684, keeping 73% of predicted pixels. It does not reach significance: median
-paired delta +0.0037, 26/38 wins, p = 0.064. Notably its leave-one-frame-out selection was
-STABLE -- the same setting won on every fold -- unlike every method sweep in this project.
+AN OPTIONAL SCRATCH REJECTOR is available via reject_scratches=True. IT IS OFF BY DEFAULT AND
+SHOULD PROBABLY STAY OFF. Read this before enabling it.
+
+With a leave-one-out orientation axis, an abstain gate for short components, an R >= 0.40
+precondition and a Kulpa-metric tortuosity, it reaches median clIoU_adapt 0.1691 against 0.1514
+for no filter, improving 27 of 38 frames at p = 0.018 and keeping 91% of predicted pixels.
+
+That is significant BY RANK and worthless BY MASS. The mean paired delta is -0.0001. One frame,
+AS_24hr_BSE_Side_008, collapses from 0.5120 to 0.2289 -- a single loss 28x the median gain,
+which cancels all 27 improvements. The signed-rank test counts ranks, so it cannot see this.
+
+The mechanism is not fixable by tuning. That frame has orientation coherence R = 0.827 and the
+filter deletes 455 components holding 60.5% of predicted pixels, because its cracks are long,
+straight and mutually parallel -- the scratch signature exactly. R says there IS a dominant
+direction; it cannot say whether that direction belongs to polishing marks or to cracks in a
+directionally solidified or rolled microstructure. The leave-one-out axis does not help when
+hundreds of parallel crack segments each set the axis for the others.
+
+Enable it only on material where you know cracking is NOT directional, and check the affected
+frames by eye.
 
 REJECTING ROUND COMPONENTS MAKES THINGS WORSE and is not offered. Every setting that included
 an eccentricity cut scored below filter-off (0.1416, 0.1379, 0.1336, 0.1309 against 0.1514).
@@ -74,8 +88,10 @@ def detect(grey, quantile=None, sigmas=None, min_object_px=None, reject_scratche
         # 0.1684 (+11%) but the paired test is p = 0.064 over 38 frames, 26 wins. Promising,
         # unproven. Turn it on if you would rather lose a straight crack than keep a polishing
         # scratch; leave it off if recall on straight cracks matters.
+        # see the module docstring: significant by rank, net-zero by mass, and it can delete
+        # 60% of a correct prediction on a frame whose cracks are parallel.
         from artefact_filter import apply_filter
-        mask, _ = apply_filter(mask, 0.0, 1.08, 20)
+        mask, _ = apply_filter(mask, 0.0, 1.08, 30)
     return mask
 
 
