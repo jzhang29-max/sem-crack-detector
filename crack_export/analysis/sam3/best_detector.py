@@ -122,11 +122,19 @@ def detect(grey, quantile=None, sigmas=None, min_object_px=None, reject_scratche
         # OFF BY DEFAULT and deliberately so: it raises the median clIoU_adapt from 0.1514 to
         # 0.1691 at p = 0.027 over 38 frames. Turn it on if you would rather lose a straight
         # crack than keep a polishing scratch; leave it off if recall on straight cracks
-        # matters. (These figures are for the min_len = 30 call below. This comment described
-        # the superseded min_len = 20 run -- 0.1684, p = 0.064 -- for one commit after the
-        # call changed.)
+        # matters. (These figures are for the align_deg = 30 call below -- the fourth
+        # positional argument of apply_filter is align_deg, not min_len, which an earlier
+        # version of this comment got wrong. It also described the superseded align_deg = 20
+        # run -- 0.1684, p = 0.064 -- for one commit after the call changed.)
         # see the module docstring: significant by rank, net-zero by mass, and it can delete
         # 60% of a correct prediction on a frame whose cracks are parallel.
+        # sys.path, not a bare import: SC is computed above but never added, so
+        # `from artefact_filter import ...` only resolved when the caller's CWD happened to be
+        # this directory. Importing best_detector from anywhere else raised ModuleNotFoundError
+        # the moment reject_scratches was switched on.
+        import sys as _sys
+        if SC not in _sys.path:
+            _sys.path.insert(0, SC)
         from artefact_filter import apply_filter
         mask, _ = apply_filter(mask, 0.0, 1.08, 30)
     return mask

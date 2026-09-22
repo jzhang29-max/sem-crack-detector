@@ -36,6 +36,25 @@ def load(n):
     while a.ndim > 2: a = a[..., 0]
     return a < 128
 
+# masks/ IS GITIGNORED AND ABSENT FROM EVERY CLONE. Without this check the glob below
+# returns [] on a fresh clone, every loop body is skipped, and the script writes an empty
+# output and exits 0 -- a successful-looking run that measured nothing. verify_claims.py
+# already treats this directory as a regenerable artefact and SKIPs; do the same here, but
+# loudly, because this script's whole output depends on it.
+def _require_masks():
+    import glob as _g, sys as _s
+    if not _g.glob("masks/*_mask.png"):
+        _s.exit(
+            "masks/ is empty or absent, so there is nothing to measure.\n"
+            "It is gitignored (crack_export/.gitignore) because it is regenerable, so a "
+            "fresh clone never carries it.\n"
+            "Regenerate it by running the export from the app (see crack_export/README.txt), "
+            "then re-run this script from the crack_export/ directory.\n"
+            "Refusing to write an empty result that would look like a successful run.")
+
+
+_require_masks()
+
 rows = []
 for proc in ("AS", "Cast", "HIP"):
     for i in range(1, 12):

@@ -785,11 +785,12 @@ def register(app, get_stage, invalidate_stage=None):
                 out["pooled_auc_std"] = cv.get("pooled_auc_std")
                 out["spec_cross_image"] = cv.get("spec")
                 out["metric_note"] = (
-                    "loio_* is train-without-one-image / test-on-that-image, the "
-                    "best-case figure and the one the promotion gate compares. "
-                    "pooled_auc is the grouped cross-image estimate and is the number to "
-                    "quote. The deployed model is refit on all rows including the held-out "
-                    "image, so neither figure is a property of the shipped model.")
+                    "loio_* is train-without-one-image / test-on-that-image: the best-case "
+                    "figure, and only the FIRST of the two bars the promotion gate checks. "
+                    "pooled_auc is the grouped cross-image estimate, is the number to quote, "
+                    "and is the second bar -- a candidate must not regress on either. "
+                    "The deployed model is refit on all rows including the held-out image, "
+                    "so neither figure is a property of the shipped model.")
                 out["label_balance"] = label_balance()
                 # Pass the candidate's operating point too: the bundle records the
                 # specificity it actually achieves at the threshold it will ship with.
