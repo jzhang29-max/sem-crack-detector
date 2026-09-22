@@ -105,9 +105,17 @@ Frame-clustered bootstrap over the 9 source frames: 95% CI **[77, 187]**. Quote 
 two significant figures.
 
 **"Which words, not which micrograph" is false.** Conditioned on prompt — correct for a fully
-crossed design — image identity is significant, not chance: F(15,45) = 4.14, p = 1.06e-4,
-ω² = 0.080, partial R²(tile|prompt) = 0.580 against a 0.250 null (p < 5e-5), and Kendall's
-W = 0.627 (p = 0.0010) because the prompts rank tiles concordantly. Both factors are real; the
+crossed design — image identity is significant, not chance: **F(14,42) = 3.94, p = 2.76e-4,
+ω² = 0.078, partial R²(tile|prompt) = 0.568** against a 0.250 null, and **Kendall's W = 0.612
+(p = 0.0019)** because the prompts rank tiles concordantly.
+
+> These read F(15,45) = 4.14, p = 1.06e-4, ω² = 0.080, R² = 0.580, W = 0.627 until
+> 2026-09-22. The degrees of freedom were the tell: this document is about **15** tiles × 4
+> prompts, which gives df = (14, 42); (15, 45) is the **16**-tile design, i.e. the withdrawn
+> contaminated set. Recomputed from the shipped `sam3_presence.json` on logit(presence), the
+> transform this document uses elsewhere — raw presence gives F = 2.64 and log gives 2.85, so
+> the transform has to be stated, and logit reproduces the published figure to three
+> decimals. The conclusion is unchanged: image identity is significant conditioned on prompt. Both factors are real; the
 prompt effect is roughly 39× larger per degree of freedom.
 
 > **Do not quote raw R² across factors with different level counts.** A 15/16-level factor earns
@@ -156,6 +164,26 @@ reported the 0.001 difference as though it were two comparisons. It was a self-c
 exactly the kind §1 of this document already names.
 
 ## 4. The contamination comparison was blind
+
+> ⛔ **Recomputed 2026-09-22 on the shipped 15 tiles; the significance claim below did not
+> survive.** Every figure in this section was from the 16-tile set. Paired on the 15 tiles
+> common to both runs, with the **exact** signed-rank test rather than the normal
+> approximation:
+>
+> | | contaminated | clean | discordant pairs | exact p |
+> |---|---|---|---|---|
+> | `crack`, union IoU | 0.0826 | **0.1914** (2.32×) | 12 of 15 | **0.8501** |
+> | `crack`, precision | — | — | 12 of 15 | 0.6772 |
+> | `a crack in metal`, IoU | 0.0000 | 0.0000 | 5 of 15 | **0.0625** |
+> | `a crack in metal`, precision | 0.0000 | 0.0000 | 5 of 15 | **0.0625** |
+>
+> **p = 0.0312 is not obtainable here.** With 5 discordant pairs the smallest two-sided exact
+> signed-rank p is 2/2⁵ = 0.0625, which is exactly what the test returns — it is the floor,
+> not a result. (scipy's normal approximation gives 0.0431 at n = 5; that is an approximation
+> artefact, and this is why the exact method has to be named.) So the sentence "the
+> contamination *did* measurably change the scores" is **withdrawn**: at p = 0.0625 it does
+> not clear 0.05, and the direction it points is unchanged only as a direction.
+> Firing on `a crack in metal` moves **2/15 → 7/15**, not 2/16 → 8/16.
 
 Earlier: "the leak did not measurably inflate the scores", from paired Wilcoxon p = 0.7869 (IoU)
 and p = 0.8457 (recall) on `crack`. That is accepting a null from a test with a minimum

@@ -636,6 +636,13 @@ PROSE = [
     ("analysis/sam3/best_config.json",
      '"quantile": 99',
      "the value the docstring above must agree with"),
+    ("analysis/sam3/CLEAN_RUN_RESULTS.md",
+     "p = 0.0312 is not obtainable here",
+     "5 discordant pairs put the exact two-sided signed-rank floor at 0.0625; the document "
+     "claimed significance the shipped data cannot produce"),
+    ("analysis/sam3/CLEAN_RUN_RESULTS.md",
+     "F(14,42) = 3.94, p = 2.76e-4",
+     "the crossed-design ANOVA on 15 tiles x 4 prompts; (15,45) is the withdrawn 16-tile design"),
     ("analysis/sam3/best_detector.py",
      "deletes 455 components holding 56.9% of predicted pixels",
      "recomputed on AS_24hr_BSE_Side_008: 1217 -> 762 components, 225,086 -> 97,124 px. "
