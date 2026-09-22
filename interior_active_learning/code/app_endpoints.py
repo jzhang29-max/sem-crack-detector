@@ -668,7 +668,15 @@ def register(app, get_stage, invalidate_stage=None):
 
     @app.route("/api/process/<image_name>", methods=["POST"])
     def api_process(image_name):
-        use_sam = bool((request.get_json(silent=True) or {}).get("use_sam", True))
+        # DEFAULT OFF, to match what this build actually ships. USE_SAM = false lives in
+        # paint_frontend.py -- it is a JS constant -- so the UI always sends use_sam
+        # explicitly and the UI path was never affected. But this default is what a script,
+        # a batch job or a bare `curl -d '{}'` gets, and it was True: SAM ran, contradicting
+        # the README's "not reachable in this build -- USE_SAM = false". Measured on
+        # MAR_H_AS_CBS_0001: SAM on predicts 9.59% of the frame and puts flat rectangular
+        # patches on tile boundaries; off predicts 5.35% and tracks the cracks. An API caller
+        # following the docs was getting the worse configuration by omission.
+        use_sam = bool((request.get_json(silent=True) or {}).get("use_sam", False))
         if not os.path.exists(os.path.join(ORIGINAL_DIR, f"{image_name}.tif")):
             return jsonify({"ok": False, "error": "no such image"}), 404
         jid = _new_job("process", image_name)

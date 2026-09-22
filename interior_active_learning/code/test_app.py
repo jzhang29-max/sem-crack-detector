@@ -1165,6 +1165,47 @@ def main():
               f"pooled {_pool_seen['deployed']:.4f} -> {_pool_seen['candidate']:.4f}, "
               f"promote={_go_real}")
 
+    # THE API DEFAULT MUST MATCH THE DOCUMENTED ONE. USE_SAM = false is a JavaScript
+    # constant in paint_frontend.py, so it only governs the browser. /api/process had
+    # use_sam defaulting to True, which meant every script, batch job and bare curl got the
+    # SAM stage the README calls "not reachable in this build" -- and on a 27 MP frame that
+    # is the difference between 5.35% of the frame predicted and 9.59%, the extra being flat
+    # rectangular patches on tile boundaries. A default that only one of two callers honours
+    # is not a default.
+    _ae_src2 = open(os.path.join(CODE, "app_endpoints.py")).read()
+    check("the /api/process SAM default matches the documented USE_SAM = false",
+          'get("use_sam", False)' in _ae_src2 and 'get("use_sam", True)' not in _ae_src2,
+          "a caller omitting use_sam would get the SAM stage the README says is off")
+    _fe_src2 = open(os.path.join(CODE, "paint_frontend.py")).read()
+    check("the frontend constant it is supposed to match is still false",
+          "const USE_SAM = false;" in _fe_src2,
+          "if this flips, the server default above should be reconsidered, not silently diverge")
+
+    # AN UNRELEASED FRAME MUST NOT REACH A TRACKED FILE. candidate_counts.json is tracked and
+    # is rewritten after every render. The 2026-09-15 hydrogen batch lives in original/ but is
+    # gitignored, so rendering one of those frames used to add an entry naming an image no
+    # collaborator has -- and reverting the file did not help, because the next render wrote it
+    # again. This is the same hazard the RESERVED_TEST_PREFIXES guard already covers for
+    # synthetic fixtures, so it uses the same mechanism.
+    from common import excluded_from_tracked_artifacts as _excl
+    check("unreleased frames are excluded from tracked artefacts",
+          _excl("MAR_H_AS_CBS_0001") and _excl("MAR_AmbB_HIP_ETD_0010"),
+          "rendering one would dirty candidate_counts.json with an unshipped image")
+    check("the shipped corpus is NOT excluded by that rule",
+          not _excl("MAR_Amb_AS_CBS_0001") and not _excl("260622_316_H_b2_back_CBS_01"),
+          "MAR_AmbB_ must not swallow MAR_Amb_; a too-greedy prefix would silently stop "
+          "recording counts for the real corpus")
+    check("the counts writer actually consults that rule",
+          "excluded_from_tracked_artifacts(image_name)" in
+          open(os.path.join(CODE, "hybrid_detect.py")).read(),
+          "the helper existing is not the same as the write site calling it")
+    _cc = os.path.join(PAINT_DIR, "candidate_counts.json")
+    if os.path.exists(_cc):
+        _ccj = json.load(open(_cc))
+        _leaked = sorted(k for k in _ccj if _excl(k))
+        check("no excluded image is present in the tracked counts file",
+              not _leaked, f"leaked: {_leaked[:4]}" if _leaked else f"{len(_ccj)} entries, all shippable")
+
     # A REFUSAL MUST EXPLAIN ITSELF. The gate correctly declined a candidate whose
     # cross-image AUC was 0.39 against a deployed 0.89, and told the reviewer only "worse than
     # current; production left unchanged" -- after they had just relabelled 31 masks. That is

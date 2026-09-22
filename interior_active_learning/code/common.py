@@ -278,6 +278,27 @@ def is_test_image(image_name):
     return str(image_name).startswith(RESERVED_TEST_PREFIXES)
 
 
+# Frames that are present in original/ but deliberately NOT released, so their .tif is
+# gitignored. They are real data -- unlike a test fixture -- but they have exactly the same
+# problem: candidate_counts.json is rewritten after every image and IS tracked, so opening
+# one of them dirties the repo with an entry naming an image no collaborator has. Merely
+# reverting the file does not help, because the next render writes it again.
+#
+# Keep this in step with the `original/MAR_H_*.tif` / `original/MAR_AmbB_*.tif` rules in
+# .gitignore. If the batch is ever published, delete both together.
+UNRELEASED_PREFIXES = ("MAR_H_", "MAR_AmbB_")
+
+
+def is_unreleased_image(image_name):
+    """True for real frames staged locally but not shipped; see UNRELEASED_PREFIXES."""
+    return str(image_name).startswith(UNRELEASED_PREFIXES)
+
+
+def excluded_from_tracked_artifacts(image_name):
+    """Either a synthetic fixture or an unreleased frame -- never write it to tracked state."""
+    return is_test_image(image_name) or is_unreleased_image(image_name)
+
+
 _WARNED_MIXED_CASE = set()
 
 
