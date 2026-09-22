@@ -857,8 +857,10 @@ deleting it, and keeps its corrections, so a misclick is recoverable.
 
 ## Where things are
 
-Every `.py` in this repo is in exactly one of three categories. Nothing is left
+Every `.py` in this repo is in exactly one of four categories. Nothing is left
 unexplained, and nothing that the app does not use sits next to code that it does.
+The research trees are indexed by their own README; those links are followed by the
+test that enforces this promise, so they cannot go stale silently either.
 
 **The app — 24 modules, this is the whole live path:**
 
@@ -929,6 +931,31 @@ non-browser way in, and each one is the entry point for a result the repo claims
 | `code/establish_baseline.py` | records the out-of-sample baseline the retrain gate needs |
 | `code/resave_models.py` | re-pickles the shipped models for your sklearn, after a deliberate upgrade |
 | `code/generalisation_probe.py` | runs the detector on outside micrographs, to show it does not travel |
+
+**`crack_export/` — the measurement and evaluation work. The app does not import
+any of it.** Exported masks, the frames' statistics, and the detector benchmark. Three
+sub-trees, each with its own index:
+
+| tree | what it is |
+|---|---|
+| `crack_export/analysis/sam3/` | the detector and its evaluation — 30 modules, indexed by `crack_export/analysis/sam3/README.md`. `best_detector.py` is the shipped model; `POSITION_VS_2026.md` is the result |
+| `crack_export/cracktrace/` | a centreline-graph prototype, **synthetic validation only**, indexed by `crack_export/cracktrace/README.md` |
+| `crack_export/tools/` | the 12 modules below, run over the exported CSVs and masks |
+
+| file | what it is |
+|---|---|
+| `crack_export/tools/verify_claims.py` | recomputes every statistic quoted in the analysis docs from its source artefact; the guard that catches numbers going stale in prose |
+| `…/split_sets.py` | splits the flat export into one folder per specimen set, using the pipeline's own `specimen_key()`; hard links, not copies |
+| `…/review_coverage.py` | how much of each frame a human actually reviewed, from the correction-mask codes. READ-ONLY |
+| `…/analyse_sets.py` | per-set crack analysis from the region CSVs. Units are pixels throughout — the scale bar is cropped before analysis |
+| `…/report_sets.py` | the merged per-set table, figures and markdown report |
+| `…/per_set_diagram.py` | one self-contained diagram per set, using only that set's own frames |
+| `…/paired_detector.py` | CBS vs ETD on the same field of view; why 11 frames are not 11 samples |
+| `…/fig_paired.py` | the paired-detector figure (`fig6`) |
+| `…/skeleton_metrics.py` | path morphology from the skeleton — tortuosity, turn angles, branching. The region CSVs describe an ellipse, not a path |
+| `…/linearity_figs.py` | linearity figures, every metric resolution-invariant or explicitly controlled |
+| `…/csv_shape_figs.py` | CSV-only shape metrics, with per-frame dimensions read from `summary.csv` |
+| `…/holes.py` | the regions the crack network encloses — the sharpest available test of intergranular cracking |
 
 **`archive/` — nothing in the app or pipeline imports it.** Superseded code, models
 kept as counterexamples, and one-off analyses that are the evidence behind the

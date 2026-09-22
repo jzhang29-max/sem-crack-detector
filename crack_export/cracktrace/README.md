@@ -3,6 +3,12 @@
 **Status: synthetic validation only. Not run on a real SEM frame. Not compared to the
 shipped pipeline.** Every design claim is a hypothesis with a feasibility check.
 
+## The code
+
+`cracktrace.py` is the whole prototype — scale-native features, corridor loss and the
+global minimum-spanning-forest solve, in one file. Everything below is what it was
+tested against.
+
 ## The idea
 
 Every pixel method (U-Net, SAM) represents a crack as an **area** and recovers

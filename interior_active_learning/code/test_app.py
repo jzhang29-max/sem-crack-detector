@@ -756,13 +756,23 @@ def main():
         # base, so a channel imbalance marks a candidate. There is no endpoint that lists
         # regions with coordinates, and inventing one for a test would be testing nothing.
         _pt = None
+        _flip_mode = "not_crack"
         if os.path.exists(_tplp):
             _ta = np.array(Image.open(_tplp).convert("RGB")).astype(np.int16)
             for _dy, _dx in ((_ta[:, :, 0] - _ta[:, :, 1], "red"), (_ta[:, :, 2] - _ta[:, :, 0], "cyan")):
                 _ys, _xs = np.where(_dy > 40)
                 if len(_ys):
                     _mid = len(_ys) // 2
-                    _pt = (int(_xs[_mid]), int(_ys[_mid])); break
+                    _pt = (int(_xs[_mid]), int(_ys[_mid]))
+                    # FLIP AWAY FROM THE TINT WE FOUND. "not_crack" is an explicit SET, not a
+                    # toggle (paint_server: an already-cyan region stays cyan, by design), so
+                    # sending it at a cyan pixel is a documented no-op and the template bytes
+                    # cannot change. That made this check pass only against a virgin synthetic
+                    # target: the first run turned the target entirely cyan, and every run
+                    # after it failed with md5 -> same md5. The barrier being tested is real
+                    # either way, so pick the direction that is guaranteed to change state.
+                    _flip_mode = "not_crack" if _dx == "red" else "crack"
+                    break
         if _sn_is_real:
             # A flip writes a row to the region-override ledger, and undo does not remove it.
             skip("a flip leaves the template current for the next reader",
@@ -774,7 +784,7 @@ def main():
         else:
             _t0 = time.time()
             _fr = requests.post(f"{BASE}/api/flip_region/{_sn}",
-                                json={"x": _pt[0], "y": _pt[1], "mode": "not_crack"},
+                                json={"x": _pt[0], "y": _pt[1], "mode": _flip_mode},
                                 timeout=300)
             _fel = time.time() - _t0
             _fj = _fr.json() if _fr.headers.get("content-type", "").startswith("application/json") else {}
@@ -1086,16 +1096,74 @@ def main():
         _send = next((i for i in range(_tstart, len(_rl)) if _rl[i].startswith("## Testing")),
                      len(_rl))
         _section = "\n".join(_rl[max(0, _tstart - 12):_send])
-        _core = sorted({os.path.basename(f) for f in subprocess.run(
-            ["git", "ls-files", "*.py"], cwd=os.path.dirname(os.path.dirname(CODE)),
+        _root = os.path.dirname(os.path.dirname(CODE))
+        # The inventory DELEGATES: the research trees merged in from crack_export/ are
+        # indexed by their own README, which the section links. Follow those links rather
+        # than either inlining 46 rows here or narrowing the scan until it passes -- a
+        # guard that stops looking at the hard half is not a guard. Delegation is scoped:
+        # a linked README only accounts for modules at or below its own directory, so a
+        # stray mention in an unrelated tree cannot launder a module into "explained".
+        _delegates = []
+        for _rel in sorted(set(re.findall(r"`([^`]*README\.md)`", _section))):
+            try:
+                _delegates.append((os.path.dirname(_rel),
+                                   open(os.path.join(_root, _rel)).read()))
+            except OSError:
+                check(f"the inventory's link to {_rel} resolves", False,
+                      "the section points at a README that is not in the repo")
+        _core = sorted({f for f in subprocess.run(
+            ["git", "ls-files", "*.py"], cwd=_root,
             capture_output=True, text=True).stdout.split()
             if "/archive/" not in f and not f.startswith("archive/")
             and "/experiments/" not in f})
-        _unnamed = [f for f in _core if f not in _section]
+
+        def _explained(_path):
+            _base = os.path.basename(_path)
+            if _base in _section:
+                return True
+            return any(_base in _txt and (_path.startswith(_dir + "/") if _dir else True)
+                       for _dir, _txt in _delegates)
+
+        _unnamed = [os.path.basename(f) for f in _core if not _explained(f)]
         check("every shipped module is named in the README's inventory",
               not _unnamed,
               "unexplained: " + ", ".join(_unnamed) if _unnamed
               else f"{len(_core)} core modules all accounted for")
+
+    # THE SECOND BAR MUST BE REACHABLE, NOT JUST CORRECT. promotion_decision() gained a
+    # pooled-grouped-CV check, and the unit cases below prove it decides correctly when it
+    # is given both numbers. That is not the same as it ever RECEIVING both numbers: the
+    # first caller read the incumbent's figure from a "pooled_auc_prev" key that nothing in
+    # this repo writes, so it was always None, the pooled branch never ran, and the gate was
+    # inert while every decision test passed. Score the input, not only the verdict --
+    # assert the two figures are actually recoverable from the two model bundles, by the
+    # same accessor the endpoint uses.
+    _pool_seen = {}
+    for _which, _mp in (("deployed", os.path.join(PROJECT_ROOT, "models", "crack_classifier.joblib")),
+                        ("candidate", os.path.join(PROJECT_ROOT, "models",
+                                                   "crack_classifier_v3_weighted.joblib"))):
+        if not os.path.exists(_mp):
+            skip(f"the {_which} bundle exposes a pooled grouped-CV score to the gate",
+                 "bundle not present in this checkout")
+            continue
+        _b = joblib.load(_mp)
+        _fam = _b.get("model_family")
+        _pv = ((_b.get("cv_results") or {}).get(_fam) or {}).get("pooled_auc")
+        _pool_seen[_which] = _pv
+        check(f"the {_which} bundle exposes a pooled grouped-CV score to the gate",
+              _pv is not None,
+              f"cv_results[{_fam!r}].pooled_auc is missing, so the pooled bar cannot apply"
+              if _pv is None else f"pooled_auc {_pv:.4f} from cv_results[{_fam!r}]")
+    if len(_pool_seen) == 2 and all(v is not None for v in _pool_seen.values()):
+        from app_endpoints import promotion_decision as _pd_real
+        _go_real, _why_real = _pd_real(
+            0.8868, 0.8840, None, _pool_seen["candidate"], _pool_seen["deployed"])
+        # The candidate on disk is the 2026-09-20 retrain: it IMPROVED single-specimen LOIO
+        # and REGRESSED pooled. With real inputs the gate must refuse it.
+        check("the gate refuses the real candidate that improved LOIO but regressed pooled",
+              _go_real is False and "POOLED" in (_why_real or "").upper(),
+              f"pooled {_pool_seen['deployed']:.4f} -> {_pool_seen['candidate']:.4f}, "
+              f"promote={_go_real}")
 
     # A REFUSAL MUST EXPLAIN ITSELF. The gate correctly declined a candidate whose
     # cross-image AUC was 0.39 against a deployed 0.89, and told the reviewer only "worse than

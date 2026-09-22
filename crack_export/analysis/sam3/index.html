@@ -26,12 +26,16 @@
  dialog img{max-width:92vw;max-height:78vh;display:block}
  .dh{padding:12px 16px;display:flex;justify-content:space-between;gap:20px;align-items:center;border-bottom:1px solid var(--line)}
  button{font:inherit;padding:5px 12px;border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--fg);cursor:pointer}
+ #note{display:none;margin:0;padding:13px 32px;background:#fdf3d8;color:#5c4708;border-bottom:1px solid #e8d9a8;font-size:13.5px}
+ #note code{background:rgba(0,0,0,.07);padding:1px 5px;border-radius:4px}
+ @media(prefers-color-scheme:dark){#note{background:#332b12;color:#f0dfae;border-bottom-color:#4a3d1a}}
 </style>
 <header>
   <h1>SEM crack detector — all frames</h1>
   <div class="sub">Meijering ridge, &sigma; 1–4, top 1% of response, components &le; 32 px dropped. Orange = prediction.</div>
   <div class="stats" id="stats"></div>
 </header>
+<p id="note"></p>
 <div class="bar">
   <input id="q" placeholder="filter by frame name…" size="26">
   <select id="sort">
@@ -48,6 +52,16 @@
 <script>
 const col=s=>s==null?'#6b6a65':s>=.30?'#1d9e75':s>=.15?'#ba7517':'#d03b3b';
 let rows=[];
+// This page comes up empty in exactly two ways, and both used to be silent.
+// (a) opened as file:// -- fetch() is blocked by CORS, so nothing ever renders;
+// (b) cloned fresh -- detector_overlays/ is 117 MB and gitignored, so every <img>
+//     404s and the grid is 62 grey rectangles with no hint why.
+// Say so on the page rather than leaving a blank screen to interpret.
+function note(html){const n=document.getElementById('note');n.innerHTML=html;n.style.display='block';}
+if(location.protocol==='file:')
+  note('This page is open as a <code>file://</code> URL, so the browser blocks it from '
+      +'reading its own data. Serve the folder instead:<br><code>python3 -m http.server 8777</code> '
+      +'in <code>crack_export/analysis/sam3/</code>, then open <code>http://localhost:8777/</code>.');
 fetch('detector_all.json').then(r=>r.json()).then(d=>{
   rows=d;
   const sc=d.filter(r=>r.clIoU_adapt!=null).map(r=>r.clIoU_adapt).sort((a,b)=>a-b);
@@ -57,6 +71,11 @@ fetch('detector_all.json').then(r=>r.json()).then(d=>{
     ['median predicted area',(100*d.map(r=>r.pred_frac).sort((a,b)=>a-b)[Math.floor(d.length/2)]).toFixed(2)+'%']]
     .map(([k,v])=>`<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
   draw();
+  checkOverlays();
+}).catch(e=>{
+  if(location.protocol!=='file:')
+    note('Could not read <code>detector_all.json</code> ('+e+'). Serve this folder over HTTP from '
+        +'<code>crack_export/analysis/sam3/</code>.');
 });
 function draw(){
   const t=q.value.toLowerCase(), only=onlyscored.checked;
@@ -81,4 +100,13 @@ function draw(){
   });
 }
 q.oninput=draw; sort.onchange=draw; onlyscored.onchange=draw;
+// One probe, not 62 onerror handlers: if the first overlay is absent they all are.
+function checkOverlays(){
+  if(!rows.length) return;
+  const probe=new Image();
+  probe.onerror=()=>note('The scores and the frame list are here, but the overlay images are not: '
+    +'<code>detector_overlays/</code> is 117 MB and is gitignored, so a fresh clone does not carry it. '
+    +'Rebuild it in about 15 min with <code>python3 detect_all_frames.py</code>, then reload.');
+  probe.src='detector_overlays/'+rows[0].frame+'.png';
+}
 </script>

@@ -24,6 +24,27 @@ obtained or why an earlier version of it was wrong.
 | `detect_all_frames.py` | runs it over all 62 originals at full resolution → `detector_masks/`, `detector_overlays/` |
 | `contact_sheet.py` | every frame on one page, ordered worst-last → `detector_contact_sheet.png` |
 | `adaptive_threshold.py` | nine label-free per-frame threshold rules, to fix over-prediction |
+| `artefact_filter.py` | scratch / pit rejector. **Not shipped** — significant by rank, net-zero by mass; kept as the record of what orientation and width cannot separate |
+| `make_results_pdf.py` | every frame's overlay beside its binary mask, one page each → `detector_all_frames.pdf` |
+
+## Looking at the results
+
+`index.html` is a browsable page for all 62 frames — filter by name, sort by score or by
+predicted area, click any frame for the full-size overlay. It reads `detector_all.json`
+(committed, 12 KB) for the scores and `detector_overlays/` for the images.
+
+```bash
+cd crack_export/analysis/sam3 && python3 -m http.server 8777   # then open http://localhost:8777/
+```
+
+It must be **served**, not opened by double-click: as a `file://` URL the browser blocks
+it from reading its own JSON and the page stays blank. It says so on the page now, and it
+also says so when the overlays are missing — on a fresh clone the scores and the frame
+list render but the images do not, because `detector_overlays/` is gitignored. Run
+`detect_all_frames.py` first if you want the pictures.
+
+`detector_contact_sheet.png` (committed) is the same 62 frames on one page, worst last,
+if you just want one look without serving anything.
 
 ## Building the evaluation corpus
 
@@ -58,7 +79,9 @@ Run in this order. Registration before tiling, tiling before the gate, the gate 
 |---|---|
 | `run_real.py` | SAM 3 inference, leak-gated, capturing the presence scalar and pre-gate field |
 | `prepare_checkpoint.py` | rebuilds the 3.45 GB checkpoint from the HF cache |
-| `shim/` | three shims: triton pre-empt, CUDA redirect, `pkg_resources` |
+| `shim/sam3_preload.py` | pre-registers `sam3.model.edt` so importing sam3 never reaches triton; raises loudly if anything calls in |
+| `shim/cuda_redirect.py` | rewrites torch's hardcoded `device="cuda"` for the duration of the model build, so Apple Silicon can construct it |
+| `shim/pkg_resources.py` | `resource_filename()` only, backed by importlib.resources; setuptools ≥ 81 dropped the real one and sam3 still imports it |
 | `analyse_clean_run.py` | per-prompt table, paired against the contaminated run |
 | `serd_eval.py` | reads SAM 3's field **before** the presence gate |
 | `trained_lofo.py`, `ensemble_lofo.py` | supervised and ensemble arms |
@@ -68,7 +91,7 @@ Run in this order. Registration before tiling, tiling before the gate, the gate 
 ## Generated, gitignored, regenerable
 
 `tiles/` `tiles_all/` `masks/` `serd/` `omnicrack/` `detector_masks/` `detector_overlays/`
-`runs/` — roughly 250 MB. `detect_all_frames.py` rebuilds the detector outputs in ~15 min; the
+`runs/` `detector_all_frames.pdf` — roughly 250 MB. `detect_all_frames.py` rebuilds the detector outputs in ~15 min; the
 SAM 3 arms need the isolated venvs described in `../README.md`.
 
 Deleted 2026-09-19 as part of a cleanup: `serd/`, `omnicrack/`, `masks/` and

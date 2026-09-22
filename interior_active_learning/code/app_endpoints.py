@@ -134,12 +134,21 @@ def comparable_baseline(bundle, candidate_image):
 MIN_PROMOTE_SPECIFICITY = 0.20
 
 
-def promotion_decision(new_loio, cur_loio, new_spec=None):
+def promotion_decision(new_loio, cur_loio, new_spec=None,
+                       new_pooled=None, cur_pooled=None):
     """Should a freshly trained candidate replace production? (promote, reason)
 
     Pulled out of the retrain closure so it can be tested without a 10-minute training
     run -- the previous version was only reachable by actually retraining, which is why
     a fail-OPEN gate survived in the codebase unnoticed.
+
+    POOLED GROUPED-CV IS CHECKED TOO, when both sides report it. loio here is leave-one-IMAGE-out
+    on a SINGLE held-out specimen, and this project has already established that it reads
+    optimistically: the same model scores LOIO 0.884 and pooled grouped-CV 0.714. Gating on the
+    single-specimen number alone is how a retrain on 2026-09-20 was deployed after IMPROVING
+    LOIO by 0.0028 while REGRESSING pooled grouped-CV by 0.0063, on the strength of 8 extra
+    training rows. Both must now hold. The arguments are optional and default to None, so a
+    caller that has only LOIO behaves exactly as before.
 
     The rule that matters: a MISSING baseline is a refusal, not a pass. It used to read
     `cur_loio is None or new_loio >= cur_loio`, and because the deployed bundle carries no
@@ -168,10 +177,19 @@ def promotion_decision(new_loio, cur_loio, new_spec=None):
             f"specimen, below the {MIN_PROMOTE_SPECIFICITY:.0%} floor, which means it calls "
             f"almost everything a crack. AUC cannot see this, so it is checked separately. "
             f"Production left unchanged.")
-    if new_loio >= cur_loio - 1e-9:
-        return True, None       # caller fills in the reason, it names the backup file
-    return False, (f"NOT deployed: held-out AUC {new_loio:.4f} is worse than "
-                   f"current {cur_loio:.4f}; production left unchanged")
+    if new_loio < cur_loio - 1e-9:
+        return False, (f"NOT deployed: held-out AUC {new_loio:.4f} is worse than "
+                       f"current {cur_loio:.4f}; production left unchanged")
+    # Second, independent bar: the pooled grouped-CV score, which does not hinge on which
+    # single specimen happened to be held out.
+    if new_pooled is not None and cur_pooled is not None and new_pooled < cur_pooled - 1e-9:
+        return False, (f"NOT deployed: held-out AUC improved ({cur_loio:.4f} -> "
+                       f"{new_loio:.4f}) but POOLED grouped-CV AUC regressed "
+                       f"({cur_pooled:.4f} -> {new_pooled:.4f}). The held-out figure is "
+                       f"leave-one-image-out on a single specimen and reads optimistically; "
+                       f"the pooled figure does not depend on that choice, so a gain in one "
+                       f"and a loss in the other is not an improvement. Production unchanged.")
+    return True, None           # caller fills in the reason, it names the backup file
 
 
 def _running_job_of_kind(*kinds):
@@ -783,7 +801,40 @@ def register(app, get_stage, invalidate_stage=None):
                 except Exception:
                     pass
                 out["loio_spec_new"] = _new_spec
-                _go, _why = promotion_decision(new_loio, cur_loio, _new_spec)
+                # POOLED GROUPED-CV FOR BOTH SIDES, READ FROM EACH MODEL'S OWN BUNDLE.
+                # The first version of this read the candidate's figure out of
+                # crack_classifier_v3_metrics.json and the incumbent's out of a
+                # "pooled_auc_prev" key on the candidate bundle. Nothing in this repo has
+                # ever written pooled_auc_prev -- the read below was its only occurrence --
+                # so _cur_pool was unconditionally None, the second bar in
+                # promotion_decision() could never apply, and the gate was inert while
+                # looking fixed. The unit test did not catch it because it passed both
+                # numbers in by hand; it scored the decision and never asked whether the
+                # caller could supply the inputs.
+                #
+                # Both bundles already carry cv_results[model_family]["pooled_auc"], so read
+                # the two figures the same way from the two models. Symmetric by
+                # construction: there is no path where one side is measured differently from
+                # the other, and the asymmetric-source bug cannot come back.
+                def _pooled_of(_bundle):
+                    _cvr = _bundle.get("cv_results") or {}
+                    _fam = _bundle.get("model_family")
+                    _v = (_cvr.get(_fam) or {}).get("pooled_auc")
+                    return None if _v is None else float(_v)
+
+                _new_pool = _cur_pool = None
+                try:
+                    _new_pool = _pooled_of(joblib.load(cand))
+                except Exception:
+                    pass
+                try:
+                    _cur_pool = _pooled_of(joblib.load(PROD_MODEL_PATH))
+                except Exception:
+                    pass
+                out["pooled_auc_new"] = _new_pool
+                out["pooled_auc_cur"] = _cur_pool
+                _go, _why = promotion_decision(new_loio, cur_loio, _new_spec,
+                                               _new_pool, _cur_pool)
                 if not _go:
                     reason = _why
                     # SAY WHY THE CANDIDATE LOST, not just that it did. A refusal that reads
