@@ -1,4 +1,10 @@
-# 2026 verdict: one survivor, and one genuinely new gap
+# 2026 verdict: one survivor — a direction, not a significance — and no new gap
+
+*Title corrected 2026-09-22. It read "one survivor, and one genuinely new gap"; §2 withdrew
+the gap on 2026-09-18 (it is owned: box supervision IS superset supervision), and §S1(b) now
+records that the survivor's p = 0.0078 is the exact test's floor at n = 8 and falls to
+p = 0.2500 under the per-specimen aggregation this document prescribes. What survives is a
+unanimous direction on 8/8 pairs across 3 specimens, median +3.88 pp.*
 
 Seven-angle sweep of 2026 / post-Nov-2025 literature against the six things that
 survived the earlier audit. Your instinct to push on the dates was right — 2026 killed

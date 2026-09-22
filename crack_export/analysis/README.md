@@ -9,7 +9,7 @@ are withdrawn; the banners say which.** Nothing below is a live claim unless mar
 |---|---|---|---|
 | 1 | **`LABEL_GRANULARITY.md`** | 91 % of the 70 M hand-marked pixels are broad-brush region assertions (median stroke 59 px, max 413 px), not crack outlines | **live — most consequential** |
 | 2 | **`CORRECTION_scale_and_magnification.md`** | µm/px *is* recoverable from the SEM databar; the corpus spans HFW 10.4 µm – 2.59 mm (249×) | **live** |
-| 3 | **`VERDICT_2026.md`** | 2026 literature killed 5 of 6 novelty claims; one survivor (the paired-detector result). Its "one unoccupied methods gap" is **withdrawn** — see below; superset supervision is owned | **live — current verdict, minus the withdrawn gap** |
+| 3 | **`VERDICT_2026.md`** | 2026 literature killed 5 of 6 novelty claims. One survivor, the paired-detector result — and §S1(b) now records it as a **unanimous direction, not a significance** (p = 0.0078 is the exact floor at n = 8; per-specimen aggregation gives p = 0.2500 at n = 3). Its "one unoccupied methods gap" is **withdrawn**; superset supervision is owned | **live — current verdict, minus the withdrawn gap** |
 | 4 | `HEAD_TO_HEAD_VERDICT.md` | six competitors on a fixed rubric; where this method wins and loses | live, **except** the "full-frame 25 MP" advantage, retracted in `VERDICT_2026.md` §4 |
 | 5 | `CRACK_ANALYSIS.md` | the original per-set analysis: censoring, two-population region structure, review audit, paired detector | live **except §4**, the `Cast ≫ AS ≈ HIP` process ranking, **withdrawn** |
 | 6 | `sam3/CLEAN_RUN_RESULTS.md` | SAM 3 re-run leak-gated on **15 provably disjoint** tiles, with a verdict table of what died. This replaces the 16-tile run | **live** |
