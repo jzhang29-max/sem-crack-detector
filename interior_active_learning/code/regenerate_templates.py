@@ -32,7 +32,8 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "code"))
 
-from common import PAINT_DIR, ORIGINAL_DIR, list_original_names, is_test_image
+from common import (PAINT_DIR, ORIGINAL_DIR, list_original_names, is_test_image,
+                    excluded_from_tracked_artifacts)
 from interior_candidates import build_simple_overlay
 from unified_pipeline import run_unified_pipeline
 
@@ -150,8 +151,13 @@ if __name__ == "__main__":
             counts = {}
     ok = [r for r in results if r[4] is None]
     for name, n_total, n_crack, _n_int, _e in ok:
-        if is_test_image(name):
-            continue          # a synthetic fixture, not data -- see common.is_test_image
+        if excluded_from_tracked_artifacts(name):
+            # THE SECOND WRITER. candidate_counts.json is written from two places -- here and
+            # hybrid_detect.py -- and gating only one of them is gating neither: a batch
+            # re-render put 77 unreleased frames into the tracked file through this line while
+            # the other site was correctly refusing them. Synthetic fixtures are not data;
+            # unreleased frames are data nobody else has. Neither belongs in tracked state.
+            continue
         counts[name] = {"n_candidates": n_total, "n_crack": n_crack}
     # drop entries for images that no longer exist
     counts = {k: v for k, v in counts.items()

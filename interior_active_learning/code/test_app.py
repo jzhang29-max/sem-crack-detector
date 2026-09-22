@@ -1195,10 +1195,34 @@ def main():
           not _excl("MAR_Amb_AS_CBS_0001") and not _excl("260622_316_H_b2_back_CBS_01"),
           "MAR_AmbB_ must not swallow MAR_Amb_; a too-greedy prefix would silently stop "
           "recording counts for the real corpus")
-    check("the counts writer actually consults that rule",
-          "excluded_from_tracked_artifacts(image_name)" in
-          open(os.path.join(CODE, "hybrid_detect.py")).read(),
-          "the helper existing is not the same as the write site calling it")
+    # EVERY writer, not the one I happened to fix. candidate_counts.json is written from
+    # three modules, and gating one of them is gating none: after hybrid_detect.py was
+    # fixed, a batch re-render still pushed 77 unreleased frames into the tracked file
+    # through regenerate_templates.py, which had its own copy of the old is_test_image
+    # check. Enumerate the writers here so a fourth one cannot be added silently.
+    _writers = {"hybrid_detect.py": "image_name", "regenerate_templates.py": "name",
+                "app_undo.py": "image_name"}
+    for _mod, _arg in _writers.items():
+        _src = open(os.path.join(CODE, _mod)).read()
+        check(f"{_mod} gates the tracked counts file on the shared rule",
+              f"excluded_from_tracked_artifacts({_arg})" in _src,
+              "the helper existing is not the same as this write site calling it")
+    # A writer is a module that names the counts FILE and assigns into a counts dict. An
+    # earlier version of this check looked for the substring "counts[" anywhere, which
+    # matched this test file's own source the moment the check was written -- a scan that
+    # flags itself is measuring the wrong thing.
+    _found = set()
+    for _m in os.listdir(CODE):
+        if not _m.endswith(".py") or _m == "test_app.py":
+            continue
+        _t = open(os.path.join(CODE, _m)).read()
+        if "candidate_counts.json" in _t and re.search(r"\bcounts\[[^\]]+\]\s*=", _t):
+            _found.add(_m)
+    check("no new writer of the counts file has appeared unguarded",
+          _found == set(_writers),
+          f"unenumerated: {sorted(_found - set(_writers))}; "
+          f"enumerated but no longer writing: {sorted(set(_writers) - _found)}"
+          if _found != set(_writers) else f"exactly the {len(_writers)} known writers")
     _cc = os.path.join(PAINT_DIR, "candidate_counts.json")
     if os.path.exists(_cc):
         _ccj = json.load(open(_cc))

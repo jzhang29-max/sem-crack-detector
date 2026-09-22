@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import jsonify
 
-from common import PAINT_DIR, is_test_image
+from common import PAINT_DIR, is_test_image, excluded_from_tracked_artifacts
 
 UNDO_ROOT = os.path.join(PAINT_DIR, ".undo")
 MAX_DEPTH = 10
@@ -188,7 +188,7 @@ def register(app, invalidate_stage, get_stage=None):
                     counts = json.load(open(counts_path))
                 except Exception:
                     counts = {}
-            if is_test_image(image_name):
+            if excluded_from_tracked_artifacts(image_name):
                 counts.pop(image_name, None)      # never record a fixture here
             else:
                 counts[image_name] = {"n_candidates": int(len(df)),
