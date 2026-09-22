@@ -81,7 +81,10 @@ originally said SAM-family models remain poor on thin low-contrast curvilinear s
 overwrote it as disproven. It was not disproven, and it now stands unrefuted.
 
 The one thing gained: nobody had measured the **trivial baseline**. On the clean input, an
-oracle-tuned single global threshold reaches median **IoU 0.384**. SAM 3 scored 0.119 (0.0775 over all 16 tiles) *with*
+oracle-tuned single global threshold reaches median **IoU 0.4090** over the 15 disjoint tiles
+(`leak_check.json`, and registered in `verify_claims.py` as "median best-threshold IoU (OIS),
+clean input"). This paragraph said 0.384 until 2026-09-21 — the registry guards the artefact,
+not the prose quoting it, which is exactly the gap that let the number drift. SAM 3 scored 0.119 (0.0775 over all 16 tiles) *with*
 the answer visible. Any method proposed on this corpus has to beat 0.384, and that number had
 never appeared in any of these documents.
 
@@ -108,5 +111,6 @@ inspected the input. A benchmark harness needs a guard that asks whether the inp
 contains the target — and a positive control, so the guard is known to be able to fail.
 
 See also: `../LABEL_GRANULARITY.md` (the labels are region assertions, not outlines),
-`../../tools/verify_claims.py` (the 33-claim recomputation registry this should have been part
+`../../tools/verify_claims.py` (the recomputation registry — 33 claims when this was written,
+55 now — that this should have been part
 of from the start).

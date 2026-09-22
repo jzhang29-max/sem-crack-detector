@@ -337,8 +337,9 @@ design, not evidence that the methods are equivalent. It must not be read as the
 
 ### 11. The 38 frames that were being thrown away
 
-47 frames carry a correction mask. Only 9 were used, because the other 38 have a median brush
-wider than 25 px and pixel IoU against them is meaningless — the ceiling falls below even the
+47 frames carry a correction mask. Only 9 were used. Of the other 38, **35** have a median
+brush wider than 25 px and the remaining 3 carry no crack marks at all, so they have no
+measurable brush; for the 35, pixel IoU is meaningless — the ceiling falls below even the
 0.1662 measured on the fine frames. But **clIoU_τ and containment are width-insensitive by
 construction**: that is what they were built for. The exclusion was a property of the metric,
 not of the data.
@@ -349,8 +350,10 @@ leave-one-tile-out. `expanded_bench.py` then reruns the training-free arms on al
 clIoU₄, containment and PAR, reporting pixel IoU for the fine subset only so the expanded result
 can be checked against the 15-tile result on common ground.
 
-Brush widths across the 47 run from 10 px to 288 px, which is the clearest possible statement of
-why a width-insensitive metric is not optional here.
+Brush widths across the 47 run from **4 px to 413 px** (`label_granularity.csv`, 44 frames
+carrying a measurable stroke), which is the clearest possible statement of why a
+width-insensitive metric is not optional here. This said 10–288 px until 2026-09-21,
+understating the coarsest brush by 1.43x.
 
 ### 12. At n = 44, something finally separates — and it is not what won on IoU
 
@@ -409,8 +412,9 @@ not check, the bullet says so rather than implying an absence.
   `leak_check.py` exits 1 if any tile's input encodes its label, and it permanently retains the
   contaminated overlay-derived input as a positive control that must keep failing. This exists
   because the first run here *did* leak — 14 of 16 tiles. A benchmark harness that only scores
-  predictions cannot see this class of bug; ours failed all 33 of its own checks while six of
-  them measured an annotation.
+  predictions cannot see this class of bug; ours **passed** all 33 of its own checks while six
+  of them measured an annotation. (This sentence said "failed", which inverts the whole point:
+  passing is what made the leak invisible.)
 - **Labels are registered to the raw originals, so no rendered overlay is ever fed.**
   `align_originals.py`, 9/9 frames at ncc ≥ 0.99, five at exactly 1.0000, with two square crops
   recovered at non-obvious offsets (278, 1016) and (997, 1974).
@@ -437,7 +441,7 @@ not check, the bullet says so rather than implying an absence.
   reporting one would have been reporting a choice. This is the central recommendation of
   *Metrics Reloaded* (Nature Methods 2024, `10.1038/s41592-023-02151-z`) and its companion
   pitfalls paper (`10.1038/s41592-023-02150-0`).
-- **45 published numbers are recomputed from source artefacts by `verify_claims.py`,** which
+- **55 published numbers are recomputed from source artefacts by `verify_claims.py`,** which
   exits 1 on drift. During this session alone it caught three of my own arithmetic slips
   (4 vs 5 frames at ncc 1.0; baselines 38/49 vs 39/50; a 112.55 ratio printed as 113).
 - **The label semantics are measured, not assumed.** Stroke width, corridor fraction, and the

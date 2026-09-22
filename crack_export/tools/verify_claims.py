@@ -597,7 +597,71 @@ def main():
           + (f", {skipped} skipped (artefact absent)" if skipped else ""))
     if bad:
         print("\nFAIL means a document quotes a number its artefact no longer produces.")
+
+    bad += check_prose()
     return 1 if bad else 0
+
+
+# ---------------------------------------------------------------------------------------
+# THE REGISTRY ABOVE CHECKS ARTEFACTS, NEVER THE PROSE THAT QUOTES THEM. That gap is not
+# hypothetical: on 2026-09-21 LEAK_POSTMORTEM.md said the trivial-baseline IoU was 0.384
+# while the registry recomputed 0.4090 from leak_check.json and PASSED, because the two
+# never meet. Three more numbers had drifted the same way in POSITION_VS_2026.md.
+#
+# The obvious fix -- scan each document for the registered value as a substring -- was
+# tried and thrown away: it reports FOUND for 0.4090 because the unrelated string "0.41"
+# appears somewhere in the file, and FOUND for 0 because "0.0" does. A check that passes
+# by coincidence is worse than no check.
+#
+# So each entry here names the EXACT sentence fragment that must appear, verbatim. If the
+# underlying number moves, the registry above fails on the artefact AND this fails on the
+# sentence, so the document cannot be left quoting the old one. Adding a claim here is
+# cheap; do it whenever a number makes it into prose.
+PROSE = [
+    ("analysis/sam3/LEAK_POSTMORTEM.md",
+     "reaches median **IoU 0.4090** over the 15 disjoint tiles",
+     "the trivial baseline every method must beat; said 0.384 until 2026-09-21"),
+    ("analysis/sam3/POSITION_VS_2026.md",
+     "Brush widths across the 47 run from **4 px to 413 px**",
+     "said 10-288 px, understating the coarsest brush by 1.43x"),
+    ("analysis/sam3/POSITION_VS_2026.md",
+     "**55 published numbers are recomputed from source artefacts by `verify_claims.py`,**",
+     "the registry's own size, quoted in prose; was 45"),
+    ("analysis/sam3/POSITION_VS_2026.md",
+     "ours **passed** all 33 of its own checks",
+     "said 'failed', which inverts the lesson: passing is what hid the leak"),
+    ("analysis/sam3/best_detector.py",
+     "keep the top 1% of the response (quantile 99)",
+     "the shipped config; the docstring said quantile 98 for four commits"),
+    ("analysis/sam3/best_config.json",
+     '"quantile": 99',
+     "the value the docstring above must agree with"),
+]
+
+
+def check_prose():
+    """Every sentence in PROSE must still be present, verbatim, in its document."""
+    print()
+    print(f"{'document':<44} {'the sentence that must still be true':<52} ")
+    print("-" * 112)
+    missing = 0
+    for path, fragment, why in PROSE:
+        try:
+            text = open(path).read()
+        except OSError:
+            print(f"{path[:43]:<44} {'':<52} SKIP (file absent)")
+            continue
+        ok = fragment in text
+        missing += 0 if ok else 1
+        print(f"{path.split('/')[-1][:43]:<44} {fragment[:50]:<52} "
+              f"{'PASS' if ok else '*** FAIL ***'}")
+        if not ok:
+            print(f"{'':<44} why it matters: {why}")
+    print("-" * 112)
+    print(f"{len(PROSE)} prose claims, {len(PROSE)-missing} pass, {missing} fail")
+    if missing:
+        print("\nFAIL here means a document no longer states the number its artefact produces.")
+    return missing
 
 
 sys.exit(main())
