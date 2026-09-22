@@ -38,7 +38,8 @@ My earlier "resolution-invariant" check was too weak. I verified `LineDensity` a
 resampled 2×. Invariance to *resampling* says nothing about invariance to
 *changing the physical field size*. Those metrics are not comparable across HFW.
 
-One thing this independently confirms: **all 15 index-matched CBS/ETD pairs share
+One thing this independently confirms: **of the 16 index-matched CBS/ETD pairs, the 15
+with a readable databar on both frames share
 HFW exactly** (0 mismatches), which corroborates the same-field finding by a route
 that has nothing to do with mask overlap.
 

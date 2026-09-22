@@ -51,7 +51,9 @@ BSE — inherently co-registered, zero drift.
    reviewer put it plainly: *"Nobody asks whether the same physical object imaged twice
    under different acquisition conditions yields the same measurement."* Your 15
    index-matched CBS/ETD pairs at verified 10.00 kV / 1.6 nA / 6.0 mm WD are unique in
-   this set.
+   this set. (Pair arithmetic, because the three numbers get conflated: **16** index-matched
+   pairs in `paired_detector.csv`, **15** of them with a readable databar on both frames and
+   therefore HFW-checkable, **8** registration-confirmed and carrying the p-values.)
 3. **Full-frame reasoning.** ⛔ **RETRACTED as an advantage** (`VERDICT_2026.md` §4): MegaSeg,
    *Med. Image Anal.*, Jan 2026, segments 67 MP whole-slide images, so full-frame reasoning is
    not distinctive. The reach described below is still real; it is just not a win over the

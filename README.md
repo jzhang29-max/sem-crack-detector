@@ -30,8 +30,8 @@ expanded corpus, and ~43 distinct fields of view (CBS/ETD pairs image the same f
 twice). Several earlier claims in this repo have been withdrawn on remeasurement; the
 documents that state them say so in place.
 
-**First run on a fresh clone:** 45 of the 62 shipped micrographs come with a hand-drawn
-correction mask; the other 17 ship as images only, with nothing marked on them yet. None ship
+**First run on a fresh clone:** 47 of the 62 shipped micrographs come with a hand-drawn
+correction mask; the other 15 ship as images only, with nothing marked on them yet. None ship
 with rendered overlays — those are derived and would add hundreds of megabytes to every
 clone. So the first time you open an image, the pipeline runs for it: about 20 seconds
 on a 5.8-megapixel frame and about 95 seconds at 25 megapixels (see the measured pair
@@ -363,10 +363,13 @@ justify itself here: 243 regions from 24 images.
 
 **What is missing, compared with what an NDT reader would want.** There is no false-call rate
 per frame on crack-free specimens, because **no frame in this corpus is established as
-crack-free.** Two of the 39 masks contain zero crack marks — `260708_316_H_b2_front_CBS_010`
-and `MAR_Amb_HIP_CBS_0007` — but neither is evidence of a clean frame: the second is 100%
-UNREVIEWED, an empty mask file, and the first is 99.89% UNREVIEWED with 1,730 not-crack pixels
-against a detector that still accepted 30 regions there. Absence of marks is not absence of
+crack-free.** **Three** of the **47** masks contain zero crack marks —
+`260708_316_H_b2_front_CBS_009`, `260708_316_H_b2_front_CBS_010` and `MAR_Amb_HIP_CBS_0007` —
+but none is evidence of a clean frame, because all three are essentially unreviewed:
+`MAR_Amb_HIP_CBS_0007` is 100.00% UNREVIEWED and completely empty, `CBS_010` is 99.82%
+UNREVIEWED (5,661 not-crack and 5,392 erased pixels), and `CBS_009` is 99.96% UNREVIEWED
+(2,564 not-crack pixels). (This read "two of the 39 ... 99.89% ... 1,730 not-crack pixels",
+counts from before the corpus grew.) Absence of marks is not absence of
 cracks, which is the same confusion this tool exists to refuse. So MIL-HDBK-1823A-style "≤1%
 probability of false calls" has no denominator here, and specificity 0.460 on hand-marked
 not-crack regions is the nearest available substitute.
