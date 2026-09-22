@@ -227,7 +227,7 @@ button:disabled{opacity:.4;cursor:default}
       </div>
     </div>
 
-    <button class="primary" id="retrainBtn" title="Learn from every correction you have made. The new model is deployed only if it scores at least as well on held-out data.">Retrain</button>
+    <button class="primary" id="retrainBtn" title="Learn from every correction you have made. The new model is deployed only if it scores at least as well on BOTH bars: the held-out image, and the pooled grouped-CV score across images.">Retrain</button>
   </div>
 
   <div id="adv">
@@ -1108,7 +1108,8 @@ dz.addEventListener('click', () => {
 document.getElementById('retrainBtn').addEventListener('click', async () => {
   if (!confirm('Rebuild training data from every correction, retrain the model, and ' +
                're-render all images?\n\nThe new model is only deployed if it scores at ' +
-               'least as well as the current one on held-out data.')) return;
+               'least as well as the current one on both the held-out image and the ' +
+               'pooled grouped-CV score across images.')) return;
   const btn = document.getElementById('retrainBtn');
   btn.disabled = true;
   try {

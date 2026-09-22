@@ -94,8 +94,10 @@ reported was produced by pooling across a 249× magnification range.
 - **Censoring** (42.6–96.1 % of crack area edge-touching) and the refusal to quote
   absolute lengths.
 - The **`Tortuosity` < 1 bug** (54.5 % of cracks) — independent of scale.
-- The **tortuosity confounds** (length, and width at ρ=−0.556) and the finding that
-  path tortuosity is ~1.09 with no separation between sets.
+- The **tortuosity confounds** (length, and width at ρ=−0.556), and that there is no
+  separation between sets. The *value* does not survive unchanged: ~1.09 is inside the
+  estimator's own bias envelope, and the corrected excess over an angle-matched null is
+  **1.030** (`LINEARITY_AND_FRACTURE_MODE.md` §7). Do not quote 1.09.
 - **TG/IG remains not determinable**, for the reasons in
   `LINEARITY_AND_FRACTURE_MODE.md` §4.
 

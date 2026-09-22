@@ -91,8 +91,16 @@ actually is:
 > *Learning pixel-precise crack segmentation in SEM from coarse region-level
 > annotations, with a small precisely-labelled validation subset.*
 
-This is a better fit than either the dataset paper or the segmentation paper, and it is
-a genuine methods question rather than a re-run of a U-Net.
+> ⛔ **The framing claim in this section is WITHDRAWN (2026-09-18); the measurement is not.**
+> That these labels are region-level weak labels is measured and stands -- it is the whole
+> point of this file. What does not stand is the claim that reframing the work this way is a
+> *genuine methods question* or an unoccupied opening. It is an occupied one: the formal
+> setting is **Superset Label Learning** (Liu & Dietterich, ICML 2014, PMLR 32:1629-1637),
+> the segmentation machinery is **box supervision with a tightness prior** (Kervadec et al.,
+> MIDL 2020, arXiv:2004.06816) -- box supervision *is* superset supervision -- and the crack
+> domain already ships a shrink module for exactly this. `analysis/README.md` records the
+> weak-supervision framing among the recommendations that died. Use this section to
+> understand what the labels are, not to claim a contribution.
 
 Concretely:
 
