@@ -140,7 +140,15 @@ python3 tools/holes.py
 python3 tools/report_sets.py ; python3 tools/linearity_figs.py
 python3 tools/csv_shape_figs.py ; python3 tools/per_set_diagram.py
 python3 tools/paired_detector.py
-python3 tools/verify_claims.py       # 55 claims; exit 1 on drift
+python3 tools/verify_claims.py       # 55 artefact + 11 prose claims; exit 1 on drift
+#
+# "Exit 1 on drift" means exactly drift: a document quoting a number its artefact no longer
+# produces. An artefact that is ABSENT is reported SKIP and exits 0 -- a fresh clone shows
+# "45 pass, 0 fail, 10 skipped" and is not broken. The registry cannot tell "never built"
+# from "built, then emptied", so an emptied artefact would silently become a SKIP rather
+# than a failure. The two scripts above that could produce that state -- holes.py and
+# paired_detector.py -- now refuse and exit 1 when masks/ is absent instead of writing an
+# empty result, so the emptied case is no longer reachable through this sequence.
 ```
 
 ### B. Benchmark round — `analysis/sam3/`

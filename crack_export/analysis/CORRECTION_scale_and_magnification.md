@@ -11,7 +11,10 @@ That is true of `crack_export/` but false of the source data:
   (or 3072×2188) — the extra 280 (140) rows *are* the panel. The export crops it;
   the originals in `sem-crack-detector/original/` do not.
 - Full-resolution databar crops already existed at
-  `/Users/jiamingzhang/Desktop/sem2txm/figures/databars/` (50 files).
+  `.../sem2txm/figures/databars/` (50 files). ⚠ **That is a different repository, and it is
+  not shipped here — no reader of this repo can check this step.** The databars are still
+  present in 47 of the originals under `original/`, so the measurement is reproducible from
+  what ships; it is the crops used at the time that are unavailable.
 - The Apreo **prints HFW directly**. I read it off the panels.
 
 Validation on the one frame I checked arithmetically, `MAR_Amb_AS_CBS_0003`:

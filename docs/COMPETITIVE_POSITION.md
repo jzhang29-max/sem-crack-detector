@@ -158,15 +158,24 @@ It cannot be built in this repo. It needs a second annotator and a few unseen sp
 ## Known measurement caveats a reviewer will raise
 
 - **Fragmentation bias.** A main crack merged from fragments was reported per fragment until
-  recently; the connector geometry is now honoured, but the residual magnitude at recall
-  0.597 has not been quantified. See `docs/MEASUREMENTS.md`.
+  recently; the connector geometry is now honoured, but the residual magnitude has not been
+  quantified. See `docs/MEASUREMENTS.md`. (This said "at recall 0.597" — the five-frame
+  out-of-sample population. The shipped operating point is recall **0.534** on the ten
+  both-class frames; the caveat does not depend on which, so the number is dropped rather
+  than swapped.)
 - **Right-censoring.** Any crack touching the frame edge is censored. `longest-crack-per-frame`
   is not a valid cross-condition comparable without a boundary-touching flag, and the max
   statistic scales with frame count and field width.
 - **Statistical unit.** Aggregation pools regions across frames, which invites a
   pseudo-replication objection. The specimen, not the region, is the right unit.
-- **Leave-one-image-out leakage.** The promotion gate holds out one *image*; sibling frames
-  from the same session remain in training, so the gate's AUC is optimistic. Leave-one-
-  *specimen*-out would be sounder — the filenames already encode specimen and session.
+- **The held-out score is optimistic — but not for the reason this bullet used to give.**
+  It said the gate holds out one *image* while sibling frames stay in training, and that
+  leave-one-*specimen*-out would be sounder. The gate **is** specimen-aware:
+  `train_v3_weighted.py` sets `HOLD_OUT_WHOLE_SPECIMEN = True` and excludes every frame
+  sharing the held-out frame's `specimen_key`. The optimism is real anyway, for a different
+  reason: the current held-out specimen `AS_24hr` contains exactly **one** frame in this
+  corpus, so specimen-aware and image-aware coincide and the figure rests on a single image.
+  That is why it reads 0.884 against 0.7144 pooled across 45 images, and why the promotion
+  gate now checks both.
 - **Sensitivity.** No threshold or pixel-size sensitivity table exists. Every reported
   measurement should be re-run at 0.4/0.5/0.6 and at 2× downsample before publication.

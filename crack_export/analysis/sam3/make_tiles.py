@@ -19,7 +19,9 @@ recall 1.000 on 16 of 16 tiles, median IoU 0.106, against SAM 3's median union I
 The whole experiment measured its own annotation.
 
 So: the grey is read from sem-crack-detector/original/<frame>.tif at the offset established by
-align_originals.py (9/9 frames at ncc >= 0.99, four of them exactly 1.0000), and the overlay is
+align_originals.py (9/9 frames at ncc >= 0.99, FIVE of them exactly 1.0000 -- this said four;
+alignment.json lists CBS_01, b4_CBS_02, CBS_001, AS_CBS_0001 and Cast_ETD_0003, and
+verify_claims.py registers the count as 5), and the overlay is
 written out only under a name no model loader would reach for. leak_check.py then proves the
 input does not encode the label -- run it, and do not trust any score produced without it.
 """

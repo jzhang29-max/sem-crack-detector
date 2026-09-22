@@ -6,7 +6,7 @@
   "note": "same detector and code path, one of this project's own frames"
  },
  "detector": "--sam2 off",
- "overlays_written_to": "/var/folders/kk/knst1lgn50gblcmt0sywmmt00000gn/T/semcrack_probe_h736vmrf",
+ "overlays_written_to": "<TMPDIR>/semcrack_probe_h736vmrf",
  "images": [
   {
    "key": "SEM_flyash_BSE_NOcracks",
@@ -27,7 +27,7 @@
    "flagged_pct_of_frame": 95.372,
    "components": 16,
    "seconds": 42.6,
-   "overlay_written_to": "/var/folders/kk/knst1lgn50gblcmt0sywmmt00000gn/T/semcrack_probe_h736vmrf/SEM_flyash_BSE_NOcracks_overlay.png"
+   "overlay_written_to": "<TMPDIR>/semcrack_probe_h736vmrf/SEM_flyash_BSE_NOcracks_overlay.png"
   },
   {
    "key": "SEM_bruchflaeche_2000x",
@@ -48,7 +48,7 @@
    "flagged_pct_of_frame": 3.878,
    "components": 80,
    "seconds": 1.7,
-   "overlay_written_to": "/var/folders/kk/knst1lgn50gblcmt0sywmmt00000gn/T/semcrack_probe_h736vmrf/SEM_bruchflaeche_2000x_overlay.png"
+   "overlay_written_to": "<TMPDIR>/semcrack_probe_h736vmrf/SEM_bruchflaeche_2000x_overlay.png"
   },
   {
    "key": "SEM_bruchflaeche_500x",
@@ -69,7 +69,7 @@
    "flagged_pct_of_frame": 1.855,
    "components": 103,
    "seconds": 1.5,
-   "overlay_written_to": "/var/folders/kk/knst1lgn50gblcmt0sywmmt00000gn/T/semcrack_probe_h736vmrf/SEM_bruchflaeche_500x_overlay.png"
+   "overlay_written_to": "<TMPDIR>/semcrack_probe_h736vmrf/SEM_bruchflaeche_500x_overlay.png"
   },
   {
    "key": "SEM_cubic_ceramics",
@@ -90,7 +90,7 @@
    "flagged_pct_of_frame": 0.0,
    "components": 0,
    "seconds": 0.9,
-   "overlay_written_to": "/var/folders/kk/knst1lgn50gblcmt0sywmmt00000gn/T/semcrack_probe_h736vmrf/SEM_cubic_ceramics_overlay.png"
+   "overlay_written_to": "<TMPDIR>/semcrack_probe_h736vmrf/SEM_cubic_ceramics_overlay.png"
   },
   {
    "key": "SEM_ductile_fracture_Al",
@@ -111,7 +111,7 @@
    "flagged_pct_of_frame": 0.0,
    "components": 0,
    "seconds": 0.9,
-   "overlay_written_to": "/var/folders/kk/knst1lgn50gblcmt0sywmmt00000gn/T/semcrack_probe_h736vmrf/SEM_ductile_fracture_Al_overlay.png"
+   "overlay_written_to": "<TMPDIR>/semcrack_probe_h736vmrf/SEM_ductile_fracture_Al_overlay.png"
   },
   {
    "key": "SEM_crack_propagation_TaC",
@@ -132,7 +132,8 @@
    "flagged_pct_of_frame": 0.022,
    "components": 1,
    "seconds": 0.3,
-   "overlay_written_to": "/var/folders/kk/knst1lgn50gblcmt0sywmmt00000gn/T/semcrack_probe_h736vmrf/SEM_crack_propagation_TaC_overlay.png"
+   "overlay_written_to": "<TMPDIR>/semcrack_probe_h736vmrf/SEM_crack_propagation_TaC_overlay.png"
   }
- ]
+ ],
+ "_path_note": "Absolute paths in this artefact were the owner's per-user macOS temp directory (/var/folders/<hash>/T/...), which leaks a machine-local identifier and means nothing to a reader. Replaced with <TMPDIR> on 2026-09-22; only the leading directory was rewritten, every filename and every measured value is untouched."
 }

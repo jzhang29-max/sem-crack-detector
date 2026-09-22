@@ -57,6 +57,8 @@ MAR_Amb_AS_CBS_0003            12,780,833 px   median stroke 413 px
 MAR_Amb_AS_ETD_0003            12,388,443 px   median stroke 268 px
 260708_316_H_b2_front_CBS_016   5,322,088 px   median stroke 230 px
 MAR_Amb_HIP_CBS_0005            5,046,494 px   median stroke 223 px
+MAR_Amb_AS_ETD_0002             4,957,080 px   median stroke 208 px
+MAR_Amb_Cast_ETD_0004           4,739,397 px   median stroke 174 px
 Cast_24hr_SE_Side_006           3,709,448 px   median stroke 289 px
 ```
 

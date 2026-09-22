@@ -92,8 +92,10 @@ never appeared in any of these documents.
 
 I wrote, in every file above and in the commit message, that the overlay burns **pure red
 (255, 0, 0), whose green channel is 0**. It does not. Measured across all 16 tiles, the painted
-region contains **exactly one** RGB triple — **(225, 25, 25)** — over 1,039,604 pixels, so the
-green value written is **25**. The bug is unchanged (25 is still far below the 80 the threshold
+region contains **exactly one** RGB triple — **(225, 25, 25)** — over **879,165** pixels across
+the current 15 reference overlays, so the green value written is **25**. (The pixel total read
+1,039,604 until 2026-09-22; that is the superseded 16-tile set. The triple and the green value
+are unchanged and both are registered claims.) The bug is unchanged (25 is still far below the 80 the threshold
 used, and still a constant), but the number I published while retracting a number was wrong.
 
 Two independent things caught it: an agent's own audit of this corpus had already recorded the

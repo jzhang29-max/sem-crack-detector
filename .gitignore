@@ -1,6 +1,10 @@
 # Derived outputs -- all regenerable from original/ plus the correction masks.
 results/
-figures/
+# LEADING SLASH IS LOAD-BEARING. Written as `figures/` this matched at EVERY level, including
+# crack_export/analysis/figures/, which holds 22 tracked deliverables. Already-tracked files
+# are unaffected, but a newly generated figure there was silently un-addable -- `git add` said
+# nothing and the file simply never arrived.
+/figures/
 fusion_cache/
 removed_images/
 training_data/*.png

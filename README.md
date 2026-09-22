@@ -21,7 +21,7 @@ app does not import any of it:
 | | |
 |---|---|
 | **the app** | the paint / correct / retrain loop described below. `./run` |
-| **the detector benchmark** | [`crack_export/analysis/sam3/POSITION_VS_2026.md`](crack_export/analysis/sam3/POSITION_VS_2026.md) — an **offline evaluation**, not the app's detector. **Two disjoint experiments, and they must not be merged.** On **15 disjoint tiles**: the published OmniCrack30k nnU-Net, zero-shot SAM 3, ridge filters and thresholds — nothing separates, the nnU-Net does not beat a one-line threshold (p = 0.359 on IoU). On **44 frames**: ridge filters against thresholds only, no nnU-Net and no SAM 3 — and here the ridge filters do separate from Otsu (Meijering +0.0741, p = 0.0049, surviving Bonferroni and BH). Its best-scoring arm is a Meijering ridge filter in one function (`best_detector.py`); **the app does not import it** and the shipped detector remains the bare two-pass pipeline described below. Headline finding: **a perfect 3 px trace scores median pixel IoU 0.1662 on these labels**, so pixel IoU here ranks brush imitation rather than correctness — Otsu wins IoU (0.2945) while predicting 1.45x the labelled area. Read it before quoting any number from it |
+| **the detector benchmark** | [`crack_export/analysis/sam3/POSITION_VS_2026.md`](crack_export/analysis/sam3/POSITION_VS_2026.md) — an **offline evaluation**, not the app's detector. **Two disjoint experiments, and they must not be merged.** On **15 disjoint tiles**: the published OmniCrack30k nnU-Net, zero-shot SAM 3, ridge filters and thresholds — nothing separates, the nnU-Net does not beat a one-line threshold (p = 0.359 on IoU). On **44 frames**: ridge filters against thresholds only, no nnU-Net and no SAM 3 — and here the ridge filters do separate from Otsu (Meijering +0.0741, p = 0.0049, surviving Bonferroni and BH). **That separation is carried by the 35 coarse-label frames** (+0.1185, p = 0.0048); on the 9 fine-label frames the same comparison gives +0.0170 at p = 0.594. Since this README argues elsewhere that the broad-brush labels are unreliable for pixel scoring, that split has to travel with the result: ridge filtering beats Otsu on this corpus, clearly where the annotation is broad, and at the fine subset's n the effect is present but unmeasurable. Its best-scoring arm is a Meijering ridge filter in one function (`best_detector.py`); **the app does not import it** and the shipped detector remains the bare two-pass pipeline described below. Headline finding: **a perfect 3 px trace scores median pixel IoU 0.1662 on these labels**, so pixel IoU here ranks brush imitation rather than correctness — Otsu wins IoU (0.2945) while predicting 1.45x the labelled area. Read it before quoting any number from it |
 | **the claim registry** | `crack_export/tools/verify_claims.py` recomputes all 55 quoted statistics from their source artefacts. Run it if you doubt a number |
 | **the results page** | `crack_export/analysis/sam3/index.html` — all 62 frames, filterable, clickable. Serve the folder; see that README |
 
@@ -29,6 +29,13 @@ Sample size is the binding constraint throughout: 9 finely-labelled frames, 44 i
 expanded corpus, and ~43 distinct fields of view (CBS/ETD pairs image the same field
 twice). Several earlier claims in this repo have been withdrawn on remeasurement; the
 documents that state them say so in place.
+
+**Cloning costs about 2.4 GB.** The raw micrographs are the point of the release and they
+are committed, not stored in LFS: `original/` alone is ~1.1 GB and the largest single file is
+45 MB (`original/HIP_24hr_SE_Side_006.tif`), just under GitHub's 50 MB warning threshold.
+There is deliberately no `.gitattributes`/LFS migration — adding one now would rewrite every
+existing hash. Budget the disk and the download time; `git clone --depth 1` roughly halves it
+if you do not need the history.
 
 **First run on a fresh clone:** 47 of the 62 shipped micrographs come with a hand-drawn
 correction mask; the other 15 ship as images only, with nothing marked on them yet. None ship
@@ -1038,19 +1045,21 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 ./.venv/bin/python3 interior_active_learning/code/test_app.py
 ```
 
-367 checks covering upload, detection, exports, correction precedence, region
+382 checks covering upload, detection, exports, correction precedence, region
 isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
 routing, physical-unit calibration, calibration *uncertainty*, instrument metadata,
 right-censoring, the specimen as statistical unit, the batch CLI and its refusals,
 cross-image aggregation, and train/serve parity.
 
-On a **fresh clone** you will see 357, not 367, with one reported as SKIP: overlays and
-per-image measurement CSVs are derived artifacts and are not shipped, so the sections that
-need them have less to run against. A skip is printed with the exact command that builds the
-fixture, and never counts as a pass. `make test` exits 0 on a clean checkout — verified by extracting
-every tracked file to an empty directory, running `make setup` and `make test` there, and
-reading the result: 356 passed, 0 failed, 1 skipped, 357 total. Both numbers here are
-measured that way rather than derived by subtracting from the full count.
+On a **fresh clone** you will see **370**, not 382, with **three** reported as SKIP: overlays,
+per-image measurement CSVs and the retrain candidate bundle are derived artifacts and are not
+shipped, so the sections that need them have less to run against. A skip is printed with the
+exact command that builds the fixture, and never counts as a pass. `make test` exits 0 on a
+clean checkout — re-verified on 2026-09-22 by cloning this repository from its **public
+remote** into an empty directory, running `make setup` and `make test` there, and reading the
+result: **367 passed, 0 failed, 3 skipped, 370 total**, with the clone's working tree left
+clean afterwards. Both numbers here are measured that way rather than derived by subtracting
+from the full count. (They read 357/356/1 against a full count of 367 until that re-run.)
 
 **On Linux, CI is the evidence.** Everything this README says about Linux was worked out
 without a Linux machine — by resolving the requirements against PyPI with pip's `--platform`
@@ -1058,7 +1067,7 @@ machinery, and by reading the ELF dependency tables of a downloaded `manylinux` 
 strong evidence, not execution. [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 executes it, in five jobs on every push. Four target a previously-inferred claim about
 Linux: the full install and
-all 357 checks on Ubuntu with Python 3.12 (the fresh-clone count); `import cv2` inside a
+all 370 checks on Ubuntu with Python 3.12 (the fresh-clone count); `import cv2` inside a
 `python:3.12-slim` container with **no** `libGL` and no X11, which is what proves or kills the
 headless-OpenCV choice; `make test-browser` in real chromium; and a `debian:12` job asserting
 that `./run` *refuses* that distro's Python 3.11 with a readable message rather than dying later

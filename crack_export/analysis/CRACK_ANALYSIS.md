@@ -120,7 +120,9 @@ thousands of specks and describe neither. Everything below splits at 500 px²
 into **specks** and **networks** (fig 3).
 
 Damage is overwhelmingly **one object**: a single region holds **41.2–96.1 %**
-of all crack area in the seven multi-frame sets (area Gini 0.67–0.98). The
+of all crack area in the seven multi-frame sets (area Gini **0.79–0.98** over those same
+seven sets; the 0.67 this once quoted is `AS_24hr`, a single-frame set, i.e. the exception
+named in the next sentence — two populations in one parenthetical). The
 exception is `AS_24hr`, the least-cracked frame in the corpus, where the largest
 region holds only 5.2 % — damage there is genuinely distributed rather than
 concentrated in one network. 15 of 62 frames contain a network that spans the

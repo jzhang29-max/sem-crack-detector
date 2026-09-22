@@ -13,7 +13,8 @@
 # tables of a downloaded manylinux wheel. That is strong evidence, not execution. These three
 # jobs execute it. Each one targets a specific claim that was previously inferred:
 #
-#   suite            -- the install really works and all 327 checks really pass on Linux, on a
+#   suite            -- the install really works and all 370 fresh-clone checks really pass on
+#                       Linux (382 with the derived artefacts present), on a
 #                       case-sensitive filesystem, with multiprocessing defaulting to fork
 #                       rather than spawn.
 #   headless-import  -- `import cv2` succeeds in a container with no libGL and no X11. This is

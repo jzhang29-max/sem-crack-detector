@@ -50,17 +50,32 @@ use and prompt the model once per accepted region, so budget minutes per frame, 
 
 ## What needs the candidate pool first
 
-Grouped by what they actually complain about, so a failure is recognisable:
+> ⚠ **FIVE OF THESE EXIT 0 AND OVERWRITE TRACKED RESULT FILES WITH DEGRADED OUTPUT.**
+> Re-measured 2026-09-22, each run to completion or traceback with a 180 s cap against the
+> shipped 4-CSV / 36-row pool. `refine_finer_grid_pareto`, `refine_soft_score_alternative`,
+> `refine_third_gate_feature`, `round3_finer_grid_retry` and `benchmark_feature_importance`
+> all return 0 — and four of them rewrite `finer_grid_pareto_frontier.csv`,
+> `finer_grid_pareto_full_grid.csv`, `round3_finer_grid_full_grid.csv` and
+> `round3_finer_grid_pareto_with_margins.csv`, which are tracked. Running them on a clone
+> leaves your working tree dirty with results computed from 36 rows instead of the full
+> pool, and nothing warns you. `git checkout --` those four files afterwards, or build the
+> candidate pool first.
+
+Grouped by what they actually do, re-measured rather than remembered:
 
 - **`n_splits=5 > number of groups: 3`** — needs candidates from at least 5 frames:
   `alternative_algorithms`, `feature_engineering`, `per_type_models`,
   `imbalance_and_calibration`, `hybrid_rule_plus_ml`, `benchmark_model_comparison`,
-  `benchmark_learning_curve`, `round3_simple_untried_algorithms`
-- **`needs samples of at least 2 classes`** — needs negatives, and the shipped 34 rows are all
-  crack: `benchmark_decision_boundary`, `benchmark_feature_importance`,
-  `refine_finer_grid_pareto`, `refine_soft_score_alternative`,
-  `refine_stability_and_sensitivity`, `refine_third_gate_feature`, `round3_finer_grid_retry`,
-  `round3_synthetic_negative_augmentation`
+  `benchmark_learning_curve`, `round3_simple_untried_algorithms`, and
+  `benchmark_decision_boundary` (which this file used to list under a different error)
+- **~~`needs samples of at least 2 classes`~~ — this bucket is now EMPTY.** It described a
+  pool of 34 rows with no negatives; a fourth candidate CSV ships and the pool is 36 rows
+  with 2 negatives, so no script produces that message any more. What the eight scripts
+  listed here actually do:
+  `benchmark_decision_boundary` → the `n_splits` error above;
+  `refine_stability_and_sensitivity` → `AssertionError`;
+  `round3_synthetic_negative_augmentation` → `ValueError: Found array with 0 sample(s)`;
+  and the other five exit 0, per the warning above.
 - **missing `original_ledger_unified_features.csv`** — `benchmark_extended_features`,
   `benchmark_feature_importance_unified`, `benchmark_learning_curve_unified`,
   `benchmark_model_comparison_unified`
