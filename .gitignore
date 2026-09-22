@@ -85,3 +85,12 @@ interior_active_learning/code/experiments/.*_model_*.joblib
 # `git status` only by .git/info/exclude -- which is local to one machine and does not
 # travel with a clone, so every collaborator would have seen it as untracked.
 .claude/
+
+# 2026-09-15 MAR 247 hydrogen batch: 80 frames (AS/HIP x H/ambient, 3x3 grid per cell),
+# 3.7 GB, copied into original/ so the app can work with them but deliberately NOT released
+# -- the repo is already a 2.4 GB clone. Provenance for every one of them, including the
+# name it had in the capture folder, is in original/MANIFEST_260915_hydrogen.json (also
+# untracked). Drop these rules if the batch is ever published.
+original/MAR_H_*.tif
+original/MAR_AmbB_*.tif
+original/MANIFEST_260915_hydrogen.json
