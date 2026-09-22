@@ -934,7 +934,7 @@ unexplained, and nothing that the app does not use sits next to code that it doe
 The research trees are indexed by their own README; those links are followed by the
 test that enforces this promise, so they cannot go stale silently either.
 
-**The app — 24 modules, this is the whole live path:**
+**The app — 25 modules, this is the whole live path:**
 
 | file | what it is |
 |---|---|
@@ -949,6 +949,7 @@ test that enforces this promise, so they cannot go stale silently either.
 | `…/build_training_data.py` | correction masks → training rows |
 | `…/train_v3_weighted.py` | trains Pass 1 with per-image weighting |
 | `…/regenerate_templates.py` | batch re-render; **the only** overlay renderer |
+| `…/template_contact_sheet.py` | every paint template matching a name prefix on one page, grouped by specimen — the app's own output, not the offline evaluation's |
 | `…/run_all_candidates.py` | precomputes Pass 2 candidates for the whole corpus |
 | `…/hybrid_detect.py` | Pass 1 + Pass 2 + SAM, as one call |
 | `…/unified_pipeline.py` | orchestrates the two passes |
