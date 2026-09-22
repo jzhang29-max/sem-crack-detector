@@ -19,7 +19,7 @@ obtained or why an earlier version of it was wrong.
 
 | file | what it does |
 |---|---|
-| `best_detector.py` | **the model.** `detect(grey) -> mask`. Meijering ridge, σ 1–4, top 1% (quantile 99, the whole-frame deployment setting), drop ≤32 px |
+| `best_detector.py` | **the best-scoring arm of this evaluation** — *not* the app's detector, which is the two-pass pipeline in `interior_active_learning/` and does not import this. `detect(grey) -> mask`. Meijering ridge, σ 1–4, top 1% (quantile 99, the whole-frame deployment setting), drop ≤32 px |
 | `best_config.json` | its parameters, chosen by leave-one-frame-out |
 | `detect_all_frames.py` | runs it over all 62 originals at full resolution → `detector_masks/`, `detector_overlays/` |
 | `contact_sheet.py` | every frame on one page, ordered worst-last → `detector_contact_sheet.png` |

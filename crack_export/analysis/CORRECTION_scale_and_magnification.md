@@ -73,8 +73,12 @@ on a single frame.
   matched 319 µm, AS is the *highest* by area (50.4 %), not the lowest.
 - **AS vs Cast is not resolvable.** The ordering flips with the metric (AS higher
   by area, Cast higher by length density) and they tie at 1040 µm.
-- **HIP being least cracked survives** — lowest at matched 319 µm by area, and
-  lowest in the pooled data too.
+- **HIP being least cracked survives at matched magnification** — lowest at matched
+  319 µm by area. ⛔ The clause "and lowest in the pooled data too" is **false and is
+  withdrawn**: pooled medians of `CrackAreaPct` from `per_frame_metrics.csv` are AS 3.179 /
+  Cast 20.764 / HIP 3.898 over all frames (AS 2.902 / Cast 20.266 / HIP 4.032 over MAR_Amb),
+  so **AS** is lowest pooled, under either scope. The matched-magnification result is the
+  one that stands; the pooled one never did, which is this document's own argument.
 - Do **not** use the pooled physical length density (HIP appears *highest* at
   97,497 µm/mm²) — that is pure magnification confound, since HIP is the set shot
   at 10–59 µm HFW where fine cracks resolve.

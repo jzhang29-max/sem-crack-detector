@@ -76,14 +76,13 @@ that a threshold is calibrated per model and stored in its bundle, so exposing a
 slider would invite moving off a calibrated operating point without the
 measurement that justified it.
 
-That reasoning is sound and it does not describe what ships. **The deployed
-bundle, `models/crack_classifier.joblib`, carries no `threshold` key at all**, so
-`bundle.get("threshold", 0.5)` returns the fallback and production runs at exactly
-**0.5** — a library default reached by omission. (An earlier draft of this
-paragraph cited 0.40 chosen on a held-out image; the bundle that does carry a
-calibrated threshold, `crack_classifier_v3_weighted.joblib`, stores 0.5615 and is
-not the one in use.) So the argument against a slider currently protects a number
-nobody chose. `experiments/threshold_sensitivity.py` measures what that number is
+That reasoning is sound. **This paragraph used to say the deployed bundle carried
+no `threshold` key and ran at the `0.5` fallback; that is out of date.**
+`models/crack_classifier.joblib` carries `threshold = 0.5538` with a
+`threshold_provenance` record (quantile transfer of a matched-recall threshold,
+quantile 0.8788, held-out image `AS_24hr_BSE_Side_008`). So the argument against a
+slider now protects a chosen number rather than an inherited one — which makes it
+a stronger argument, not a weaker one, and it should be made on those terms. `experiments/threshold_sensitivity.py` measures what that number is
 worth: moving it across 0.3–0.7 changes crack count by 1.28–1.41× while leaving
 the ordering of conditions intact. If a slider is wanted later, the honest version
 ships that curve beside it.

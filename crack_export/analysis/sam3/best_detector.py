@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """The best-performing crack detector found on this corpus, as one runnable function.
 
+NOT THE SHIPPED DETECTOR. This is the winning arm of the offline evaluation in this
+directory. The application in interior_active_learning/ does not import this module -- its
+detector is the two-pass pipeline documented in the root README. Calling this "the model"
+conflated the two; they are different code with different numbers.
+
     detect(grey_uint8) -> boolean mask
 
 CONFIGURATION (chosen by leave-one-frame-out over 44 labelled frames, never on the test frame):

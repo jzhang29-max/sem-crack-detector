@@ -198,8 +198,15 @@ for j, det in enumerate(("CBS", "ETD")):
         ax.plot(np.full(v.size, x) + np.linspace(-.05, .05, v.size), v, "ko", ms=5, zorder=3)
 ax.set_xticks(range(3)); ax.set_xticklabels(("AS", "Cast", "HIP"))
 ax.set_xlabel("processing route"); ax.set_ylabel("crack area fraction (%)")
+# THE TITLE MUST MATCH THE BARS. It said "HIP is lowest under BOTH detectors"; the medians
+# this figure plots are CBS AS 2.523 / Cast 25.508 / HIP 4.399 and ETD AS 3.457 / Cast 19.457
+# / HIP 3.469, so AS is lowest under both and HIP under neither. A baked title is not checked
+# by anything, so it outlived the data it describes.
 ax.set_title("MAR_Amb: process is crossed with detector, so the two are separable\n"
-             "bar = median, dots = frames. HIP is lowest under BOTH detectors.", fontsize=11)
+             "bar = median, dots = frames. Cast is highest under both detectors;\n"
+             "AS and HIP are close and their order is not stable across detectors.\n"
+             "Routes were shot at different magnifications - see CORRECTION_scale_and_magnification.md",
+             fontsize=10)
 ax.legend(frameon=False); ax.grid(axis="y", alpha=.3)
 fig.tight_layout(); fig.savefig(os.path.join(FIG, "fig2_mar_process_detector.png"), dpi=150); plt.close(fig)
 

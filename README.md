@@ -21,7 +21,7 @@ app does not import any of it:
 | | |
 |---|---|
 | **the app** | the paint / correct / retrain loop described below. `./run` |
-| **the detector benchmark** | [`crack_export/analysis/sam3/POSITION_VS_2026.md`](crack_export/analysis/sam3/POSITION_VS_2026.md) — the shipped detector is a Meijering ridge filter in one function (`best_detector.py`), evaluated over 44 frames against the published OmniCrack30k nnU-Net, zero-shot SAM 3, and classical thresholds at matched tuning budgets. Headline finding: **a perfect 3 px trace scores median pixel IoU 0.1662 on these labels**, so pixel IoU here ranks brush imitation rather than correctness — Otsu wins IoU (0.2945) while predicting 1.45x the labelled area. On the width-insensitive metric over 44 frames the ridge filters do separate from Otsu (Meijering +0.0741, p = 0.0049, surviving Bonferroni and BH); on the 15-tile subset the published OmniCrack30k nnU-Net does not separate from a one-line threshold (p = 0.359 on IoU). Read it before quoting any number from it |
+| **the detector benchmark** | [`crack_export/analysis/sam3/POSITION_VS_2026.md`](crack_export/analysis/sam3/POSITION_VS_2026.md) — an **offline evaluation**, not the app's detector. It scores the published OmniCrack30k nnU-Net, zero-shot SAM 3, ridge filters and classical thresholds over 44 frames at matched tuning budgets. Its best-scoring arm is a Meijering ridge filter in one function (`best_detector.py`); **the app does not import it** and the shipped detector remains the bare two-pass pipeline described below. Headline finding: **a perfect 3 px trace scores median pixel IoU 0.1662 on these labels**, so pixel IoU here ranks brush imitation rather than correctness — Otsu wins IoU (0.2945) while predicting 1.45x the labelled area. On the width-insensitive metric over 44 frames the ridge filters do separate from Otsu (Meijering +0.0741, p = 0.0049, surviving Bonferroni and BH); on the 15-tile subset the published OmniCrack30k nnU-Net does not separate from a one-line threshold (p = 0.359 on IoU). Read it before quoting any number from it |
 | **the claim registry** | `crack_export/tools/verify_claims.py` recomputes all 55 quoted statistics from their source artefacts. Run it if you doubt a number |
 | **the results page** | `crack_export/analysis/sam3/index.html` — all 62 frames, filterable, clickable. Serve the folder; see that README |
 
@@ -295,19 +295,33 @@ bar and loses the other is refused with that stated as the reason.
 Three numbers, because they answer three different questions and conflating them is how this
 kind of README misleads.
 
-- **Region level, on images the classifier never saw: AUC 0.801 ± 0.044, balanced accuracy
-  0.766 ± 0.012, worst repeat 0.744.** This is the headline, because grouping the
-  cross-validation by source image is the only way to answer "how will it do on a frame it has
-  not seen". 5 × StratifiedGroupKFold(5) over 243 Pass-2 candidate regions — 168 crack, 75
-  not — drawn from 24 images, train and test never sharing one. Recall 0.777, specificity
-  0.755, precision 0.877. From `benchmark_results.json`.
+- **Region level, on images the classifier never saw: AUC 0.7144 ± 0.0278.** This is the
+  headline, because grouping the cross-validation by source image is the only way to answer
+  "how will it do on a frame it has not seen". It is the **deployed** bundle's own pooled
+  grouped-CV score, over its 7,505 training rows (6,408 crack, 1,097 not) from 45 images —
+  read it yourself out of `models/crack_classifier.joblib`:
+  `cv_results[model_family]["pooled_auc"]`. It is also the second bar the retrain gate checks.
+
+  > An earlier edition of this README gave **AUC 0.801 ± 0.044** here (balanced accuracy
+  > 0.766 ± 0.012, worst repeat 0.744, recall 0.777, specificity 0.755, precision 0.877,
+  > 5 × StratifiedGroupKFold(5) over 243 Pass-2 candidate regions from 24 images, from
+  > `benchmark_results.json`). That run is real but it is **not this model**: it predates the
+  > relabelling pass and covers 243 regions from 24 images against the deployed bundle's 7,505
+  > rows from 45. Quoting it as the shipped model's grouped-CV figure overstated it by 0.087.
+  > The benchmark figures further down this page come from that same older run — they are
+  > labelled where they appear.
 - **Pixel level, on adjudicated pixels: f1 0.638, recall 0.534, specificity 0.460, precision
   0.970** over the ten frames carrying both a crack and a not-crack verdict. Lower than the
   region number and not in conflict with it: getting a region's *label* right is an easier
   question than getting its *boundary* right, and roughly 47% of crack pixels are still missed.
   From `sam2_hybrid_report.json`.
-- **The retrain gate's own bar: AUC 0.885** on a held-out specimen (`AS_24hr_BSE_Side_008`,
-  leave-one-specimen-out), against 0.862 in-sample. A retrain that cannot beat the recorded
+- **The retrain gate's first bar: AUC 0.885** on a held-out specimen (`AS_24hr_BSE_Side_008`,
+  leave-one-specimen-out), against 0.862 in-sample. **Read this one with the pooled figure
+  above, not instead of it.** The holdout is specimen-aware by construction
+  (`train_v3_weighted.py`, `HOLD_OUT_WHOLE_SPECIMEN = True`), but the specimen `AS_24hr`
+  contains exactly one frame in this corpus, so in practice the number rests on a single
+  image — which is why it reads ~0.17 higher than the 45-image pooled score, and why the gate
+  now checks both. A retrain that cannot beat the recorded
   out-of-sample baseline is refused rather than promoted. That 0.885 is the figure for the
   model this README was written against; the bar is whatever the *deployed* bundle records, so
   it moves when you promote a retrain — the sidebar reads it live and is the authority. (For
@@ -340,7 +354,8 @@ nobody sees.
 positive.** RandomForest posts the highest accuracy at 0.816 while its specificity is 0.549:
 it scores well largely by saying "crack". On balanced accuracy the order inverts —
 LogisticRegression 0.766, SVC (RBF) 0.784, RandomForest 0.743 — and LogisticRegression has the
-best AUC of the six at 0.801. That, plus being the only one whose decision surface is eight
+best AUC of the six at 0.801 *on that older 243-region / 24-image run* (see the note above;
+the deployed bundle's pooled grouped-CV is 0.7144). That, plus being the only one whose decision surface is eight
 coefficients you can read, is why it ships. A more flexible model does not have the data to
 justify itself here: 243 regions from 24 images.
 
@@ -827,10 +842,20 @@ and lifting it needs a segmenter that proposes independently.
 
 ### The threshold nobody states
 
-Both passes accept a region when its probability clears a threshold. The shipped bundle
-carries **no threshold key**, so production runs at the `0.5` fallback — a library default
-reached by omission, sitting under every crack count and crack length in this repository,
-and invisible in every figure. `--threshold` makes it explicit and the manifest records it.
+Both passes accept a region when its probability clears a threshold. **This section used to
+say the shipped bundle carried no threshold key and ran at the `0.5` library fallback. That is
+no longer true and the section was not updated.** `models/crack_classifier.joblib` now carries
+`threshold = 0.5538`, with a `threshold_provenance` record naming how it was picked (quantile
+transfer of a matched-recall threshold, quantile 0.8788, held-out image
+`AS_24hr_BSE_Side_008`). Read it yourself:
+
+```bash
+./.venv/bin/python3 -c "import joblib; b=joblib.load('models/crack_classifier.joblib'); print(b['threshold'], b['threshold_provenance'])"
+```
+
+The operating point is therefore calibrated, not inherited — but it is still a single number
+sitting under every crack count and crack length here, and it is still invisible in every
+figure. `--threshold` makes it explicit and the manifest records it.
 `experiments/threshold_sensitivity.py` measures how far the published quantities actually
 move across 0.3–0.7 instead of assuming the answer.
 
