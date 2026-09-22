@@ -53,7 +53,7 @@ AS_24hr_BSE_Side_008, collapses from 0.5120 to 0.2289 -- a single loss 28x the m
 which cancels all 27 improvements. The signed-rank test counts ranks, so it cannot see this.
 
 The mechanism is not fixable by tuning. That frame has orientation coherence R = 0.827 and the
-filter deletes 455 components holding 60.5% of predicted pixels, because its cracks are long,
+filter deletes 455 components holding 56.9% of predicted pixels, because its cracks are long,
 straight and mutually parallel -- the scratch signature exactly. R says there IS a dominant
 direction; it cannot say whether that direction belongs to polishing marks or to cracks in a
 directionally solidified or rolled microstructure. The leave-one-out axis does not help when

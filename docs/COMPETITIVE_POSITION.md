@@ -123,8 +123,13 @@ Recorded so they do not creep back in:
   `docs/generalisation_probe.json`. The transferable claim is about the measurement and review
   layers, never about Pass 1.
   That is not a measurement.
-- **AUC as detection quality** — lead with the operating point, not an AUC — noting that f1 0.715 / recall
-  0.597, specificity 0.476 at threshold 0.5), not an AUC.
+- **AUC as detection quality** — lead with the operating point, not an AUC: the shipped
+  `--sam2 off` pipeline is **f1 0.638 / recall 0.534 / specificity 0.460 / precision 0.970**
+  over the ten both-class frames, which is the row the README marks SHIPPED. (This bullet
+  quoted f1 0.715 / recall 0.597 / specificity 0.476. That is the same detector on the
+  five-frame out-of-sample table, not a different one — but it is the higher of the three
+  populations the README publishes, and a bullet whose purpose is to stop overclaiming should
+  not be the place that picks it.)
 - **Tortuosity, boundary roughness and branch counts as material descriptors** — self-defined,
   no standard, no round-robin, no scale-dependence analysis. MorphoLibJ already ships
   calibrated tortuosity and geodesic diameter.

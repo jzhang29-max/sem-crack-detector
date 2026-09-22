@@ -45,7 +45,9 @@ def fig_presence_gate():
     ax[0].axhline(TAU, color="k", ls="--", lw=1.4)
     ax[0].text(0.3, TAU + 0.015, r"confidence threshold $\tau=0.3$", fontsize=9)
     ax[0].set_yscale("log")
-    ax[0].set_xlabel("tile (16 hand-labelled SEM tiles)")
+    # 15, not 16: the 16-tile set is the withdrawn contaminated run. sam3_presence.json,
+    # which this figure plots, holds 15 distinct tiles.
+    ax[0].set_xlabel("tile (15 hand-labelled SEM tiles)")
     ax[0].set_ylabel(r"$s_i \cdot \max_j q_{ij}$  (gated top score)")
     ax[0].set_title("Whether an image returns ANYTHING is set by $s_i\\cdot\\max_j q_{ij}$\n"
                     "black x = returned nothing. This separation is DEFINITIONAL, not a result",
@@ -67,10 +69,15 @@ def fig_presence_gate():
     ax[1].set_xticklabels([p.replace(" ", "\n") for p in PROMPTS], fontsize=8)
     ax[1].set_ylabel(r"global presence scalar $s_i$")
     med = {p: float(np.median(d)) for p, d in zip(PROMPTS, data)}
+    # WRAPPED ONTO THREE LINES. As one long line this ran off the right edge of the figure
+    # and the rendered PNG stopped mid-word at "...between the two rea", so the shipped
+    # artefact's caption was truncated where the qualifier lives -- the half that says the
+    # 105x headline is carried by one out-of-vocabulary noun.
     ax[1].set_title("THE MEASUREMENT: prompt sensitivity is one scalar\n"
                     f"median {med['crack']:.3f} → {med['fracture']:.4f} = "
-                    f"{med['crack']/med['fracture']:.1f}× — but 6.3× without 'fracture', "
-                    f"3.0× between the two real synonyms", fontsize=9.5)
+                    f"{med['crack']/med['fracture']:.1f}×\n"
+                    f"but 6.3× without 'fracture', 3.0× between the two real synonyms",
+                    fontsize=9.5)
     ax[1].grid(alpha=0.25, axis="y")
     fig.suptitle("SAM 3 on SEM cracks: the presence head collapses on one out-of-vocabulary noun "
                  "while the decoder barely moves (max$_j q_{ij}$ spans 1.31×)", fontsize=11, y=0.99)

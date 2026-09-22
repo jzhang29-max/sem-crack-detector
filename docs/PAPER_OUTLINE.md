@@ -420,7 +420,12 @@ undermine the paper.
   the field width, silently. So automatic calibration is impossible on this corpus and the
   metadata reader is tested against synthetic FEI/ZEISS files instead. It is the paper's own
   thesis happening to the paper's own data, and worth one sentence in the discussion.
-- **Detector is weak.** Recall 0.597 at the deployed operating point. Stated openly; the
+- **Detector is weak.** Recall **0.534**, f1 0.638, specificity 0.460, precision 0.970 at the
+  deployed operating point — the `--sam2 off` row of the README's ten-both-class-frame table,
+  which is the row marked SHIPPED. This said recall 0.597, which is the same detector on the
+  five-frame out-of-sample table; the README warns in place that its three f1s (0.638 / 0.658
+  / 0.715) are three frame populations and must not be compared across tables. Quoting the
+  higher population in a limitations section is picking the flattering one. Stated openly; the
   composability path is the answer, not a defence.
 - **The external audit is now run, with two named exceptions.** `experiments/
   three_state_conformance.py` pushes one three-state fixture (512 crack / 128 adjudicated-

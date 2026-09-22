@@ -27,8 +27,13 @@ maximum is set by the annotator's brush is not measurement. So:
   PAR          predicted area / labelled area -- the bias diagnostic that exposes a method
                winning containment by painting everything (Otsu scored 0.779 at PAR 6.86)
 
-Pixel IoU is still computed, and reported for the fine subset only, so the expanded result can
-be checked against the 15-tile result on common ground.
+Pixel IoU is still computed and reported, but OVER ALL 44 FRAMES, not the fine subset -- the
+aggregation loops over `names`, which is every frame, and expanded_bench.json's per_frame
+arrays are length 44 for IoU exactly as for the other metrics. This docstring claimed
+"reported for the fine subset only ... can be checked against the 15-tile result on common
+ground", which is the one thing it cannot be used for: the populations differ. The JSON does
+record `_fine` per frame, so a fine-only median can be taken from the committed artefact if
+that comparison is wanted; it is not what the printed table shows.
 
 Protocol is unchanged: OIS (per-tile oracle, an upper bound), ODS (one setting for all), and
 LOFO (setting chosen on the other frames). One tile per frame, so the tile count IS the frame

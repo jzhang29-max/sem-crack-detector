@@ -636,6 +636,10 @@ PROSE = [
     ("analysis/sam3/best_config.json",
      '"quantile": 99',
      "the value the docstring above must agree with"),
+    ("analysis/sam3/best_detector.py",
+     "deletes 455 components holding 56.9% of predicted pixels",
+     "recomputed on AS_24hr_BSE_Side_008: 1217 -> 762 components, 225,086 -> 97,124 px. "
+     "The component count was right and the share said 60.5%"),
 ]
 
 

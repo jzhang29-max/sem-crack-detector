@@ -86,7 +86,7 @@ Run in this order. Registration before tiling, tiling before the gate, the gate 
 | `serd_eval.py` | reads SAM 3's field **before** the presence gate |
 | `trained_lofo.py`, `ensemble_lofo.py` | supervised and ensemble arms |
 | `run_omnicrack.py`, `omnicrack_eval.py` | the published nnU-Net, run on our tiles |
-| `make_figures.py` | regenerates every figure from committed artefacts |
+| `make_figures.py` | regenerates **2 of the 4** committed `fig_*.png` here — `fig_presence_gate.png` and `fig_leak_evidence.png` — from committed artefacts. `fig_best_detector.png` and `fig_scratch_filter_failure.png` have **no generator anywhere in this repo**: they cannot be reproduced, only trusted. This row said "regenerates every figure" |
 
 ## Generated, gitignored, regenerable
 
