@@ -23,7 +23,7 @@ Reproduce: `python align_originals.py && python make_tiles.py && python leak_che
 | "an oracle threshold is a bar nobody stated; SAM 3 fails it" | **owned** (ODS/OIS, 2004/2011) and **rigged** (unmatched tuning); matched, p = 1.0000 |
 | "per-tile IoU carries no model information" | **self-comparison**; SAM 3 beats the real null on 12/15 |
 | "the contamination did not measurably change scores" | **underpowered**; another prompt gives p = 0.0312 |
-| "an empty result is a presence-gate event" | **true only at my τ**; at the library default 6 of 44 empties are decoder failures |
+| "an empty result is a presence-gate event" | **true only at my τ**; at the library default some of the 44 empties are decoder failures (the subcount is not reproducible — see §below) |
 | the mechanism itself | **in Meta's abstract** (`arXiv:2511.16719`); synonym instability owned at 263 images (`arXiv:2604.17126`) |
 
 What survives is a local measurement with honest caveats. Keep it as a reason not to trust
@@ -60,7 +60,16 @@ rather than a gate event:
 | 0.7 | 50 | 34 |
 
 The minimum `max_q` over all 60 pairs is 0.4434, which is the only reason nothing fails at
-τ=0.3. At the library's own default the framing already breaks for 6 of 44 empties.
+τ=0.3. At the library's own default the framing already breaks for some of the 44 empties.
+
+> ⚠ **The subcount is not reproducible and the number has been removed, 2026-09-22.** The
+> denominator checks out: 44 of the 60 (tile, prompt) pairs in `sam3_presence.json` are empty
+> at τ = 0.5. The "6" does not. "Decoder failure" means empty for a reason other than the
+> presence gate, and this document never says how that is decided; the obvious readings give
+> 4 (presence alone ≥ τ) or 39 (max_q alone ≥ τ), and an independent audit got 5. Three
+> readings, three answers, none of them 6. The qualitative point stands — at the library
+> default some empties are not presence-gate events, which is enough to break the framing —
+> but the count needs its definition written down before it can be quoted again.
 
 And Meta published the mechanism: *"Recognition and localization are decoupled with a presence
 head"* is in the abstract of `arXiv:2511.16719`. The synonym-instability half is owned too, at
