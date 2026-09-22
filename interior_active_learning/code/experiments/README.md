@@ -9,9 +9,12 @@ data prerequisite, not a bug, and this file says exactly what to generate.
 
 ## The prerequisite: interior candidate CSVs
 
-Most scripts read `interior_active_learning/candidates/*_interior.csv`. Only **3** of those
-ship, holding **34 rows, all of them crack, with no negatives at all**. That is enough to load
-but not to train or cross-validate, which is why a stratified split over both classes fails.
+Most scripts read `interior_active_learning/candidates/*_interior.csv`. Only **4** of those
+ship, holding **36 rows — 34 crack and 2 not-crack**. That is enough to load but not to train
+or cross-validate: two negatives spread over four files cannot fill both classes of any fold,
+which is why a stratified split over both classes fails. (This said 3 files, 34 rows and "no
+negatives at all"; the conclusion is unchanged but the counts were wrong, and "no negatives"
+in particular invites the reader to diagnose the wrong cause.)
 
 Generate the full set first — hours, one pass per frame:
 

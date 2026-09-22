@@ -66,10 +66,30 @@ frame once in a real browser first if you want the same one in the shot.
 
 ## benchmark/
 
-The ten figures embedded in `../MODEL_VALIDATION_BENCHMARK.md`, produced by the
-scripts in `interior_active_learning/code/experiments/`. They previously lived at
-`interior_active_learning/benchmark_figures*/`, which was never tracked, so every
-one of them rendered as a broken image.
+The ten figures embedded in `../MODEL_VALIDATION_BENCHMARK.md`. They previously lived at
+`interior_active_learning/benchmark_figures*/`, which was never tracked, so every one of them
+rendered as a broken image.
+
+**Four of the ten have no generator in this repo, and two come from `archive/`, not from
+`experiments/`.** This section said all ten were "produced by the scripts in
+`interior_active_learning/code/experiments/`", which is a provenance claim, and provenance is
+the whole purpose of this file. Measured with `grep -rl <name> --include='*.py'`:
+
+| figure | generator |
+|---|---|
+| `decision_boundary` | `experiments/benchmark_decision_boundary.py` |
+| `learning_curve` | `experiments/benchmark_learning_curve.py` |
+| `model_comparison_bars` | `experiments/benchmark_model_comparison.py` |
+| `roc_curves` | `experiments/benchmark_roc_curves_unified.py` |
+| `confusion_matrix` | `archive/superseded_code/train_and_evaluate.py` — superseded code |
+| `feature_importance` | `archive/superseded_code/compare_training_strategies.py` — superseded code |
+| `overlay_alignment_sidebyside` | **none** |
+| `overlay_brightness_validation` | **none** |
+| `sam_automatic_mode` | **none** |
+| `sam_model_comparison` | **none** |
+
+The four with no generator cannot be reproduced or re-checked against current data; treat
+them as illustrations, not as evidence.
 
 ## Conventions
 
