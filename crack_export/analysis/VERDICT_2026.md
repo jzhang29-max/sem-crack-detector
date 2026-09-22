@@ -69,8 +69,29 @@ detector-response explanation. Your matched 6.0 mm WD helps — say so explicitl
 **(b) Pair arithmetic, stated cleanly before a reviewer asks.** There are **16**
 index-matched CBS/ETD pairs. **15** have readable databars and all 15 share HFW
 *exactly*. **8** have mask-overlap-confirmed registration (Jaccard ≥ 0.5), and those 8
-carry the p = 0.0078 result; the other 8 were excluded rather than averaged in. Also:
-16 pairs from 8 specimens is not 62 samples — aggregate per specimen.
+carry the p = 0.0078 result; the other 8 were excluded rather than averaged in.
+
+> ⛔ **Two corrections to this paragraph, 2026-09-22, and the second one costs the
+> significance.**
+>
+> **The 8 confirmed pairs come from 3 specimens, not 8.** Grouped by the pipeline's own
+> `aggregate.specimen_key()`: `MAR_Amb_AS` (2 pairs), `MAR_Amb_Cast` (4), `MAR_Amb_HIP` (2).
+> The "8 specimens" figure belongs to the whole 62-frame corpus, not to these pairs.
+>
+> **p = 0.0078 is the floor of the test, not a measurement.** At n = 8 the smallest two-sided
+> exact signed-rank p is 2/2⁸ = 0.0078125, which is exactly the reported value. It says
+> "all 8 deltas had the same sign" and nothing more; no arrangement of these 8 numbers could
+> have produced a smaller one.
+>
+> **And this sentence's own instruction destroys it.** "Aggregate per specimen" applied to
+> these pairs gives 3 per-specimen medians (+1.453, +6.139, +2.957 pp) and an exact
+> two-sided p of **0.2500** — again the floor, this time at n = 3. So the effect **does not
+> reach significance under the aggregation this document tells the reader to use.**
+>
+> What survives is the direction and its consistency: CBS reads higher than ETD on
+> **8 of 8** registration-confirmed pairs and on all three specimens, median **+3.88 pp**.
+> That is a real, unanimous, same-field observation at n = 3 specimens. It is not a
+> significance result, and §S1 should not be described as one.
 
 ## 4. A retraction of my own claim from yesterday
 

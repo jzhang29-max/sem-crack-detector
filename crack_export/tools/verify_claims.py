@@ -636,6 +636,10 @@ PROSE = [
     ("analysis/sam3/best_config.json",
      '"quantile": 99',
      "the value the docstring above must agree with"),
+    ("analysis/VERDICT_2026.md",
+     "The 8 confirmed pairs come from 3 specimens, not 8",
+     "specimen_key() gives MAR_Amb_AS/Cast/HIP; per-specimen aggregation drops the exact p "
+     "from the n=8 floor 0.0078125 to the n=3 floor 0.2500"),
     ("analysis/sam3/CLEAN_RUN_RESULTS.md",
      "p = 0.0312 is not obtainable here",
      "5 discordant pairs put the exact two-sided signed-rank floor at 0.0625; the document "

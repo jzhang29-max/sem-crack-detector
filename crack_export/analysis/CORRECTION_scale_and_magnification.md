@@ -91,8 +91,9 @@ reported was produced by pooling across a 249× magnification range.
 
 ## 5. What survives unchanged
 
-- The **paired CBS/ETD detector effect** (+3.88 pp, 8/8, p=0.008). Pairs are
+- The **paired CBS/ETD detector effect** (+3.88 pp, 8/8). Pairs are
   magnification-matched by construction — now verified from the panels.
+  ⛔ **p = 0.0078 is the exact test's floor at n = 8, not a measurement, and the 8 confirmed pairs are 3 specimens, not 8. Aggregating per specimen — which this repo instructs — gives exact p = 0.2500. The direction is unanimous (8/8 pairs, all 3 specimens, median +3.88 pp); the significance is withdrawn. See `VERDICT_2026.md` §S1(b).**
 - The **1.87 pp repeatability floor** from `CBS_004`/`CBS_005`.
 - The **two-population region structure** (66 % of regions ≤500 px² holding 0.73 %
   of area; top 1 % holding 92.5 %) — a within-frame structural result.

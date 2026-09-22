@@ -29,7 +29,11 @@ are withdrawn; the banners say which.** Nothing below is a live claim unless mar
 **One claim.** On identical fields at matched beam settings (10.00 kV, 1.6 nA, 6.0 mm WD,
 matched HFW), changing only the SEM detector changes measured crack extent by **2.04×**
 (7/8 pairs, p = 0.016) with *narrower* features (p = 0.039); +3.88 pp crack area, 8/8
-pairs, p = 0.0078. No 2026 paper does this. Pair arithmetic, stated plainly: **16**
+pairs, p = 0.0078. No 2026 paper does this.
+
+⛔ **p = 0.0078 is the exact test's floor at n = 8, not a measurement, and the 8 confirmed pairs are 3 specimens, not 8. Aggregating per specimen — which this repo instructs — gives exact p = 0.2500. The direction is unanimous (8/8 pairs, all 3 specimens, median +3.88 pp); the significance is withdrawn. See `VERDICT_2026.md` §S1(b).**
+
+ Pair arithmetic, stated plainly: **16**
 index-matched pairs, **15** share HFW exactly, **8** registration-confirmed carry the
 p-values.
 

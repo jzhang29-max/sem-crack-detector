@@ -236,6 +236,8 @@ registration (Jaccard ≥ 0.5):
 Median difference **+3.88 pp**; Wilcoxon signed-rank p = 0.0078, sign test
 p = 0.0078 (fig 6). Per-pair differences run +0.77 to +19.09 pp.
 
+⛔ **p = 0.0078 is the exact test's floor at n = 8, not a measurement, and the 8 confirmed pairs are 3 specimens, not 8. Aggregating per specimen — which this repo instructs — gives exact p = 0.2500. The direction is unanimous (8/8 pairs, all 3 specimens, median +3.88 pp); the significance is withdrawn. See `VERDICT_2026.md` §S1(b).**
+
 ETD also produces **1.5× the speck density** of CBS (8.6 vs 5.7 per Mpx) — but
 specks are ~0.1 % of area, so they inflate region *counts* without moving area.
 
