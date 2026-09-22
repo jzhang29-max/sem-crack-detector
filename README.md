@@ -509,10 +509,20 @@ which is the next section.
 
 ## Use a better segmenter and keep the measurement layer
 
-The built-in detector was the weakest part of this project, and partly still is. ilastik's
-Random Forest over a multi-scale filter bank, micro-sam's ViT, and the commercial CNNs all
-produce better masks than a darkness threshold plus a LogisticRegression over 8 morphology
-features — at `--sam2 off` that pipeline misses roughly 47% of crack pixels (recall 0.534).
+The built-in detector was the weakest part of this project, and partly still is: at
+`--sam2 off` it misses roughly 47% of crack pixels (recall 0.534). It is a darkness threshold
+plus a LogisticRegression over 8 morphology features, and **the expectation** — from the tool
+survey in `docs/COMPETITIVE_POSITION.md`, not from a measurement — is that ilastik's Random
+Forest over a multi-scale filter bank, micro-sam's ViT and the commercial CNNs produce better
+masks.
+
+> That sentence used to be stated as fact. It is not measured anywhere in this repo, and the
+> nearest thing to a measurement points the other way: `crack_export/analysis/sam3/` runs the
+> published OmniCrack30k nnU-Net and zero-shot SAM 3 on this corpus at matched tuning budgets
+> and finds **nothing separates** — the nnU-Net does not beat a one-line global threshold
+> (p = 0.359 on IoU over 15 tiles). Those are not the three tools named above, so this is not
+> a refutation of the expectation; it is a reason to stop asserting it. If mask quality here
+> matters to you, measure your segmenter on these frames rather than trusting either claim.
 Opting into SAM 2 refinement reaches recall 0.561 at specificity 0.569 against 0.460, which
 narrows the gap without closing it — and costs mask integrity, which is why it is not the
 default. Either way this is a candidate proposer plus a boundary refiner, not a learned
