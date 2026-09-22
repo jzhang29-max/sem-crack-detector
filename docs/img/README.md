@@ -41,7 +41,7 @@ present corrected pixels as unaided accuracy.
 
     ./.venv/bin/python3 code/build_figures.py AS_24hr_BSE_Side_008 \
         --out docs/img/review.png --frac 0.55 --reviewed \
-        --note "in the training set; 134,039 px adjudicated not-crack by hand"
+        --note "in the training set; 133,346 px adjudicated not-crack by hand"
 
 ## app.png
 
@@ -125,3 +125,17 @@ screenshot is scriptable:
 That fragment exists because of what happened to `app.png`: its doc said "not scripted" and it
 sat six days stale, showing a threshold and a sidebar panel that no longer existed. A panel
 that can only be photographed by hand is one whose screenshot will rot the same way.
+
+## And rebuilt again on 2026-09-21, for the same reason
+
+The section above is dated 2026-08-23. Commit `8679146` landed on 2026-08-25 — a
+relabelling pass adding 26.1 M marked pixels across 31 masks and 7 newly labelled
+images — and the model was retrained on it. Neither figure was rebuilt, so for four
+weeks both showed a detector nobody runs, which is precisely the failure this file had
+just finished documenting. A rule written down is not a rule enforced.
+
+`review.png` also carried two counts from before that pass: 1,285 training rows from
+`AS_24hr_BSE_Side_008` and 134,039 not-crack pixels. Recomputed from
+`training_data/labeled_regions.csv` and the committed correction mask, they are **1,295**
+and **133,346** (916,151 marked crack). The figure bakes that number into its footer, so
+the wrong value shipped in the image as well as in the README prose.

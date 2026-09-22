@@ -164,9 +164,11 @@ can see what is worth opening before anything is rendered.
 ![The same frame before and after human review, cracks in red and hand-marked not-crack regions in cyan](docs/img/review.png)
 
    Left, the micrograph; right, the result after review. This is
-   `AS_24hr_BSE_Side_008`, the most heavily adjudicated image in the set — 1,285 of
-   the 7,505 training rows come from it, and 134,039 pixels in it were marked
-   not-crack by hand. Red tracks the cracks closely here precisely *because* it was
+   `AS_24hr_BSE_Side_008`, the most heavily adjudicated image in the set — 1,295 of
+   the 7,505 training rows come from it, and 133,346 pixels in it were marked
+   not-crack by hand (916,151 marked crack). Both counts recomputed from
+   `training_data/labeled_regions.csv` and the committed correction mask; they read
+   1,285 and 134,039 until 2026-09-21, from before the relabelling pass. Red tracks the cracks closely here precisely *because* it was
    reviewed, which is why this figure is labelled "after review" and the one above
    is not: read this one as what a finished image looks like, not as unaided
    accuracy.
