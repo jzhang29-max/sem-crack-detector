@@ -41,8 +41,12 @@
 name: ci
 
 on:
+  # EVERY BRANCH, not just main. This said `branches: [main]` while the header above claimed
+  # "BOTH PLATFORMS, on every push" -- and because all development happens on working branches
+  # that are merged to main only when finished, that meant the suite ran on approximately
+  # nothing: 48 consecutive commits landed without a single CI run. A workflow that describes
+  # itself as a per-push gate has to actually trigger per push.
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 

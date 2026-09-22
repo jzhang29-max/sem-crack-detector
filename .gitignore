@@ -76,3 +76,8 @@ interior_active_learning/code/experiments/round3_margin_maximization_full_grid.c
 interior_active_learning/benchmark_figures/
 interior_active_learning/benchmark_figures_unified/
 interior_active_learning/code/experiments/.*_model_*.joblib
+
+# Local editor/agent scratch state and its worktrees. 2.5 GB here, and it was kept out of
+# `git status` only by .git/info/exclude -- which is local to one machine and does not
+# travel with a clone, so every collaborator would have seen it as untracked.
+.claude/

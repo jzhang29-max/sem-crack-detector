@@ -45,8 +45,8 @@ Four design claims:
 
 SAM 3 was run on 16 hand-labelled tiles from this corpus, and **that experiment is invalid** —
 the model input was built from the green channel of the annotated overlay, and opaque red
-(225, 25, 25) has green 0, so the label was written into the input as black pixels on 14 of 16
-tiles. See `../analysis/sam3/LEAK_POSTMORTEM.md`. Every number that was quoted here — recall
+(225, 25, 25) has green 25 -- far below the 80 the threshold used -- so the label was written
+into the input as black pixels on 14 of 16 tiles. See `../analysis/sam3/LEAK_POSTMORTEM.md`. Every number that was quoted here — recall
 0.969–1.000 on 10/16, IoU 0.59–0.74, and the "fails silently" reading — is withdrawn.
 
 What survives as a design target is narrower and does not depend on that run:

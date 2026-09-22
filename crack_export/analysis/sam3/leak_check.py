@@ -2,8 +2,10 @@
 """Prove the model input does not encode the label. Run this before believing any score.
 
 This guard exists because the first SAM 3 run on this corpus measured its own annotation. The
-input was built from the overlay's green channel; the overlay burns pure red (225,25,25), whose
-green channel is 0; so labelled pixels arrived at the model as black.
+input was built from the overlay's green channel; the overlay burns opaque red (225,25,25) --
+not pure red -- whose green channel is a constant 25, far below the 80 the threshold used, so
+labelled pixels arrived at the model as black. (The value is 25, not 0: see the "third wrong
+diagnosis" section of LEAK_POSTMORTEM.md, where the retraction itself got this number wrong.)
 
 WHAT DISCRIMINATES A LEAK, AND WHAT DOES NOT
 

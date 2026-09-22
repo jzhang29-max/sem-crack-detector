@@ -56,7 +56,11 @@ single oracle-tuned global threshold at median IoU 0.384.
    3 px does not. CNNs trained on mixed magnifications must learn scale invariance from
    data (CIMP, arXiv:2604.24909, shows they encode it implicitly) -- here it is imposed.
 
-4. IT CONSUMES SUPERSET LABELS NATIVELY, which is the gap nothing in 2026 occupies.
+4. IT CONSUMES SUPERSET LABELS NATIVELY. (The claim that this is "the gap nothing in 2026
+   occupies" is WITHDRAWN, 2026-09-18 -- box supervision IS superset supervision, the formal
+   setting is Superset Label Learning, Liu & Dietterich ICML 2014, and a crack paper already
+   ships a shrink module. See cracktrace/README.md item 4. The mechanism below is still what
+   this prototype does; only the novelty claim is gone.)
    Measured: 91% of this corpus's 70M hand-marked pixels come from brush strokes with a
    median thickness of 59 px (max 413 px) asserting regions that CONTAIN a ~3 px crack.
    As a pixel label that is dense-but-wrong and unusable. As a CORRIDOR CONSTRAINT on a

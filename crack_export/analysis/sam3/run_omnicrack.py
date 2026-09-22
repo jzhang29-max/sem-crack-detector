@@ -36,7 +36,33 @@ while _os.path.basename(_CE) != "crack_export" and _os.path.dirname(_CE) != _CE:
 _REPO = _os.path.dirname(_CE)
 # --------------------------------------------------------------------------------
 SC = f"{_CE}/analysis/sam3"
-sys.path.insert(0, "/private/tmp/claude-501/-Users-jiamingzhang-Desktop-APP/48e14b5c-6bee-4570-a55e-3f87da7069da/scratchpad/omnicrack30k/src")
+
+# OmniCrack30k IS NOT VENDORED HERE -- it is a third-party package with its own licence and a
+# multi-gigabyte checkpoint, so it is not committed. Point this at your own checkout:
+#
+#   git clone https://github.com/benzkristian/OmniCrack30k /some/where
+#   OMNICRACK30K_SRC=/some/where/src python3 run_omnicrack.py
+#
+# The path used to be a hard-coded absolute one under a temporary per-session scratch
+# directory. That made the script unrunnable on any other machine AND unrunnable on this one
+# once the directory was cleaned up -- ten lines below the comment explaining that exact
+# mistake. Fail with an instruction instead of an ImportError traceback.
+_OMNI_SRC = _os.environ.get("OMNICRACK30K_SRC")
+if not _OMNI_SRC:
+    for _cand in (f"{_REPO}/vendor/omnicrack30k/src", f"{_REPO}/../omnicrack30k/src"):
+        if _os.path.isdir(_cand):
+            _OMNI_SRC = _os.path.abspath(_cand)
+            break
+if not _OMNI_SRC or not _os.path.isdir(_OMNI_SRC):
+    raise SystemExit(
+        "OmniCrack30k's source was not found, so the published baseline cannot be run.\n"
+        "Set OMNICRACK30K_SRC to the 'src' directory of a checkout of\n"
+        "  https://github.com/benzkristian/OmniCrack30k\n"
+        f"(looked at: OMNICRACK30K_SRC, {_REPO}/vendor/omnicrack30k/src, "
+        f"{_REPO}/../omnicrack30k/src)\n"
+        "The committed results of the run this script performed are in\n"
+        "  analysis/sam3/omnicrack_eval.json  and are summarised in POSITION_VS_2026.md.")
+sys.path.insert(0, _OMNI_SRC)
 from omnicrack30k.inference import OmniCrack30kModel
 
 def main():

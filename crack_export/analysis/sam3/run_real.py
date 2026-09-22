@@ -13,9 +13,9 @@ ENVIRONMENT NOTES (all contained, nothing written to site-packages):
     sam3/model/position_encoding.py:55 hardcodes device="cuda".
 
 LEAK GATE. This script REFUSES TO RUN unless leak_check.py reports every tile clean. The
-first version of this experiment fed the green channel of the annotated overlay -- pure red
-(225,25,25) has green 0, so the label was written into the input as black pixels on 14 of 16
-tiles. See LEAK_POSTMORTEM.md. The gate is not optional and not a warning.
+first version of this experiment fed the green channel of the annotated overlay -- opaque red
+(225,25,25) has green 25, far below the 80 the threshold used, so the label was written into
+the input as black pixels on 14 of 16 tiles. See LEAK_POSTMORTEM.md. The gate is not optional and not a warning.
 
 PRESENCE CAPTURE. model.forward_grounding is wrapped to record, per (tile, prompt), the global
 presence scalar s_i and max_j q_ij BEFORE gating. This makes the "empty output" behaviour

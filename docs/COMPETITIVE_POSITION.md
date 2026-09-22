@@ -41,7 +41,10 @@ Annotation platforms own the human workflow and ignore both.
 - One row per crack carrying all seven morphometrics without joining three tables
 - Mean/max crack **opening width** per crack (ilastik has none; Fiji needs an unmaintained
   plugin with a live anisotropy bug)
-- A CC-BY-4.0 corpus of SEM crack masks — the only such release found
+- A CC-BY-4.0 corpus of SEM crack masks. (⛔ The qualifier "the only such release found" is
+  **retracted** — `crack_export/analysis/NOVELTY_ASSESSMENT.md` §6 records "No comparable
+  public dataset exists" as **false**: RODARE; Schmies 2023. The corpus is still released
+  under CC BY 4.0; it is not unique.)
 
 **Loses outright:**
 

@@ -1,5 +1,16 @@
 # Crack linearity and fracture mode
 
+> ### ⚠ CORRECTION — read `CORRECTION_scale_and_magnification.md` first
+> **Every process comparison in this file (`Cast ≫ HIP`, the AS-vs-HIP inversion, and the
+> "Cast survives, and is now mechanistically explained" reading) inherits the withdrawal of
+> the §4 process ranking in `CRACK_ANALYSIS.md`.** The three processing routes were sampled
+> at systematically different magnifications over a 249× range, so any comparison pooled
+> across them compares observation scales, not materials — and line density and width are
+> themselves resolution-dependent, which is the confound this file set out to control for and
+> did not. At matched magnification only 1–2 fields per route exist. The *methods* here (the
+> resolution-invariant metrics, the tortuosity correction in §7, the hole analysis) stand; the
+> process rankings drawn from them do not. This file carried no banner until 2026-09-21.
+
 Follow-up to `CRACK_ANALYSIS.md`. Two questions: did the first analysis use the CSVs,
 and can we graph linearity and transgranular/intergranular cracking?
 

@@ -343,8 +343,14 @@ over-detection *outside* the marked area.
 ## 10. Bottom line
 
 **Supported by the data:**
-- Cast cracks ~5–6× more than AS or HIP by area fraction, replicated across two
-  independent imaging campaigns, both MAR detectors, and every review subset.
+- ~~Cast cracks ~5–6× more than AS or HIP by area fraction, replicated across two
+  independent imaging campaigns, both MAR detectors, and every review subset.~~
+  ⛔ **WITHDRAWN — this is the §4 process ranking the banner at the top of this file
+  retracts.** The banner scopes the withdrawal to §4, so this bullet went on asserting
+  the same claim under "Supported by the data". The routes were sampled at systematically
+  different magnifications across a 249× range, so the pooled area-fraction comparison
+  compared observation scales, not materials. `HIP is least cracked` survives;
+  `Cast ≫ AS ≈ HIP` does not. See `CORRECTION_scale_and_magnification.md`.
 - Cast damage is pervasive; AS and HIP damage is localised to a few catastrophic
   fields (AS worst/median = 17.6×). Different patterns, not just amounts.
 - Damage is one dominant connected network per field (41–96 % of area in a

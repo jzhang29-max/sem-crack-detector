@@ -9,7 +9,8 @@
  "black_ridges": true,
  "quantile": 99,
  "min_object_px": 32,
- "clIoU_adapt_ODS": 0.2847993613951061,
+ "clIoU_adapt_LOFO": 0.2847993613951061,
+ "clIoU_adapt_LOFO_note": "This key was named clIoU_adapt_ODS, but 0.2848 is the LOFO figure in expanded_bench.json, not the OIS one (0.2960). ODS and OIS are oracle protocols that pick a threshold using the labels; LOFO does not. Nothing reads this key -- it is provenance -- but a protocol name on the wrong number is the kind of thing that gets quoted.",
  "quantile_note": "99 for WHOLE FRAMES (median clIoU_adapt 0.1514, +0.0199 vs q98, 31/38 wins, p=9.9e-05, over-predicting frames 9/38 -> 6/38). On the label-centred TILES the optimum was 98 (0.2848 vs 0.2450) -- tiles contain proportionally more crack, so they tolerate a fatter cut. Whole-frame is the deployment setting.",
  "rejected_adaptive": {
   "Otsu": 0.0357,

@@ -14,6 +14,22 @@
 Drop SEM images into a browser window, see cracks detected, fix what's wrong by
 painting.
 
+**Two things live in this repo.** The annotation app is the rest of this file. The
+detector evaluation is in [`crack_export/`](crack_export/analysis/sam3/README.md) and the
+app does not import any of it:
+
+| | |
+|---|---|
+| **the app** | the paint / correct / retrain loop described below. `./run` |
+| **the detector benchmark** | [`crack_export/analysis/sam3/POSITION_VS_2026.md`](crack_export/analysis/sam3/POSITION_VS_2026.md) — the shipped detector is a Meijering ridge filter in one function (`best_detector.py`), evaluated over 44 frames against the published OmniCrack30k nnU-Net, zero-shot SAM 3, and classical thresholds at matched tuning budgets. Headline finding: **a perfect 3 px trace scores median pixel IoU 0.1662 on these labels**, so pixel IoU here ranks brush imitation rather than correctness — Otsu wins IoU (0.2945) while predicting 1.45x the labelled area. On the width-insensitive metric over 44 frames the ridge filters do separate from Otsu (Meijering +0.0741, p = 0.0049, surviving Bonferroni and BH); on the 15-tile subset the published OmniCrack30k nnU-Net does not separate from a one-line threshold (p = 0.359 on IoU). Read it before quoting any number from it |
+| **the claim registry** | `crack_export/tools/verify_claims.py` recomputes all 55 quoted statistics from their source artefacts. Run it if you doubt a number |
+| **the results page** | `crack_export/analysis/sam3/index.html` — all 62 frames, filterable, clickable. Serve the folder; see that README |
+
+Sample size is the binding constraint throughout: 9 finely-labelled frames, 44 in the
+expanded corpus, and ~43 distinct fields of view (CBS/ETD pairs image the same field
+twice). Several earlier claims in this repo have been withdrawn on remeasurement; the
+documents that state them say so in place.
+
 **First run on a fresh clone:** 45 of the 62 shipped micrographs come with a hand-drawn
 correction mask; the other 17 ship as images only, with nothing marked on them yet. None ship
 with rendered overlays — those are derived and would add hundreds of megabytes to every
@@ -259,9 +275,18 @@ waits — and the caller allows 24 hours, so an out-of-memory kill would leave R
 "running" with the button disabled rather than failing.
 
 **Retrain will not deploy a worse model.** The candidate is scored against the
-current one on a held-out image and only promoted if it does at least as well.
-That is not hypothetical — during development 18 extra training rows moved
-held-out AUC from 0.9252 to 0.9153 and the gate declined to deploy.
+current one and must not regress on *either* of two bars: the held-out AUC on a
+left-out image, and the pooled grouped-CV AUC across images. That is not
+hypothetical — during development 18 extra training rows moved held-out AUC from
+0.9252 to 0.9153 and the gate declined to deploy.
+
+The second bar exists because the first one reads optimistically. Held-out AUC here
+is leave-one-*image*-out on a single specimen, and the same model scores 0.884 that
+way against 0.714 pooled across images. On 2026-09-20 a retrain of 8 extra rows
+improved the single-specimen figure by 0.0028 while regressing the pooled figure by
+0.0063, and was deployed on the strength of it. Both figures are read from each
+model's own bundle, so the comparison is symmetric, and a candidate that wins one
+bar and loses the other is refused with that stated as the reason.
 
 ## How well it works
 

@@ -9,10 +9,10 @@ are withdrawn; the banners say which.** Nothing below is a live claim unless mar
 |---|---|---|---|
 | 1 | **`LABEL_GRANULARITY.md`** | 91 % of the 70 M hand-marked pixels are broad-brush region assertions (median stroke 59 px, max 413 px), not crack outlines | **live — most consequential** |
 | 2 | **`CORRECTION_scale_and_magnification.md`** | µm/px *is* recoverable from the SEM databar; the corpus spans HFW 10.4 µm – 2.59 mm (249×) | **live** |
-| 3 | **`VERDICT_2026.md`** | 2026 literature killed 5 of 6 novelty claims; one survivor; the one unoccupied gap | **live — current verdict** |
+| 3 | **`VERDICT_2026.md`** | 2026 literature killed 5 of 6 novelty claims; one survivor (the paired-detector result). Its "one unoccupied methods gap" is **withdrawn** — see below; superset supervision is owned | **live — current verdict, minus the withdrawn gap** |
 | 4 | `HEAD_TO_HEAD_VERDICT.md` | six competitors on a fixed rubric; where this method wins and loses | live, **except** the "full-frame 25 MP" advantage, retracted in `VERDICT_2026.md` §4 |
 | 5 | `CRACK_ANALYSIS.md` | the original per-set analysis: censoring, two-population region structure, review audit, paired detector | live **except §4**, the `Cast ≫ AS ≈ HIP` process ranking, **withdrawn** |
-| 6 | **`sam3/SAM3_ON_SEM_CRACKS.md`** | SAM 3 measured on 16 hand-labelled tiles: bimodal (recall 0.969–1.000 on 10/16, 0.000 on 6/16); only the prompt `crack` works | **live** — and it *corrects* `VERDICT_2026.md` §6 |
+| 6 | `sam3/CLEAN_RUN_RESULTS.md` | SAM 3 re-run leak-gated on **15 provably disjoint** tiles, with a verdict table of what died. This replaces the 16-tile run | **live** |
 | 7 | `LINEARITY_AND_FRACTURE_MODE.md` | linearity, tortuosity confounds, transgranular/intergranular | live; **§7 corrects my own tortuosity estimator** (1.094 raw → 1.030 excess over an angle-matched null) |
 
 ## Superseded — kept for the record only
@@ -21,6 +21,8 @@ are withdrawn; the banners say which.** Nothing below is a live claim unless mar
 |---|---|---|
 | `NOVELTY_ASSESSMENT.md` | `VERDICT_2026.md` | searched 2023–2025 only; its surviving claims were later killed by 2026 work |
 | `PUBLICATION_NOTES.md` | `VERDICT_2026.md` | recommended a dataset paper and a weak-supervision framing that both died |
+| `sam3/SAM3_ON_SEM_CRACKS.md` | `sam3/CLEAN_RUN_RESULTS.md` | **⛔ retracted in full 2026-09-18** — the model input was the green channel of the annotated overlay, so the experiment measured its own label on 14 of 16 tiles. Every score in it is void, including the bimodal recall this index used to quote as live. It also did **not** correct `VERDICT_2026.md` §6: that section now records that the "correction" was itself the leaked measurement, so the original claim stands unrefuted. Kept unedited as the record; see `sam3/LEAK_POSTMORTEM.md` |
+| `sam3/GAP_CONFOUND.md` | — | **⛔ retracted in full**, same leak. Kept unedited as the record |
 
 ## What is actually still standing
 
@@ -36,11 +38,15 @@ p-values.
 with more contrast, it may be the segmenter's contrast response rather than crack extent.
 Must be recomputed segmentation-free or recall-matched on fine hand-traced labels.
 
-**One new finding, free to report.** SAM 3's concept prompt is brittle: zero instances on
-14/16 tiles for "a crack in metal" and "thin dark line", and on **16/16 for "fracture"**.
-Only the bare noun `crack` fires. Prompt wording is an unguessable researcher degree of
-freedom, so any SAM-3 microscopy number published without a prompt ablation is reporting
-luck with vocabulary. Costs nothing further to claim — the ablation is already run.
+**~~One new finding, free to report — SAM 3's prompt brittleness.~~ WITHDRAWN 2026-09-18 —
+it is owned, twice, at far better power.** The counts this paragraph used to quote (14/16 and
+16/16) came from the leaked 16-tile run and are void regardless. The finding itself is not
+ours: the mechanism is in Meta's own SAM 3 abstract (arXiv:2511.16719), and the synonym
+instability is published at much larger n — CoCo-SAM3 (arXiv:2604.19648) and
+arXiv:2604.17126, the latter over 263 COCO val2017 images with six prompts and a structure
+analysis, against our four prompts over 15 tiles from 9 frames with no pre-registered synonym
+list. See `sam3/PRIOR_ART_KILL.md`, which resolved every reference live against the arXiv API.
+The leak-gated replacement numbers are in `sam3/CLEAN_RUN_RESULTS.md`.
 
 **~~One unoccupied methods gap.~~ WITHDRAWN 2026-09-18 — it is owned.** Box supervision *is*
 superset supervision, so the claim contradicted its own example list. Prior art, verified against source 2026-09-18: the formal setting is **Superset Label
@@ -88,8 +94,8 @@ to `CLAIMS` when you add a number to a document.
 - "Full-frame 25 MP, no tiling" as an advantage — retracted (MegaSeg, Jan 2026, 67 MP).
 - "No comparable public paired-detector dataset exists" — false (RODARE; Schmies 2023).
 - **THE SAM 3 EXPERIMENT IS INVALID** — input was the green channel of the annotated overlay
-  (red is (225,25,25), so green = 0); a bare threshold recovers the label at recall 1.000 on
-  16/16. All SAM 3 numbers withdrawn, including the "correction" they were used to make.
+  (the red burned in is (225,25,25), so green = 25 -- far below the 80 the threshold used,
+  and constant); a bare threshold recovers the label at recall 1.000 on 14 of 16 tiles. All SAM 3 numbers withdrawn, including the "correction" they were used to make.
 - ~~**"SAM-family models remain poor on thin low-contrast curvilinear structures" /
   "zero-shot: no"** (`VERDICT_2026.md` §6) — **disproven by measurement on this corpus.**
   SAM 3 reaches recall 0.969–1.000 on 10/16 tiles and IoU 0.59–0.74 where the label is complete.

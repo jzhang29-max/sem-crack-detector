@@ -5,8 +5,13 @@
 
 CONFIGURATION (chosen by leave-one-frame-out over 44 labelled frames, never on the test frame):
     Meijering ridge filter, sigmas 1-4, black_ridges=True
-    keep the top 2% of the response (quantile 98)
+    keep the top 1% of the response (quantile 99)
     drop connected components of 32 px or fewer
+
+    The quantile is 99 for WHOLE FRAMES, which is the deployment setting and what
+    best_config.json ships. On the label-centred TILES the optimum was 98, because a tile
+    cropped around a label contains proportionally more crack and so tolerates a fatter cut.
+    This block said 98 for four commits after the deployed value became 99.
 
 WHY THIS ONE. Scored on clIoU_adapt -- tolerant centreline IoU with the tolerance set per frame
 to half that frame's label brush -- it is the top arm at 0.2848 (LOFO, 95% CI [0.2040, 0.3450]),
@@ -31,7 +36,12 @@ SHOULD PROBABLY STAY OFF. Read this before enabling it.
 
 With a leave-one-out orientation axis, an abstain gate for short components, an R >= 0.40
 precondition and a Kulpa-metric tortuosity, it reaches median clIoU_adapt 0.1691 against 0.1514
-for no filter, improving 27 of 38 frames at p = 0.018 and keeping 91% of predicted pixels.
+for no filter at p = 0.027 over 38 frames, keeping 91% of predicted pixels.
+(p and both medians are from artefact_filter.json, which is the source for this whole
+paragraph; it stores the 38 per-frame scores with the filter ON but not the matching OFF
+series, so the per-frame win count cannot be rechecked from the committed artefact and is
+not quoted here. An earlier version of this line said p = 0.018, which appears nowhere in
+the artefact.)
 
 That is significant BY RANK and worthless BY MASS. The mean paired delta is -0.0001. One frame,
 AS_24hr_BSE_Side_008, collapses from 0.5120 to 0.2289 -- a single loss 28x the median gain,
@@ -79,8 +89,12 @@ from skimage.filters import meijering
 from skimage.morphology import remove_small_objects
 
 SC = os.path.dirname(os.path.abspath(__file__))
-CFG = json.load(open(f"{SC}/best_config.json")) if os.path.exists(f"{SC}/best_config.json") else {
-    "sigmas": [1, 2, 3, 4], "quantile": 98, "min_object_px": 32}
+# The fallback MUST match what best_config.json ships. It used to say quantile 98, so if the
+# JSON were ever absent or unreadable detect() would silently become a different detector from
+# the deployed one -- the failure mode this file exists to prevent.
+_CFG_PATH = f"{SC}/best_config.json"
+CFG = json.load(open(_CFG_PATH)) if os.path.exists(_CFG_PATH) else {
+    "sigmas": [1, 2, 3, 4], "quantile": 99, "min_object_px": 32}
 
 
 def detect(grey, quantile=None, sigmas=None, min_object_px=None, reject_scratches=False):
@@ -101,9 +115,11 @@ def detect(grey, quantile=None, sigmas=None, min_object_px=None, reject_scratche
     mask = remove_small_objects(mask, max_size=mn) if mn else mask
     if reject_scratches:
         # OFF BY DEFAULT and deliberately so: it raises the median clIoU_adapt from 0.1514 to
-        # 0.1684 (+11%) but the paired test is p = 0.064 over 38 frames, 26 wins. Promising,
-        # unproven. Turn it on if you would rather lose a straight crack than keep a polishing
-        # scratch; leave it off if recall on straight cracks matters.
+        # 0.1691 at p = 0.027 over 38 frames. Turn it on if you would rather lose a straight
+        # crack than keep a polishing scratch; leave it off if recall on straight cracks
+        # matters. (These figures are for the min_len = 30 call below. This comment described
+        # the superseded min_len = 20 run -- 0.1684, p = 0.064 -- for one commit after the
+        # call changed.)
         # see the module docstring: significant by rank, net-zero by mass, and it can delete
         # 60% of a correct prediction on a frame whose cracks are parallel.
         from artefact_filter import apply_filter

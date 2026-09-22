@@ -833,6 +833,22 @@ def register(app, get_stage, invalidate_stage=None):
                     pass
                 out["pooled_auc_new"] = _new_pool
                 out["pooled_auc_cur"] = _cur_pool
+                # SAY WHEN THE SECOND BAR DID NOT APPLY. promotion_decision() skips the pooled
+                # comparison when either side is missing, so that a bundle trained before
+                # cv_results was recorded can still be promoted on the held-out bar alone.
+                # That is a deliberate fail-open, and an undisclosed fail-open is how the first
+                # version of this gate went unnoticed: it reported a held-out comparison it was
+                # not making. If the bar is skipped, the report has to say so.
+                out["pooled_bar_applied"] = (_new_pool is not None and _cur_pool is not None)
+                if not out["pooled_bar_applied"]:
+                    _missing = ("the candidate" if _new_pool is None else "") + \
+                               (" and " if _new_pool is None and _cur_pool is None else "") + \
+                               ("the deployed model" if _cur_pool is None else "")
+                    out["pooled_bar_note"] = (
+                        f"The pooled grouped-CV bar was NOT applied: {_missing} records no "
+                        f"cv_results[model_family].pooled_auc. This candidate was judged on the "
+                        f"single-specimen held-out AUC alone, which reads optimistically "
+                        f"(0.884 vs 0.714 pooled on the same model). Re-train to record it.")
                 _go, _why = promotion_decision(new_loio, cur_loio, _new_spec,
                                                _new_pool, _cur_pool)
                 if not _go:

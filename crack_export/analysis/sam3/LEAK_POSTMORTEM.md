@@ -13,8 +13,10 @@ g = a[..., 1].copy()           # green channel is unaffected by the red overlay
 ```
 
 The comment states the belief that made the bug invisible. The overlay burns **opaque red
-(225, 25, 25)**, whose green channel is **0**. Every labelled pixel therefore reached the model
-as black. The `red` mask was even computed on the line above and used only for a metadata
+(225, 25, 25)**, whose green channel is a constant **25** -- far below the 80 the threshold
+used. (This paragraph said **0** until 2026-09-21; see "A third wrong diagnosis, made while
+writing this retraction" below, which is where that error was caught and which this line had
+gone on contradicting.) Every labelled pixel therefore reached the model as black. The `red` mask was even computed on the line above and used only for a metadata
 field — the information needed to notice the bug was already in the function.
 
 ## Extent, measured

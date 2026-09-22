@@ -460,8 +460,11 @@ undermine the paper.
 
 - **Good:** *Ultramicroscopy*, *Journal of Microscopy*, *Materials Characterization* — a
   measurement-methodology contribution with a corpus.
-- **Good if led by the dataset:** *Scientific Data* — the CC-BY SEM crack corpus with masks
-  appears to be the only such release found in the survey.
+- **Good if led by the dataset:** *Scientific Data* — the CC-BY SEM crack corpus with masks.
+  ⛔ Do **not** pitch it as the only such release: that claim is retracted
+  (`crack_export/analysis/NOVELTY_ASSESSMENT.md` §6, "No comparable public dataset exists" —
+  **false**, RODARE; Schmies 2023). A dataset-led pitch has to say what this corpus adds over
+  RODARE, not that it is alone.
 - **Poor:** *npj Computational Materials*, or any venue expecting a better model. The
   detector is the weakest component here and the paper should not pretend otherwise.
 

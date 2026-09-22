@@ -52,7 +52,10 @@ BSE — inherently co-registered, zero drift.
    under different acquisition conditions yields the same measurement."* Your 15
    index-matched CBS/ETD pairs at verified 10.00 kV / 1.6 nA / 6.0 mm WD are unique in
    this set.
-3. **Full-frame reasoning.** Your Dijkstra + MST merge has reach to the frame diagonal
+3. **Full-frame reasoning.** ⛔ **RETRACTED as an advantage** (`VERDICT_2026.md` §4): MegaSeg,
+   *Med. Image Anal.*, Jan 2026, segments 67 MP whole-slide images, so full-frame reasoning is
+   not distinctive. The reach described below is still real; it is just not a win over the
+   field. Your Dijkstra + MST merge has reach to the frame diagonal
    (~7,385 px). ilastik's filter halo is ~35 px; Gerçek runs 128×128 tiles; clDice's
    largest 2D images are 1500×1500; OmniCrack30k drives a 256×256 patch. No tiled
    network can link fragments 5,000 px apart. This is architectural, not incidental.
