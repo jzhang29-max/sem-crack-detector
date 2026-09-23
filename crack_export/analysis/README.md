@@ -31,7 +31,7 @@ matched HFW), changing only the SEM detector changes measured crack extent by **
 (7/8 pairs, p = 0.016) with *narrower* features (p = 0.039); +3.88 pp crack area, 8/8
 pairs, p = 0.0078. No 2026 paper does this.
 
-⛔ **p = 0.0078 is the exact test's floor at n = 8, not a measurement, and the 8 confirmed pairs are 3 specimens, not 8. Aggregating per specimen — which this repo instructs — gives exact p = 0.2500. The direction is unanimous (8/8 pairs, all 3 specimens, median +3.88 pp); the significance is withdrawn. See `VERDICT_2026.md` §S1(b).**
+⛔ **SUPERSEDED 2026-09-23.** The `Jaccard >= 0.5` filter behind "8/8" is computed from the two masks being compared, so it conditions on the outcome and removed exactly the three disagreeing pairs. On all 16: 13/16, p = 0.0213, median **+1.51 pp** — below this repo's 1.87 pp repeatability floor — and specimen AS **reverses** (geomean 0.771x). The effect is real but must be stated gain-free: over **56** pairs in **7** specimen cells a MAD-normalised dark-tail fraction gives CBS > ETD in **51/52**, geomean **2.74x**, and **7/7 cells, p = 0.0156**. See `VERDICT_2026.md` §S1(a2)-(a3).
 
  Pair arithmetic, stated plainly: **16**
 index-matched pairs, **15** share HFW exactly, **8** registration-confirmed carry the

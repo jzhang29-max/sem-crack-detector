@@ -72,6 +72,53 @@ Mandatory citation and control: *Microsc. Microanal.* `10.1093/mam/ozag022`
 measures no material quantity. So it is not a kill, but it obliges you to rule out a
 detector-response explanation. Your matched 6.0 mm WD helps — say so explicitly.
 
+**(a2) THE 8/8 FILTER CONDITIONS ON THE OUTCOME — and the claim is better without it.**
+*2026-09-23.* `paired_detector.py:70` computes Jaccard from `(A & B)`, the two masks whose
+areas are being compared, and line 80 keeps `Jaccard >= 0.5` under the heading
+"registration confirmed". It is not a registration test. It selected on agreement between
+the quantities under comparison, and it removed **exactly the three pairs that disagree**
+(AS_0001 −1.18 pp, AS_0006 −2.42 pp, HIP_0008 −0.27 pp).
+
+Recomputed on all **16** index-matched pairs:
+
+| | J>=0.5 subset (published) | all 16 pairs |
+|---|---|---|
+| same sign | 8/8 | 13/16, exact sign test p = 0.0213 |
+| median delta | **+3.88 pp** | **+1.51 pp** |
+| per specimen | "unanimous" | AS geomean **0.771x (reversed)**, Cast 1.646x, HIP 1.797x |
+
++1.51 pp is **below this repo's own 1.87 pp repeat-field repeatability floor**
+(`CRACK_ANALYSIS.md`). So the percentage-point framing loses to its own noise, and one of
+three specimens reverses. **Do not quote +3.88 pp, 8/8, or p = 0.0078 again.**
+
+**(a3) THE EFFECT IS REAL, AND MUCH STRONGER, ONCE THE SEGMENTER AND THE OPERATOR'S GAIN
+ARE REMOVED.** The failure above is of the *statistic*, not of the phenomenon. Crack area
+fraction depends on the segmenter, on the labels it was trained on, and on the per-channel
+brightness/contrast the operator set independently (CBS Contrast=45.5, ETD 73.5). Replace
+it with a MAD-normalised dark-tail fraction — the share of pixels at z <= -2 about each
+image's own median, which no gain setting can move — and score **every** pair, not a subset:
+
+| | value |
+|---|---|
+| paired fields with both detectors | **56** across **7** specimen cells, not 16 across 3 |
+| CBS dark-tail > ETD | **51 / 52** usable pairs, geometric mean **2.74x** |
+| pooled sign test | p = 2.4e-14 |
+| **specimen-level**, 7 cells, exact sign test | **7/7 positive, p = 0.0156** |
+| robustness, pairs with <1% black clipping | 39/40, geomean 2.73x |
+
+The specimen-level test is the one this document demands, and at 7 cells it can clear 0.05
+— at n = 3 the floor was 0.25 and no result was reachable. The extra 40 pairs are the
+2026-09-15 hydrogen batch, which is **simultaneous single-raster dual-channel**: all 40
+carry identical `Date`, `Time`, `StageX`, `StageY` and `HFW` in their FEI TIFF tags for
+both channels.
+
+Two corrections that come with it. These are **BSE (CBS) vs SE (ETD)**, per
+`[Detectors] Signal=BSE` / `Signal=SE` — not two SE detectors, which changes which prior
+art applies. And the 16 originally analysed files were re-saved through `tifffile` with all
+FEI metadata **stripped**, so the stated "10.00 kV / 1.6 nA / 6.0 mm WD" cannot be verified
+from them and is contradicted by the sibling series, which records **HV = 30000, WD =
+0.010** (30 kV, 10 mm). Re-source those conditions or drop them.
+
 **(b) Pair arithmetic, stated cleanly before a reviewer asks.** There are **16**
 index-matched CBS/ETD pairs. **15** have readable databars and all 15 share HFW
 *exactly*. **8** have mask-overlap-confirmed registration (Jaccard ≥ 0.5), and those 8

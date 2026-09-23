@@ -104,6 +104,9 @@ jobs:
           OPEN: '0'
         run: make test
 
+      - name: claim registry (recompute every quoted statistic)
+        run: make verify-claims
+
       - name: Nothing in the working tree was modified by the run
         run: |
           git status --porcelain
@@ -157,6 +160,9 @@ jobs:
       # THE ASSERTION THAT EARNED ITS KEEP. Both mask-rewriting bugs were invisible in the test
       # output and visible only here -- the suite passed and then the tree was dirty. It has to
       # run on both platforms, because byte-level divergence is exactly what it catches.
+      - name: claim registry (recompute every quoted statistic)
+        run: make verify-claims
+
       - name: Nothing in the working tree was modified by the run
         run: |
           git status --porcelain

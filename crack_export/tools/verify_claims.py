@@ -641,6 +641,12 @@ PROSE = [
      "the fresh-clone suite result, re-measured 2026-09-22 by cloning the public remote; "
      "read 356/1/357 before that"),
     ("analysis/VERDICT_2026.md",
+     "**51 / 52** usable pairs, geometric mean **2.74x**",
+     "the gain-free, segmenter-free detector effect over all 56 pairs; recomputed 2026-09-23"),
+    ("analysis/VERDICT_2026.md",
+     "7/7 positive, p = 0.0156",
+     "the specimen-level test at 7 cells, which n=3 could not reach (floor 0.25)"),
+    ("analysis/VERDICT_2026.md",
      "The 8 confirmed pairs come from 3 specimens, not 8",
      "specimen_key() gives MAR_Amb_AS/Cast/HIP; per-specimen aggregation drops the exact p "
      "from the n=8 floor 0.0078125 to the n=3 floor 0.2500"),

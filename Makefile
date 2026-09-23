@@ -22,6 +22,15 @@ test: setup
 	   interior_active_learning/code/test_app.py; RC=$$?; \
 	 kill $$SRV 2>/dev/null || true; wait $$SRV 2>/dev/null || true; exit $$RC
 
+# The claim registry. Recomputes every statistic quoted in the analysis docs from its source
+# artefact, and checks that named sentences still appear verbatim in the documents that carry
+# them. It was written to be run and then never wired to anything -- it appeared in no Makefile
+# target, no CI job and no hook, so "the claims are checked" meant "somebody remembered to run
+# it". Exits 0 on a fresh clone: artefacts that are gitignored and regenerable report SKIP, and
+# an absent artefact is not a drifted number.
+verify-claims: setup
+	@cd crack_export && ../.venv/bin/python3 tools/verify_claims.py
+
 # The browser test. Separate from `test` on purpose: it needs playwright plus a ~150 MB
 # chromium download, which is too much to impose on someone who just wants to run the app.
 # It starts its own server against empty scratch directories and touches no repo data.
