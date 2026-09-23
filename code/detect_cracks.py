@@ -536,6 +536,87 @@ def classify_auto(df, force_keep_length=150, force_keep_area=50000):
     return df
 
 
+def off_specimen_mask(fov8, rel=0.45, min_thick=25, min_frac=0.002, corner_pad=3):
+    """True where the field of view is OFF the specimen -- background past the sample edge.
+
+    find_field_of_view crops the databar and a circular vignette, and deliberately does not
+    crop for a sample edge, because a bounding box cannot follow an irregular one. This is
+    the mask that can.
+
+    WHY IT EXISTS. classify_with_model force-keeps every region >= force_keep_area on the
+    premise that "a solid dark region this large is essentially never anything BUT a real
+    crack/void". Background beyond the specimen edge is exactly that and was not considered:
+    on MAR_AmbB_AS_CBS_0001 one 975,808 px region of pure background, AspectRatio 6.04, is
+    64% of the frame's marked area. It appears in 13 of 72 frames of the 2026-09-15 batch.
+
+    FOUR CONDITIONS, each here because the version without it deleted something real:
+
+      dark    far below the frame median. A fixed percentile marks a share of pixels dark
+              whether or not background exists -- it flagged 5.8% of frames with no edge
+              in view at all.
+      corner  the dark component owns a frame corner. Background is where the specimen is
+              not, so it owns a corner. A wide-open THROUGH CRACK is dark, spans the frame
+              and is hundreds of px thick, but has material on both sides and reaches no
+              corner -- without this test the main crack of 260708_316_H_b2_front_CBS_003,
+              a hand-labelled frame, was flagged as background and would have been deleted.
+      thick   the component survives erosion by min_thick. Cracks do not.
+      bounded the eroded core is dilated back by min_thick and clipped to the component,
+              instead of taking the whole component. A crack reaching the specimen edge is
+              CONTIGUOUS with the background, so taking the component followed it inward and
+              painted tendrils down cracks on MAR_Amb_Cast_CBS_0001 and 260622_316_H_b4_CBS_01.
+
+    The corner test is applied to the COMPONENT, not to its eroded core: erosion by 25 px
+    removes the corner pixel itself, which silently zeroed every frame. Erosion and dilation
+    use distance transforms, which cost the same at any radius; a 51x51 structuring element
+    over 25 MP does not.
+
+    NOT CALLED BY THE PIPELINE, AND THE REASON IS MEASURED. Against all 47 correction
+    masks this removes 13,271,899 of 70,005,704 hand-marked CRACK pixels -- 19.0% of every
+    human label in the corpus, and 97.2% of MAR_Amb_HIP_ETD_0003 alone. It does pass the
+    two frames that killed exclude_border_background() (0 hand-marked px removed on
+    260708_316_H_b2_front_CBS_003 and _004), so the corner test is a real improvement on a
+    region-level intensity rule -- but it is not safe to run.
+
+    Looking at the conflict on MAR_Amb_HIP_ETD_0003, the disputed area is genuinely below
+    the specimen edge and the human painted it as crack anyway. So this mask may well be
+    right and the label wrong. That is a question about the corpus, not a detector bug, and
+    it is not one a filter should settle silently: the authority order here is human
+    correction > imported mask > built-in detector, and 19% of the labels is not a margin
+    to overrule automatically.
+
+    Use it to REPORT -- flag how much of a frame's marking is plausibly off-specimen so a
+    reviewer can look -- not to delete. Off-specimen background is a visible, correctable
+    false positive; a deleted main crack is silent and uncorrectable, which is the trade
+    unified_pipeline.py already documents at length.
+
+    Fails safe: an edge entering mid-side without reaching a corner is left alone.
+    """
+    from scipy import ndimage as _ndi
+    med = float(np.median(fov8))
+    dark = fov8 < rel * med
+    if not dark.any():
+        return np.zeros_like(fov8, dtype=bool)
+    lab, n = _ndi.label(dark)
+    if n == 0:
+        return np.zeros_like(fov8, dtype=bool)
+    h, w = fov8.shape
+    p = corner_pad
+    corners = {lab[y, x] for y in (p, h - 1 - p) for x in (p, w - 1 - p)} - {0}
+    if not corners:
+        return np.zeros_like(fov8, dtype=bool)
+    inner = _ndi.distance_transform_edt(dark)
+    off = np.zeros_like(dark)
+    for lb in corners:
+        m = lab == lb
+        if m.sum() < min_frac * fov8.size:
+            continue
+        core = m & (inner >= min_thick)
+        if not core.any():
+            continue
+        off |= (_ndi.distance_transform_edt(~core) <= min_thick) & m
+    return off
+
+
 def classify_with_model(df, model_path, proba_threshold=None, force_keep_area=50000):
     """proba_threshold=None means "use whatever threshold this model was
     calibrated at", read from the bundle and falling back to 0.5.
