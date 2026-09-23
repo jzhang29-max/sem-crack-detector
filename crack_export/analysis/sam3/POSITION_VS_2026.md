@@ -355,6 +355,37 @@ carrying a measurable stroke), which is the clearest possible statement of why a
 width-insensitive metric is not optional here. This said 10–288 px until 2026-09-21,
 understating the coarsest brush by 1.43x.
 
+### 11b. The app's own detector is NOT in this comparison, and cannot be put in it
+
+Every arm in this document is an offline detector run on raw frames. The two-pass pipeline
+the **application actually ships** is not here, so nothing in this repo establishes how the
+shipped detector stands against the published state of the art. That gap is easy to miss
+because both sets of numbers exist; they are on different frame sets under different
+metrics, in different documents.
+
+It cannot be closed by scoring the app's exported masks, and the attempt fails loudly
+enough to be worth recording. Scoring `masks_bw` against `tiles_all` gives median
+clIoU_adapt 0.4541 and median pixel IoU 0.7421 -- against a best published arm of 0.2848,
+and against a **pixel-IoU ceiling of 0.1662 for a physically perfect 3 px trace**. A score
+4.5x the ceiling is the tell.
+
+Two independent contaminations, either one fatal:
+
+* **Corrections are in the output.** `run_unified_pipeline` applies the per-pixel correction
+  mask after scoring, by design -- a human verdict must override the model. So on any
+  hand-labelled frame the exported mask CONTAINS the labels: measured, **100.0%** of
+  hand-marked crack pixels are reproduced, on every one of the 44 eval frames. Scoring that
+  against those same labels is the label measuring itself.
+* **The classifier was trained on the eval set.** 43 of the 44 eval frames (98%) are in
+  `training_data/labeled_regions.csv`. Only `260622_316_H_b4_CBS_02` is held out.
+
+All 44 eval frames carry a correction mask, so there is no clean subset to fall back on.
+Answering "is the shipped detector competitive" needs a leave-one-frame-out retrain of the
+app pipeline with corrections disabled, scored on the held-out frame each time -- the same
+protocol the arms below already use. That experiment has not been run. Until it is, the
+shipped detector's standing is **unmeasured**, and this document should not be cited as
+though it covered it.
+
 ### 12. At n = 44, something finally separates — and it is not what won on IoU
 
 With one tile per frame over all 44 labelled frames, τ scaled per frame and containment
