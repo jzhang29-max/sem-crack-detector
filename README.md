@@ -1013,7 +1013,7 @@ sub-trees, each with its own index:
 |---|---|
 | `crack_export/analysis/sam3/` | the detector and its evaluation — 30 modules, indexed by `crack_export/analysis/sam3/README.md`. `best_detector.py` is the shipped model; `POSITION_VS_2026.md` is the result |
 | `crack_export/cracktrace/` | a centreline-graph prototype, **synthetic validation only**, indexed by `crack_export/cracktrace/README.md` |
-| `crack_export/tools/` | the 12 modules below, run over the exported CSVs and masks |
+| `crack_export/tools/` | the 14 modules below, run over the exported CSVs and masks |
 
 | file | what it is |
 |---|---|
@@ -1029,6 +1029,8 @@ sub-trees, each with its own index:
 | `…/linearity_figs.py` | linearity figures, every metric resolution-invariant or explicitly controlled |
 | `…/csv_shape_figs.py` | CSV-only shape metrics, with per-frame dimensions read from `summary.csv` |
 | `…/holes.py` | the regions the crack network encloses — the sharpest available test of intergranular cracking |
+| `…/blind_trace_setup.py` | builds the blinded dual-channel tracing experiment: field selection on pre-registered quality criteria, common histogram stretch, opaque ids, per-annotator randomised order, key written outside the annotator folders |
+| `…/tools/blind_trace_analyse.py` | unblinds and analyses it. Written before any tracing existed, so the endpoint is fixed while the outcome is unknown |
 
 **`archive/` — nothing in the app or pipeline imports it.** Superseded code, models
 kept as counterexamples, and one-off analyses that are the evidence behind the
