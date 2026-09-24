@@ -228,6 +228,40 @@ human finds the feature at all, and it is the mechanism that connects to escape 
 the crack darker", and the narrower one is the one the data supports. Do not write the
 broader sentence.
 
+**(a5) THE CRACK INTERIOR IS SATURATED BLACK, on both channels, and nobody reports this.**
+*2026-09-24.* Black clipping is real here, not an artefact of taking a minimum: the histogram
+has a hard spike at zero, 280,245 pixels against 11,828 in the next bin on one frame, a 24x
+step. Measured over 51 pairs inside the detected field of view:
+
+| | whole frame | **inside the crack region** |
+|---|---|---|
+| CBS (BSE) | median 1.08%, mean 3.51%, max 30.9% | **median 59.6%**, max 99.6% |
+| ETD (SE) | median 1.02%, mean 1.85%, max 20.7% | **median 45.6%**, max 98.5% |
+
+**Roughly half to two thirds of the pixels inside a crack are pinned at the sensor floor.**
+Every intensity-derived crack quantity in this corpus is therefore censored, not measured:
+depth, contrast, any ISO50 width taken from a trough that has no bottom. It also means the
+crack's true darkness is unknown and unknowable from these files -- only a lower bound on it
+exists. This is a property of the acquisition, not of the analysis, and it applies to the
+released 62-frame corpus as much as to the new batch.
+
+**It does not manufacture the detector effect; it suppresses it.** Clipping correlates
+*negatively* with the measured CBS advantage (Spearman rho = -0.26, p = 0.065), which is the
+expected direction: a truncated trough understates depth, and CBS clips more inside the crack
+(59.6% vs 45.6%), so CBS is the more truncated of the two. Restricting to the 20 pairs with
+under 1% whole-frame clipping in both channels:
+
+    CBS CNR higher in 20/20 pairs, median 2.48x, 6/6 specimen cells, exact p = 0.0312
+
+So the effect is larger and cleaner on the unclipped subset than on the full set, and the
+2.28x depth ratio reported in (a4) is a **lower bound**.
+
+**Practical consequence, and the one concrete thing to change at the microscope.** Re-acquire
+with the black level set so that no pixel reaches zero -- anchor the histogram at the 1st
+percentile rather than at the floor. Until that is done, no absolute crack depth or width
+from this corpus should be published, and any threshold-derived area metric inherits an
+unquantified censoring that varies between channels.
+
 **(b) Pair arithmetic, stated cleanly before a reviewer asks.** There are **16**
 index-matched CBS/ETD pairs. **15** have readable databars and all 15 share HFW
 *exactly*. **8** have mask-overlap-confirmed registration (Jaccard ≥ 0.5), and those 8

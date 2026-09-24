@@ -641,6 +641,9 @@ PROSE = [
      "the fresh-clone suite result, re-measured 2026-09-22 by cloning the public remote; "
      "read 356/1/357 before that"),
     ("analysis/VERDICT_2026.md",
+     "CBS CNR higher in 20/20 pairs, median 2.48x, 6/6 specimen cells, exact p = 0.0312",
+     "the detector effect on the unclipped subset; clipping suppresses rather than creates it"),
+    ("analysis/VERDICT_2026.md",
      "global exceeds local\nin 30 of 46 pairs, **p = 0.054**",
      "the mechanism's practical prediction was tested and is weak; do not claim methods disagree"),
     ("analysis/VERDICT_2026.md",
