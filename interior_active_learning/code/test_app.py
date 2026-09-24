@@ -88,7 +88,19 @@ def poll(job, timeout=1800):
         if r.get("state") == "error":
             raise RuntimeError(r.get("error"))
         time.sleep(2)
-    raise TimeoutError(f"job {job} did not finish")
+    # SAY WHETHER THE MACHINE WAS THE PROBLEM. A bare "did not finish" is indistinguishable
+    # between a hung job and a box that is simply saturated, and it aborts the whole suite --
+    # so the run that hit it reported nothing about the other 380 checks. This fired once at
+    # load average 18.4 while heavy analyses ran alongside, and passed clean at load 9.
+    try:
+        _load = os.getloadavg()
+        _cpu = os.cpu_count() or 1
+        _hint = (f"  1-minute load average {_load[0]:.1f} on {_cpu} cpus"
+                 + ("  -- the machine was saturated; this is very likely why, not a hung job."
+                    if _load[0] > _cpu else "  -- load looks normal, so suspect the job itself."))
+    except (OSError, AttributeError):
+        _hint = ""
+    raise TimeoutError(f"job {job} did not finish within {timeout}s\n{_hint}")
 
 
 def make_test_image(path, h=400, w=600, fmt="tif"):
