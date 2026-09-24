@@ -67,8 +67,12 @@ SEED = 20260923      # fixed so the whole package is reproducible from this file
 
 
 def clip_frac(path):
-    a = np.array(Image.open(path))
-    a = a[:int(a.shape[0] * 0.88)]                  # databar strip
+    # find_field_of_view, not a fixed fraction. A crude a[:0.88*h] discards 246 rows on
+    # these 4376-row frames -- 6.0% of the usable field -- because the databar is 280 rows,
+    # not 526. Every other measurement in this repo uses the detector; so does this.
+    a = load_as_uint8(path)
+    x0, y0, x1, y1 = find_field_of_view(a)
+    a = a[y0:y1, x0:x1]
     return float((a <= a.min() + 1e-6).mean())
 
 
@@ -97,9 +101,16 @@ def select_fields():
 
 
 def to_display(path):
-    """8-bit, common 1st/99th-percentile stretch. Monotone, so ordering is preserved."""
-    a = np.array(Image.open(path)).astype(np.float32)
-    a = a[:int(a.shape[0] * 0.88)]
+    """8-bit, common 1st/99th-percentile stretch over the detected field of view.
+
+    Monotone per image, so it cannot create or destroy dark-tail ordering. The crop is
+    find_field_of_view's, not a fixed fraction: 0.88*h threw away 246 rows of real specimen
+    on every frame and computed the stretch over a different region than the rest of the
+    pipeline measures.
+    """
+    g = load_as_uint8(path)
+    x0, y0, x1, y1 = find_field_of_view(g)
+    a = g[y0:y1, x0:x1].astype(np.float32)
     lo, hi = np.percentile(a, [1.0, 99.0])
     return Image.fromarray(np.clip((a - lo) / max(hi - lo, 1e-6) * 255, 0, 255).astype(np.uint8))
 
