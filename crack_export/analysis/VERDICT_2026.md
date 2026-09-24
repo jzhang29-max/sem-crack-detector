@@ -158,11 +158,30 @@ pattern. The SE lip raises the local baseline, so any measure referenced to the 
 surround sees the two channels as equivalent, while the crack-to-bulk contrast that a global
 method actually uses is 2.3x better in BSE.
 
-**The consequence is practical and testable.** Any segmentation that works on local contrast
--- adaptive thresholding, ridge filters, local normalisation -- is reading a systematically
-different feature on SE than on BSE, and the direction depends on whether the method
-references the lip or the bulk. That is a sharper claim than "the detector matters", and it
-predicts which methods will disagree.
+**The consequence was predicted, then tested, and it is WEAK.** The lip should make a
+local-contrast method -- which references the surround -- see the two channels as more alike
+than a global method does, because the lip raises the local baseline on SE only. Tested with
+both methods at the SAME absolute sensitivity, 3 noise units below their own reference, so
+detected area is free to differ:
+
+| method, 46 pairs | median CBS/ETD area | pairs | cells |
+|---|---|---|---|
+| global, references the bulk median | **2.01x** | 45/46 | 7/7 |
+| local, references a 51 px surround | **1.84x** | 52/55 | 7/7 |
+
+The gap is in the predicted direction but does not clear significance: global exceeds local
+in 30 of 46 pairs, **p = 0.054**. So both families favour CBS by about 2x, and the lip does
+not buy a local method much immunity at this sensitivity. The mechanism is solid; the "it
+predicts which methods will disagree" version of it is not supported, and an earlier draft
+of this subsection asserted it. Do not claim methods will disagree.
+
+**A trap worth naming, because it cost the first attempt at this test.** The obvious way to
+compare methods -- threshold at a percentile of the response -- cannot show a difference in
+detected AREA at all, because a percentile selects a fixed fraction of pixels by
+construction. The first run gave CBS/ETD = 1.00 for both a 2nd-percentile global cut and a
+98th-percentile ridge cut, which is not a null result, it is an identity. The same trap
+produced a spurious 5.8% off-specimen reading elsewhere in this work. Any comparison of how
+much a method finds has to fix an absolute criterion, never a quantile.
 
 **(a4-prior) ⛔ SUPERSEDED THE SAME DAY BY (a4) ABOVE. Kept because the measurements are
 real and the error is instructive; the CONCLUSION below is wrong.**

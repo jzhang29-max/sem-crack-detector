@@ -641,6 +641,9 @@ PROSE = [
      "the fresh-clone suite result, re-measured 2026-09-22 by cloning the public remote; "
      "read 356/1/357 before that"),
     ("analysis/VERDICT_2026.md",
+     "global exceeds local\nin 30 of 46 pairs, **p = 0.054**",
+     "the mechanism's practical prediction was tested and is weak; do not claim methods disagree"),
+    ("analysis/VERDICT_2026.md",
      "**ETD (SE): +3.92** — a *bright lip*. 50/51 pairs positive",
      "SE edge brightening, the mechanism; CBS is -1.68 in the same annulus"),
     ("analysis/VERDICT_2026.md",
