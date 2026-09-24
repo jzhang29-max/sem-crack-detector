@@ -30,7 +30,11 @@ obtained or why an earlier version of it was wrong.
 ## Looking at the results
 
 `index.html` is a browsable page for all 62 frames — filter by name, sort by score or by
-predicted area, click any frame for the full-size overlay. It reads `detector_all.json`
+predicted area, click any frame for the full-size overlay. It carries a scope banner saying
+what it is **not**: this is the offline evaluation detector, not the detector the app ships,
+and §11b of `POSITION_VS_2026.md` explains why the two cannot be compared from committed
+artefacts. The banner also points at the newer material the page does not cover — the
+2026-09-15 hydrogen batch and the detector-channel result in `VERDICT_2026.md` §S1(a3). It reads `detector_all.json`
 (committed, 12 KB) for the scores and `detector_overlays/` for the images.
 
 ```bash

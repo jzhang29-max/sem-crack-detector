@@ -9,6 +9,8 @@
  header{padding:28px 32px 18px;border-bottom:1px solid var(--line)}
  h1{margin:0 0 6px;font-size:21px;font-weight:500}
  .sub{color:var(--mut);font-size:13px}
+ .scope{margin-top:12px;padding:11px 13px;border-left:3px solid #d0a215;background:rgba(208,162,21,.09);border-radius:0 7px 7px 0;font-size:12.5px;line-height:1.55;max-width:none}
+ .scope code{background:rgba(0,0,0,.08);padding:1px 4px;border-radius:3px}
  .stats{display:flex;gap:26px;margin-top:16px;flex-wrap:wrap}
  .stat b{display:block;font-size:22px;font-weight:500;font-variant-numeric:tabular-nums}
  .stat span{color:var(--mut);font-size:12px}
@@ -32,7 +34,21 @@
 </style>
 <header>
   <h1>SEM crack detector — all frames</h1>
-  <div class="sub">Meijering ridge, &sigma; 1–4, top 1% of response, components &le; 32 px dropped. Orange = prediction.</div>
+  <div class="sub">Meijering ridge, &sigma; 1&ndash;4, top 1% of response, components &le; 32 px dropped. Orange = prediction.</div>
+  <div class="scope"><b>This is the offline evaluation detector, not the detector the app ships.</b>
+  62 frames, ridge filter on raw images, no hand corrections applied. The app&rsquo;s two-pass
+  pipeline is a different detector and is <b>not</b> benchmarked against the published arms &mdash;
+  it cannot be, from committed artefacts, because corrections are baked into its output and 98% of
+  the evaluation frames are in its training set
+  (<code>POSITION_VS_2026.md</code> &sect;11b). Do not read this page as &ldquo;how well the app does&rdquo;.
+  <br><br>
+  Not shown here, and newer: the 2026-09-15 hydrogen batch (80 frames, AS/HIP &times; charged/ambient)
+  went through the <i>app</i> pipeline &mdash; see the contact sheets and per-frame exports in
+  <code>~/Desktop/MAR_crack_identifications/</code>. And the current headline result is the
+  detector-channel comparison in <code>VERDICT_2026.md</code> &sect;S1(a3): over 56 paired fields a
+  gain-free dark-tail statistic reads higher on CBS than ETD in 51/52 pairs and 7/7 specimen cells
+  (p&nbsp;=&nbsp;0.0156). The earlier &ldquo;+3.88&nbsp;pp on 8/8 pairs&rdquo; is <b>withdrawn</b> &mdash;
+  its filter was computed from the quantities being compared.</div>
   <div class="stats" id="stats"></div>
 </header>
 <p id="note"></p>
