@@ -262,6 +262,36 @@ percentile rather than at the floor. Until that is done, no absolute crack depth
 from this corpus should be published, and any threshold-derived area metric inherits an
 unquantified censoring that varies between channels.
 
+**(a6) MASK GEOMETRY: two pairs are ill-defined, and one of them returns 4.4e9.**
+*2026-09-24.* The 142 exported masks come in **20 distinct sizes**. That sounds like an
+inconsistent crop and it is not: the mask size equals the per-image detected field of view in
+**20 of 20** of the non-standard cases. The originals themselves vary -- 3067x2044,
+3068x2044, 3072x2045, 6139x4093 -- because they were exported at slightly different sizes.
+The rule is consistent; the inputs are heterogeneous. For a data descriptor this is a
+documentation item (state that mask dimensions follow the detected FOV), not a defect.
+
+The real defect is narrower. **Two paired fields have masks of different size in the two
+channels**, which makes a pixel-wise paired comparison undefined:
+
+    MAR_Amb_AS_0001     CBS (2952, 2952)  vs  ETD (3036, 3037)
+    MAR_Amb_Cast_0001   CBS (2970, 2971)  vs  ETD (3041, 3042)
+
+Cropping both to the smaller extent, as every paired analysis here does, silently assumes
+they are co-registered at the top-left corner. They are not. `MAR_Amb_AS_0001` then returns
+a CNR ratio of **4.4e9** -- a division by an ETD contrast of essentially zero, produced by
+comparing misaligned regions. It survived unnoticed because every statistic in this work is
+a median, which absorbs it; a mean anywhere in the chain would have been destroyed by it.
+
+Nothing rests on them: the headline is identical with and without. 49/49 pairs, median 2.45x,
+7/7 cells, p = 0.0156 including them; **47/47 pairs, median 2.45x, 7/7 cells, p = 0.0156**
+excluding them. But they should be excluded explicitly rather than left to the median, and a
+released dataset must not ship a pair whose two channels cannot be overlaid.
+
+One correction to an earlier review of this: `MAR_Amb_AS_0001` was **not** inside the
+"registration-confirmed 8/8" -- its Jaccard is 0.479, below the 0.5 cut. `MAR_Amb_Cast_0001`
+was. And the index-0010 overview pairs, flagged elsewhere as 2048-vs-2188 rows, agree exactly
+at (3072, 2048) once the FOV detector has run; the raw TIFFs differ, the masks do not.
+
 **(b) Pair arithmetic, stated cleanly before a reviewer asks.** There are **16**
 index-matched CBS/ETD pairs. **15** have readable databars and all 15 share HFW
 *exactly*. **8** have mask-overlap-confirmed registration (Jaccard ≥ 0.5), and those 8
