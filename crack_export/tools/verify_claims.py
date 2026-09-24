@@ -641,6 +641,9 @@ PROSE = [
      "the fresh-clone suite result, re-measured 2026-09-22 by cloning the public remote; "
      "read 356/1/357 before that"),
     ("analysis/VERDICT_2026.md",
+     "CBS CNR higher in 43/43 retained pairs   median 2.41x   range 1.08 - 14.44",
+     "the strict, unclamped headline; 13 of 56 pairs rejected with stated reasons"),
+    ("analysis/VERDICT_2026.md",
      "**47/47 pairs, median 2.45x, 7/7 cells, p = 0.0156**",
      "the headline excluding the two geometry-mismatched pairs; identical to including them"),
     ("analysis/VERDICT_2026.md",

@@ -262,6 +262,38 @@ percentile rather than at the floor. Until that is done, no absolute crack depth
 from this corpus should be published, and any threshold-derived area metric inherits an
 unquantified censoring that varies between channels.
 
+**(a7) THE STRICT VERSION, and it is the one to quote.** *2026-09-24.*
+Auditing for degenerate values -- prompted by the 4.4e9 in (a6) -- showed the problem was not
+confined to geometry. **13 of 56 pairs cannot produce a valid statistic**, and the earlier
+runs absorbed them with a `max(x, 1e-9)` clamp instead of rejecting them, which converts a
+non-positive ETD contrast into a huge positive ratio. That is where 4.4e9 came from.
+
+Rejected, with reasons:
+
+| reason | pairs |
+|---|---|
+| the ETD "crack" is **brighter** than matrix (depth -3 to -71) | 4 |
+| agreed crack region under 5,000 px (a near crack-free cell) | 6 |
+| the two channels' masks are different sizes | 2 |
+| too few usable pixels after excluding clipped ones | 1 |
+
+Re-run rejecting all of them, with **no clamp anywhere**:
+
+    CBS CNR higher in 43/43 retained pairs   median 2.41x   range 1.08 - 14.44
+    7/7 specimen cells positive              exact p = 0.0156
+
+Every retained pair has a genuine positive crack contrast in both channels, so the ratio is
+well defined throughout and the range no longer contains anything impossible. This is
+stricter than the 49/49 and 51/52 figures quoted above and gives the same answer, which is
+the useful part: **the result does not depend on how the bad pairs are handled.**
+
+Two things it does expose. `MAR_AmbB_HIP` falls from 10 pairs to **2**, because that cell is
+nearly crack-free and the two channels barely agree on anything to measure -- so one of the
+seven cells in the specimen-level test rests on two fields, and the test should be reported
+with that stated. And the four pairs where the SE "crack" is brighter than its matrix are not
+a measurement failure; they are the detector marking something in SE that is not a dark
+feature at all, which belongs in the paper as a separate observation about false positives.
+
 **(a6) MASK GEOMETRY: two pairs are ill-defined, and one of them returns 4.4e9.**
 *2026-09-24.* The 142 exported masks come in **20 distinct sizes**. That sounds like an
 inconsistent crop and it is not: the mask size equals the per-image detected field of view in
