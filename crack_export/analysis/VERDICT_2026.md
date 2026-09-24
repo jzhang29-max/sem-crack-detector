@@ -119,6 +119,30 @@ FEI metadata **stripped**, so the stated "10.00 kV / 1.6 nA / 6.0 mm WD" cannot 
 from them and is contradicted by the sibling series, which records **HV = 30000, WD =
 0.010** (30 kV, 10 mm). Re-source those conditions or drop them.
 
+**(a4) IT IS CONTRAST-TO-NOISE, NOT DARKNESS — and the distinction is the whole claim.**
+*2026-09-24.* The control a referee will ask for: take the region BOTH channels' masks agree
+is crack, and measure its depth **relative to each channel's own matrix**, so any global
+contrast difference cancels. On 49 pairs with an agreed region:
+
+| normaliser | pairs | specimen cells | p |
+|---|---|---|---|
+| MAD of the image | **49/49** | 7/7 | 0.0156 |
+| IQR of the image | **49/49** | 7/7 | 0.0156 |
+| **none — raw crack/matrix intensity ratio** | **32/49** | 6/7 | **0.1250** |
+
+Median separation is 9.68 MAD, and it is crack-localised: the matrix term cancels by
+construction. But the bottom row is why this has to be worded carefully. **Without a
+normaliser the effect does not reach significance.** ETD carries 2.67x the spread of CBS
+(median MAD 23.7 vs 8.9), so what is being measured is how far the crack sits from the
+matrix *in units of the image's own variability* — contrast-to-noise — not that the crack is
+absolutely darker.
+
+That is the physically right quantity, because CNR is what decides whether a segmenter or a
+human finds the feature at all, and it is the mechanism that connects to escape depth
+(Taufique 2025, `10.1038/s41524-025-01801-4`). It is also a narrower claim than "CBS reads
+the crack darker", and the narrower one is the one the data supports. Do not write the
+broader sentence.
+
 **(b) Pair arithmetic, stated cleanly before a reviewer asks.** There are **16**
 index-matched CBS/ETD pairs. **15** have readable databars and all 15 share HFW
 *exactly*. **8** have mask-overlap-confirmed registration (Jaccard ≥ 0.5), and those 8

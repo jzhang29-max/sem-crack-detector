@@ -641,6 +641,9 @@ PROSE = [
      "the fresh-clone suite result, re-measured 2026-09-22 by cloning the public remote; "
      "read 356/1/357 before that"),
     ("analysis/VERDICT_2026.md",
+     "**Without a\nnormaliser the effect does not reach significance.**",
+     "the raw crack/matrix ratio gives 32/49 pairs and p=0.125; the claim is CNR, not darkness"),
+    ("analysis/VERDICT_2026.md",
      "**51 / 52** usable pairs, geometric mean **2.74x**",
      "the gain-free, segmenter-free detector effect over all 56 pairs; recomputed 2026-09-23"),
     ("analysis/VERDICT_2026.md",
