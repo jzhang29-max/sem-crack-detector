@@ -28,7 +28,7 @@ SECONDARY, all reported whether or not they help:
       expected and is a stated limitation, not a surprise. Report it; do not bury it.
     * the same test on detected-crack COUNT, as a shape-free check.
 
-    python3 blind_trace_analyse.py --package ~/Desktop/MAR_blind_tracing
+    python3 blind_trace_analyse.py --package ~/Desktop/_Outputs/MAR_blind_tracing
 """
 import argparse
 import collections

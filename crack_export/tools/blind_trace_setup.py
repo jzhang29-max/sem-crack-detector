@@ -40,7 +40,7 @@ DESIGN, fixed before any outcome was looked at:
 
 OUTPUT is deliberately not committed: four of the seven cells are unreleased frames.
 
-    python3 blind_trace_setup.py --out ~/Desktop/MAR_blind_tracing
+    python3 blind_trace_setup.py --out ~/Desktop/_Outputs/MAR_blind_tracing
 """
 import argparse
 import csv
