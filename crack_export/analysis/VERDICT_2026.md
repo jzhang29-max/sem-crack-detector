@@ -119,8 +119,65 @@ FEI metadata **stripped**, so the stated "10.00 kV / 1.6 nA / 6.0 mm WD" cannot 
 from them and is contradicted by the sibling series, which records **HV = 30000, WD =
 0.010** (30 kV, 10 mm). Re-source those conditions or drop them.
 
-**(a4) IT IS CONTRAST-TO-NOISE, NOT DARKNESS — and the distinction is the whole claim.**
-*2026-09-24.* The control a referee will ask for: take the region BOTH channels' masks agree
+**(a4) THE MECHANISM: SE EDGE BRIGHTENING. Measured, and it corrects my own first answer.**
+*2026-09-24.*
+
+I first reported this as contrast-to-noise rather than darkness, on the grounds that the raw
+crack/matrix intensity *ratio* was not significant while a MAD-normalised depth was. **That
+was wrong, and the error was the noise proxy.** Whole-image MAD is not noise — it is total
+spread, and it includes the crack population and large-scale shading. Measured properly, as
+the standard deviation of a high-pass residual in matrix more than 60 px from any marking,
+the two channels differ by only **1.09x** (5/7 cells, p = 0.45). Noise is not the story.
+
+What actually differs is depth, against the bulk:
+
+| quantity, 49 pairs | median CBS/ETD | pairs | cells | p |
+|---|---|---|---|---|
+| crack depth vs **far** matrix | **2.28x** | 46/49 | 7/7 | 0.0156 |
+| matrix noise (high-pass, clean matrix) | 1.09x | 34/49 | 5/7 | 0.45 |
+| contrast-to-noise | **2.42x** | 49/49 | 7/7 | 0.0156 |
+
+Depth carries **93%** of the CNR log-ratio. So CBS resolves the crack against the bulk
+better, and it is not because ETD is noisier.
+
+**And there is a direct physical reason, which is the part worth publishing.** A
+crack-normal profile using the *local* surround as its baseline shows no difference at all
+(depth 1.04x, ISO50 width 1.00x, 3/7 and 4/7 cells, both p = 1.0). That null is not a
+failure to find an effect — it locates it. The two baselines disagree because the region
+immediately outside the crack is detector-dependent:
+
+| halo 3-15 px outside the crack, vs far matrix, in each channel's own noise units |
+|---|
+| **CBS (BSE): -1.68** — the surround is *darker* than bulk. 2/51 pairs positive |
+| **ETD (SE): +3.92** — a *bright lip*. 50/51 pairs positive |
+| brighter in ETD than CBS: **51/51 pairs, 7/7 cells, p = 0.0156** |
+
+This is secondary-electron edge brightening, which is textbook SEM physics: an edge emits
+more secondaries, so the crack lip glows in SE and does not in BSE. It explains the whole
+pattern. The SE lip raises the local baseline, so any measure referenced to the immediate
+surround sees the two channels as equivalent, while the crack-to-bulk contrast that a global
+method actually uses is 2.3x better in BSE.
+
+**The consequence is practical and testable.** Any segmentation that works on local contrast
+-- adaptive thresholding, ridge filters, local normalisation -- is reading a systematically
+different feature on SE than on BSE, and the direction depends on whether the method
+references the lip or the bulk. That is a sharper claim than "the detector matters", and it
+predicts which methods will disagree.
+
+**(a4-prior) ⛔ SUPERSEDED THE SAME DAY BY (a4) ABOVE. Kept because the measurements are
+real and the error is instructive; the CONCLUSION below is wrong.**
+
+What is wrong with it: it treats the MAD of the whole image as "noise". MAD is total spread
+-- it contains the crack population and any large-scale shading -- so ETD's 2.67x larger MAD
+was read as ETD being noisier. Measured properly, on a high-pass residual in matrix >60 px
+from any marking, the channels differ by 1.09x and noise explains nothing. The raw *ratio*
+in the bottom row is also the wrong contrast statistic: crack depth is an additive quantity
+against the bulk, and measured that way it is 2.28x at 7/7 cells.
+
+So the sentence at the end of this subsection -- "not that the crack is absolutely darker",
+"do not write the broader sentence" -- is the opposite of what the data support. Read (a4).
+
+*2026-09-24, as originally written.* The control a referee will ask for: take the region BOTH channels' masks agree
 is crack, and measure its depth **relative to each channel's own matrix**, so any global
 contrast difference cancels. On 49 pairs with an agreed region:
 

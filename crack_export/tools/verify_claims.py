@@ -641,6 +641,12 @@ PROSE = [
      "the fresh-clone suite result, re-measured 2026-09-22 by cloning the public remote; "
      "read 356/1/357 before that"),
     ("analysis/VERDICT_2026.md",
+     "**ETD (SE): +3.92** — a *bright lip*. 50/51 pairs positive",
+     "SE edge brightening, the mechanism; CBS is -1.68 in the same annulus"),
+    ("analysis/VERDICT_2026.md",
+     "Depth carries **93%** of the CNR log-ratio",
+     "the decomposition: depth 2.28x, noise 1.09x, CNR 2.42x"),
+    ("analysis/VERDICT_2026.md",
      "**Without a\nnormaliser the effect does not reach significance.**",
      "the raw crack/matrix ratio gives 32/49 pairs and p=0.125; the claim is CNR, not darkness"),
     ("analysis/VERDICT_2026.md",
