@@ -152,6 +152,15 @@ immediately outside the crack is detector-dependent:
 | **ETD (SE): +3.92** — a *bright lip*. 50/51 pairs positive |
 | brighter in ETD than CBS: **51/51 pairs, 7/7 cells, p = 0.0156** |
 
+Averaged crack-normal profiles show it directly (figure:
+`~/Desktop/_Outputs/MAR_crack_identifications/figures/detector_mechanism_crack_profile.png`,
+median over 51 field pairs, narrow cracks only, IQR shaded, matrix at zero): BSE reaches a
+trough of **-7.54** noise units with a flat surround peaking at only +0.29, while SE reaches
+**-5.32** and rises into a lip peaking at **+0.95** on the flanks. Shallower trough, brighter
+shoulder -- the same ordering the annulus measurement gives, on a different statistic. (The
+two sets of numbers are not interchangeable: the annulus pools pixels 3-15 px out over all
+cracks, the profile is a median trace over narrow cracks with its baseline at +/-52-60 px.)
+
 This is secondary-electron edge brightening, which is textbook SEM physics: an edge emits
 more secondaries, so the crack lip glows in SE and does not in BSE. It explains the whole
 pattern. The SE lip raises the local baseline, so any measure referenced to the immediate
