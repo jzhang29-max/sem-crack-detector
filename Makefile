@@ -11,7 +11,20 @@ setup:
 # on a fresh clone `python3` has none of them. Waits for the port to answer instead of
 # sleeping a fixed number of seconds: the first run installs dependencies for minutes,
 # and the old `sleep 25` raced it and reported the whole suite as connection failures.
+# Refuse to start if 8799 is already answering. The wait loop below polls the port, and a
+# port cannot say which checkout is behind it: a server left over from another run -- another
+# clone, a second `make test`, a stray background job -- satisfies the loop immediately, and
+# the whole suite then measures THAT tree while reporting on this one. Observed 2026-09-24,
+# when a clean-clone run and a local run were started together: they fought over the port and
+# the clone's run died 15 checks in, which was the lucky outcome. The unlucky one is a green
+# run against the wrong code.
 test: setup
+	@if curl -sf -o /dev/null -m 2 http://127.0.0.1:8799/ 2>/dev/null; then \
+	   echo "port 8799 is already serving something. This target would measure it instead"; \
+	   echo "of this checkout, and report a green run against the wrong code."; \
+	   echo "Stop it first:  lsof -ti :8799 | xargs kill"; \
+	   exit 1; \
+	 fi
 	@OPEN=0 PORT=8799 ./run & SRV=$$!; \
 	 for i in $$(seq 1 180); do \
 	   curl -sf -o /dev/null http://127.0.0.1:8799/ && break; \

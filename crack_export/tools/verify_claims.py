@@ -652,7 +652,7 @@ PROSE = [
      '"quantile": 99',
      "the value the docstring above must agree with"),
     ("../README.md",
-     "367 passed, 0 failed, 3 skipped, 370 total",
+     "381 passed, 0 failed, 3 skipped, 384 total",
      "the fresh-clone suite result, re-measured 2026-09-22 by cloning the public remote; "
      "read 356/1/357 before that"),
     ("analysis/VERDICT_2026.md",

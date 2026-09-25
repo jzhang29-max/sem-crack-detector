@@ -1060,14 +1060,19 @@ On a **fresh clone** you will see fewer, with **three** reported as SKIP: overla
 per-image measurement CSVs and the retrain candidate bundle are derived artifacts and are not
 shipped, so the sections that need them have less to run against. A skip is printed with the
 exact command that builds the fixture, and never counts as a pass. `make test` exits 0 on a
-clean checkout — last re-verified on 2026-09-22 by cloning this repository from its
+clean checkout — last re-verified on 2026-09-24 by cloning this repository from its
 **public remote** into an empty directory, running `make setup` and `make test` there, and
-reading the result: **367 passed, 0 failed, 3 skipped, 370 total**, with the clone's working
-tree left
-clean afterwards. Both numbers here are measured that way rather than derived by subtracting
-from the full count. (They read 357/356/1 against a full count of 367 in the 2026-09-22 run,
-and that 370 predates the five launcher checks below, so a clone measured today will
-report five more.)
+reading the result: **381 passed, 0 failed, 3 skipped, 384 total**, with the clone's working
+tree left clean afterwards. Both numbers here are measured that way rather than derived by
+subtracting from the full count. (They read 357/356/1 against a full count of 367 on
+2026-09-19, and 367/0/3/370 on 2026-09-22.)
+
+That clone run is not a formality. It caught two things this machine structurally cannot:
+the two newest tools were missing from the module inventory above, and the scikit-learn
+check described below was written as exact equality — it passed here on 1.9.0/1.9.0 and
+failed in the clone on 1.9.0/1.9.1, because the pin is `>=1.9,<1.10` and a fresh install
+takes the latest patch. It now compares major.minor, the granularity at which the failure
+it guards against actually occurs.
 
 Five of those checks are about the launcher, and they exist because of a failure that
 produced no error at startup at all. On 2026-09-24 this checkout was moved one directory
