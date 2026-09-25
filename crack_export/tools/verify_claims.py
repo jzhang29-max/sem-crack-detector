@@ -618,6 +618,10 @@ def main():
 # sentence, so the document cannot be left quoting the old one. Adding a claim here is
 # cheap; do it whenever a number makes it into prose.
 PROSE = [
+    # (a10). The one sentence that must not drift: it is the finding NOT to claim.
+    ("analysis/VERDICT_2026.md",
+     "**Do not write that sentence as a finding.** That\nis the eighth novelty claim in this project to fall to prior art.",
+     "Schmies et al. 2023 own the detector-choice headline; losing this line re-opens a dead claim"),
     # (a8)/(a9): the only numbers in this work that come from the instrument rather than
     # from an image, so nothing downstream can re-derive them if the prose drifts.
     ("analysis/VERDICT_2026.md",

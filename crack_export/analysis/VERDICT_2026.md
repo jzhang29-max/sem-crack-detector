@@ -294,6 +294,45 @@ with that stated. And the four pairs where the SE "crack" is brighter than its m
 a measurement failure; they are the detector marking something in SE that is not a dark
 feature at all, which belongs in the paper as a separate observation about false positives.
 
+**(a10) PRIOR-ART CHECK ON THE DETECTOR RESULT: the headline is owned. The mechanism and
+the statistics are not.** *2026-09-24.* Searched before writing (a4)/(a7) up, because every
+previous novelty claim in this project has died to a check like this one, and seven of them
+already have.
+
+**Owned.** Schmies, Hemmleb et al., *Relevant input data for crack feature segmentation with
+deep learning on SEM imagery and topography data*, Engineering Failure Analysis (2023),
+compares SE, BSE and shape-from-shading topography as inputs to a UNet-ResNet34 for crack
+feature segmentation on the same fatigue specimens, and concludes that combining them beats
+SE alone. So the sentence "which SEM detector you pick changes automated crack segmentation,
+measured on matched fields" is theirs, published three years earlier, with a larger model and
+a third modality this work does not have. **Do not write that sentence as a finding.** That
+is the eighth novelty claim in this project to fall to prior art.
+
+**Also owned, and older.** SE edge brightening at topographic edges is textbook SEM physics
+(Goldstein et al.), and BSE compositional contrast versus SE topographic contrast is in every
+introductory treatment. (a4) does not discover the edge effect; it *measures its consequence*
+for a specific segmentation task.
+
+**What survives the check.** Three things, all of them measurement rather than phenomenon:
+
+  1. The CNR ratio is **decomposed**, not just reported — depth 2.28x, noise 1.09x, depth
+     carrying 93% of the log-ratio. That says the advantage is signal, not smoothing, which
+     is the part that transfers to a different microscope. Schmies et al. report segmentation
+     accuracy, which confounds the two.
+  2. The statistics are at the **specimen** level with an exact test and its floor stated
+     (7 cells, p = 0.0156 is the minimum obtainable), on pairs that are one scan on two
+     detectors rather than two acquisitions of one place.
+  3. The pairing is **certified from instrument metadata** rather than inferred from the
+     masks under test — see (a8). A detector comparison scored on masks the detectors
+     produced is circular, and 40/40 exact stage-and-clock agreement against a 393.9 um
+     control floor is the non-circular version.
+
+**Honest positioning.** This is a measurement-quality contribution to a question someone else
+has already answered qualitatively, not a new effect. It belongs in a data descriptor or a
+methods section, as the reason the corpus uses CBS, with Schmies et al. cited as the prior
+finding it quantifies. It does not carry a paper on its own, and the survivor table in section
+1 should not be read as if it does.
+
 **(a8) THE PAIRING IS NOW CERTIFIED BY THE INSTRUMENT, NOT INFERRED FROM THE IMAGES.**
 *2026-09-24.* Everything in (a3), (a4) and (a7) rests on one premise: that
 `..._CBS_000N` and `..._ETD_000N` are the same field of view. Until today that premise was
