@@ -3244,12 +3244,26 @@ def main():
     # ./run must name the interpreter, never inherit it.
     _run = os.path.join(PROJECT_ROOT, "run")
     _src = open(_run).read() if os.path.exists(_run) else ""
-    _bare = [ln.strip() for ln in _src.splitlines()
-             if re.match(r"^\s*(exec\s+)?python3\s", ln) and "-m venv" not in ln
-             and not ln.strip().startswith("#")]
-    check("./run never launches a bare `python3` (PATH must not pick the interpreter)",
-          bool(_src) and not _bare,
-          "; ".join(_bare) if _bare else "all calls go through \"$PY\"")
+    # Split at the line that defines $PY. BEFORE it there is no venv yet, so probing the
+    # system `python3` is not just allowed, it is required -- that is how ./run decides
+    # whether the interpreter is new enough to build one. AFTER it, every call must name
+    # the interpreter.
+    #
+    # The first version of this check was `re.match(r"^\s*(exec\s+)?python3\s", ln)`, which
+    # only sees a bare python3 at the START of a line. The sibling TXM launcher had
+    # `if ! python3 -c "import torch"` -- inline, invisible to that pattern -- and it
+    # survived the same repair this check exists to enforce. Its CI caught it: without
+    # activation that call hit the system python, found no torch, and the script announced
+    # the wrong fallback. Match python3 ANYWHERE on the line.
+    _split = _src.find('PY="$PWD/$VENV/bin/python3"')
+    _after = _src[_split:] if _split >= 0 else _src
+    _bare = [ln.strip() for ln in _after.splitlines()
+             if re.search(r"(^|[^\w\"$/-])python3?([^\w]|$)", ln)
+             and "-m venv" not in ln and not ln.strip().startswith("#")
+             and "$PY" not in ln]
+    check("./run never launches a bare `python3` once $PY is defined (inline calls too)",
+          bool(_src) and _split >= 0 and not _bare,
+          "; ".join(_bare) if _bare else "all calls after $PY go through it")
     check("./run defines $PY as the venv's own interpreter",
           'PY="$PWD/$VENV/bin/python3"' in _src)
     check("./run does not source bin/activate (it hardcodes a path that a move invalidates)",
