@@ -1031,6 +1031,8 @@ sub-trees, each with its own index:
 | `…/holes.py` | the regions the crack network encloses — the sharpest available test of intergranular cracking |
 | `…/blind_trace_setup.py` | builds the blinded dual-channel tracing experiment: field selection on pre-registered quality criteria, common histogram stretch, opaque ids, per-annotator randomised order, key written outside the annotator folders |
 | `…/tools/blind_trace_analyse.py` | unblinds and analyses it. Written before any tracing existed, so the endpoint is fixed while the outcome is unknown |
+| `…/tools/fei_metadata.py` | recovers the per-frame acquisition block (stage position, field width, dwell, clock) that Thermo SEMs append inside each TIFF. Present in the 2026-09-15 batch only; the older originals were re-exported without it |
+| `…/tools/certify_pairing.py` | certifies from that metadata that index-matched CBS/ETD frames are one scan on two detectors — 40/40 share stage and timestamp exactly, against 288 mismatched-index controls no closer than 393.9 um. The premise under every paired-detector statistic, previously inferred from mask agreement |
 
 **`archive/` — nothing in the app or pipeline imports it.** Superseded code, models
 kept as counterexamples, and one-off analyses that are the evidence behind the

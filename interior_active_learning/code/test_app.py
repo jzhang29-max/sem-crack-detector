@@ -3261,10 +3261,19 @@ def main():
     try:
         _pi = requests.get(f"{BASE}/api/pipeline_info", timeout=60).json()
         _m = _pi.get("model", {})
-        check("server's scikit-learn matches the one the model was pickled with",
-              _m.get("sklearn_built") == _m.get("sklearn_running"),
-              _m.get("version_mismatch") or
-              f"built {_m.get('sklearn_built')}, running {_m.get('sklearn_running')}")
+        # major.minor, not the full string. The failure this guards against was 1.7.2
+        # running against a 1.9.0 bundle, where a minor bump had REMOVED the attribute
+        # predict_proba reads. Patch releases do not remove attributes, and requirements
+        # pin >=1.9,<1.10 -- so demanding exact equality makes the suite fail on every
+        # fresh install the moment upstream ships a patch, which is what happened: this
+        # check passed locally on 1.9.0/1.9.0 and failed in a clean clone on 1.9.0/1.9.1.
+        # A check that only passes on the machine that wrote it is not a check.
+        _mm = lambda v: ".".join(str(v).split(".")[:2]) if v else None
+        _built, _run = _m.get("sklearn_built"), _m.get("sklearn_running")
+        check("server's scikit-learn is API-compatible with the bundles it loads",
+              _built is not None and _mm(_built) == _mm(_run),
+              f"built {_built}, running {_run}"
+              + ("" if _built == _run else " (patch differs; API-compatible)"))
     except Exception as _e:
         check("server's scikit-learn matches the one the model was pickled with", False, repr(_e))
 
