@@ -1048,21 +1048,35 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 ./.venv/bin/python3 interior_active_learning/code/test_app.py
 ```
 
-382 checks covering upload, detection, exports, correction precedence, region
+396 checks covering upload, detection, exports, correction precedence, region
 isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
 routing, physical-unit calibration, calibration *uncertainty*, instrument metadata,
 right-censoring, the specimen as statistical unit, the batch CLI and its refusals,
 cross-image aggregation, and train/serve parity.
 
-On a **fresh clone** you will see **370**, not 382, with **three** reported as SKIP: overlays,
+On a **fresh clone** you will see fewer, with **three** reported as SKIP: overlays,
 per-image measurement CSVs and the retrain candidate bundle are derived artifacts and are not
 shipped, so the sections that need them have less to run against. A skip is printed with the
 exact command that builds the fixture, and never counts as a pass. `make test` exits 0 on a
-clean checkout — re-verified on 2026-09-22 by cloning this repository from its **public
-remote** into an empty directory, running `make setup` and `make test` there, and reading the
-result: **367 passed, 0 failed, 3 skipped, 370 total**, with the clone's working tree left
+clean checkout — last re-verified on 2026-09-22 by cloning this repository from its
+**public remote** into an empty directory, running `make setup` and `make test` there, and
+reading the result: **367 passed, 0 failed, 3 skipped, 370 total**, with the clone's working
+tree left
 clean afterwards. Both numbers here are measured that way rather than derived by subtracting
-from the full count. (They read 357/356/1 against a full count of 367 until that re-run.)
+from the full count. (They read 357/356/1 against a full count of 367 in the 2026-09-22 run,
+and that 370 predates the five launcher checks below, so a clone measured today will
+report five more.)
+
+Five of those checks are about the launcher, and they exist because of a failure that
+produced no error at startup at all. On 2026-09-24 this checkout was moved one directory
+deeper. A virtualenv is not relocatable — `bin/activate` hardcodes `VIRTUAL_ENV` — so
+`./run` sourced it, prepended a directory that no longer existed to `PATH`, and `exec
+python3` fell through to a conda install: the app served on scikit-learn 1.7.2 against model
+bundles pickled by 1.9.0, and every call to `/api/process` died inside `predict_proba`.
+`./run` now names its interpreter instead of inheriting it, and the suite asserts that it
+does, plus that the server's running scikit-learn matches the version its bundles were
+pickled with — a mismatch `/api/pipeline_info` had been reporting correctly, and nobody
+was reading.
 
 **On Linux, CI is the evidence.** Everything this README says about Linux was worked out
 without a Linux machine — by resolving the requirements against PyPI with pip's `--platform`

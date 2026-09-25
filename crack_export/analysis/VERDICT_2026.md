@@ -294,6 +294,79 @@ with that stated. And the four pairs where the SE "crack" is brighter than its m
 a measurement failure; they are the detector marking something in SE that is not a dark
 feature at all, which belongs in the paper as a separate observation about false positives.
 
+**(a8) THE PAIRING IS NOW CERTIFIED BY THE INSTRUMENT, NOT INFERRED FROM THE IMAGES.**
+*2026-09-24.* Everything in (a3), (a4) and (a7) rests on one premise: that
+`..._CBS_000N` and `..._ETD_000N` are the same field of view. Until today that premise was
+argued from the segmenter's own output -- index-matched masks have median Jaccard 0.505
+against 0.024 for mismatched indices. Good evidence, and circular in one respect: it uses
+the masks to license the comparison the masks are then used for.
+
+The 2026-09-15 batch settles it without touching a pixel. Those 80 TIFFs retain the FEI
+metadata block that the 71 older originals were re-exported without, so stage position and
+acquisition clock are recorded per frame:
+
+    index-matched CBS/ETD pairs           40
+      identical StageX and StageY         40/40    worst offset 0.0 nm
+      identical timestamp (to 1 s)        40/40
+      identical HorFieldsize              40/40
+
+A nanometre-exact stage repeat is not something re-driving the stage produces; combined with
+the shared timestamp it means one scan read out on two detectors. **The control is the part
+that makes it an argument**: "two frames from one specimen sit close together" would be true
+of any pair if the grid were tight enough, so the same measurement was run on mismatched
+indices within a specimen -- 288 pairs, **minimum separation 393.9 um**, median 692.0 um.
+Matched pairs sit at exactly 0.0 um and the nearest mismatched pair is 394 um away. The two
+distributions are disjoint, not merely different.
+
+This also fixes the field-count arithmetic for the new batch, from the stage rather than
+from a filename convention. Each cell is a **3 x 3 grid of disjoint fields**: pitch
+436-471 um horizontally against a 318.8 um field, 448-462 um vertically against 212.5 um,
+so adjacent fields are separated by 117-152 um of unimaged material and share no pixels.
+The nine tile a patch of about 1.2 x 1.1 mm. So 20 frames per cell are **9 fields**, not 20
+and not 18 -- index 0010 is a low-magnification overview (1036 um field, 5 us dwell,
+337.24 nm/px against 51.883) and does not belong in any pooled area or width statistic. It
+was already excluded from the blind tracing set; this is the reason, stated from the
+instrument.
+
+Two consequences worth stating plainly rather than burying. The nine fields are spatially
+**distinct** -- no pixel is counted twice -- but they are nine windows onto one contiguous
+square millimetre of one specimen, so they are not independent replicates *of the specimen*
+and the specimen-level clustering in every test here is not conservatism, it is required.
+And scale for these 80 frames is now exact at **51.883 nm/px** from `HorFieldsize`, with no
+databar OCR in the chain; the 249x magnification range that voids pooled comparisons across
+the older corpus does not apply inside this batch, where 72 of 80 frames share one HFW
+value exactly.
+
+Reproduce with `crack_export/tools/fei_metadata.py` then `crack_export/tools/certify_pairing.py`.
+
+**(a9) A LOST PROVENANCE FILE, RECOVERED AND THEN AUDITED AGAINST THE INSTRUMENT.**
+*2026-09-24.* The capture folder for the 2026-09-15 batch was deleted during an unrelated
+Desktop reorganisation, taking with it the operator's hand-written notes: the 3 x 3 grid
+map, the three stage stops per specimen, and "6144x4096, 3 us, 10 mm WD". The images
+survived -- all 80 are in `original/` and match their manifest -- but the notes did not.
+
+The text was recovered verbatim from a session transcript and is kept at
+`original/CAPTURE_NOTES_260915_hydrogen.txt`, labelled as a reconstruction. It is not taken
+on trust. Each of the twelve stop coordinates was checked against the stage values inside
+the TIFFs:
+
+    MAR_AmbB_AS    agrees to 0.7 um
+    MAR_H_AS       agrees to 1.5 um
+    MAR_AmbB_HIP   agrees to 1.7 um
+    MAR_H_HIP      agrees to 0.5 um -- but only after negating the written values
+
+Eleven of twelve agree to under 2 um, which authenticates the recovery. The twelfth is more
+useful than that: the HIP H stops are written without their minus signs, and the same file's
+own "Left: -19.998 / Right: -18.1208" brackets the negative values the stage reports. So the
+slip is in the **original** notes, not in the recovery, and the cross-check caught a
+transcription error that would otherwise have been copied into a methods section.
+
+The general point for the data descriptor: the operator's notes and the instrument's own
+block are two independent records of the same acquisition, and they should be reconciled
+before either is quoted. Here that reconciliation cost nothing and found one error and one
+misreading -- the "319" repeated down the notes is not a crack count, it is the field width
+in micrometres.
+
 **(a6) MASK GEOMETRY: two pairs are ill-defined, and one of them returns 4.4e9.**
 *2026-09-24.* The 142 exported masks come in **20 distinct sizes**. That sounds like an
 inconsistent crop and it is not: the mask size equals the per-image detected field of view in

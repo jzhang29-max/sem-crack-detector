@@ -1,0 +1,91 @@
+MAR 247 Crack Count Array -- capture notes for the 2026-09-15 hydrogen batch
+============================================================================
+
+PROVENANCE. This is a RECONSTRUCTION. The original file ("MAR 247 Crack Count
+Array.txt") lived in the capture folder 260915_MAR_Crack-stats/, which was deleted
+on 2026-09-24 during an unrelated Desktop reorganisation. The text below was
+recovered verbatim from a session transcript that had read the file.
+
+It is not taken on trust. Every stage coordinate in it was checked against the
+FEI metadata block inside the TIFFs themselves (crack_export/tools/fei_metadata.py,
+crack_export/tools/certify_pairing.py). 11 of the 12 stop coordinates agree with
+the instrument to within 1.7 um. The 12th group, HIP H, agrees in magnitude to
+0.5 um but is written without its minus sign -- a transcription slip in the
+ORIGINAL notes, not in this recovery: the same file's own "Left: -19.998 /
+Right: -18.1208" brackets the negative values the stage reports.
+
+Authoritative source for all of it is now analysis/fei_metadata_260915.csv,
+extracted from the TIFFs. This file is kept for the human context the metadata
+does not carry: the grid layout and the operator's intent.
+
+--- recovered text, verbatim (sic, including the HIP H sign slip) ----------------
+
+MAR 247 Crack Count Array
+
+
+TOP	TOP	TOP
+319	319	319
+
+500 micron	500 micron	500 micron
+319       	319       	319       
+
+
+1 mm	1 mm	1 mm
+319	319	319
+
+6144x4096, 3 us, 10 mm WD
+
+GRID:
+01	02	03
+04	05	06
+07	08	09
+
+
+HIP H:
+Left: -19.998
+Right: -18.1208
+Difference: 1.877 (0.4693)
+Stop 1: 19.5287
+Stop 2: 19.0594
+Stop 3: 18.5901
+
+AS H:
+Left: -8.4960
+Right: -6.6158
+Difference: 1.880 (0.4701)
+Stop 1: -8.0259
+Stop 2: -7.5558
+Stop 3: -7.0857
+
+HIP Amb:
+Left: -0.1632
+Right: 1.7146
+Difference: 1.8778 (0.4695)
+Stop 1: 0.30625
+Stop 2: 0.7758
+Stop 3: 1.2453
+
+AS Amb:
+Left: 25.2165
+Right: 26.9600
+Difference: 1.7435 (0.435875)
+Stop 1: 25.6524 
+Stop 2: 26.0883
+Stop 3: 26.5241
+
+--- end recovered text -----------------------------------------------------------
+
+READING IT. The "319" repeated across the three magnification rows is the
+horizontal field width in micrometres, not a count: the instrument reports
+HorFieldsize = 318.769 um for every index-0001..0009 frame. The "TOP / 500 micron
+/ 1 mm" rows are the three rows of the grid, not three magnifications.
+
+GRID 01..09 is a 3 x 3 array of non-overlapping fields, confirmed from the stage:
+pitch 436-471 um horizontally and 448-462 um vertically, against a field of
+318.8 x 212.5 um. Adjacent fields are separated by 117-152 um of unimaged
+material. The nine tile a patch of roughly 1.2 x 1.1 mm on a single specimen.
+
+INDEX 0010 is not part of the grid. It is a low-magnification overview taken
+earlier in the session at HorFieldsize 1036 um and 5 us dwell (vs 318.769 um and
+3 us): 337.24 nm/px instead of 51.883 nm/px. It is excluded from the blind tracing
+set and must not be pooled with 0001-0009 in any area or width statistic.

@@ -618,6 +618,21 @@ def main():
 # sentence, so the document cannot be left quoting the old one. Adding a claim here is
 # cheap; do it whenever a number makes it into prose.
 PROSE = [
+    # (a8)/(a9): the only numbers in this work that come from the instrument rather than
+    # from an image, so nothing downstream can re-derive them if the prose drifts.
+    ("analysis/VERDICT_2026.md",
+     "identical StageX and StageY         40/40    worst offset 0.0 nm",
+     "certifies the CBS/ETD same-field premise under (a3)/(a4)/(a7); was inferred from "
+     "mask Jaccard before 2026-09-24"),
+    ("analysis/VERDICT_2026.md",
+     "**minimum separation 393.9 um**, median 692.0 um",
+     "the mismatched-index control; without it the 40/40 is just a tight grid"),
+    ("analysis/VERDICT_2026.md",
+     "**51.883 nm/px**",
+     "exact scale from HorFieldsize, no databar OCR in the chain"),
+    ("analysis/VERDICT_2026.md",
+     "MAR_H_HIP      agrees to 0.5 um -- but only after negating the written values",
+     "the sign slip is in the ORIGINAL notes; drop the caveat and the recovery looks wrong"),
     ("analysis/sam3/LEAK_POSTMORTEM.md",
      "reaches median **IoU 0.4090** over the 15 disjoint tiles",
      "the trivial baseline every method must beat; said 0.384 until 2026-09-21"),

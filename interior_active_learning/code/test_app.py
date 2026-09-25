@@ -57,8 +57,18 @@ results = []
 skipped = []
 
 
+#: Every line check()/skip() has printed. The summary is computed from `results`, and on
+#: 2026-09-24 four checks were appended to main() BETWEEN the tally and the print -- they
+#: ran, they printed PASS, and they were not counted: "392 passed, 0 failed, 0 skipped,
+#: 396 total", a line that does not add up and that nobody has to notice. Any check placed
+#: after the tally is invisible, including a FAILING one. So the reporter now counts what
+#: it printed and refuses to report a total it cannot reconcile.
+_printed = []
+
+
 def check(name, cond, detail=""):
     results.append((name, bool(cond), detail))
+    _printed.append(name)
     print(f"  {'PASS' if cond else 'FAIL'}  {name}" + (f"  -- {detail}" if detail else ""),
           flush=True)
     return bool(cond)
@@ -75,6 +85,7 @@ def skip(name, why):
     quietly stand in for a passing test.
     """
     skipped.append((name, why))
+    _printed.append(name)
     print(f"  SKIP  {name}  -- {why}", flush=True)
     return False
 
@@ -1020,10 +1031,17 @@ def main():
 
     # A venv that dies at the pip stage (Debian splits out python3-venv) leaves a directory
     # with no bin/activate; a -d test then treats that carcass as valid on every later run
-    # and silently skips the version gate too.
+    # and silently skips the version gate too. This used to be asserted as the literal
+    # `[ ! -f "$VENV/bin/activate" ]`, which is one specific way to catch one specific
+    # breakage. It is now a function that ASKS THE INTERPRETER where it lives, which covers
+    # the carcass, the missing venv, and the case a file test cannot see at all -- a venv
+    # whose checkout moved, where every file is present and the recorded paths are wrong.
     check("the launcher detects a half-built virtualenv",
-          '[ ! -f "$VENV/bin/activate" ]' in _run,
+          "venv_is_usable" in _run and '[ -x "$VENV/bin/python3" ] || return 1' in _run,
           "a -d test accepts a carcass with no activate script")
+    check("the venv check is functional, not a file test",
+          "sys.prefix != sys.base_prefix" in _run and "os.path.realpath(sys.prefix) == want" in _run,
+          "a moved checkout leaves every file in place and every recorded path wrong")
     check("a failed venv creation is cleaned up and explained",
           "python3-venv" in _run and 'rm -rf "$VENV"' in _run)
 
@@ -3213,6 +3231,53 @@ def main():
     # for the whole function, so every earlier use raised UnboundLocalError.
     shutil.rmtree(TMP, ignore_errors=True)
     check("test artifacts removed", True, f"{removed} files, {len(created)} images")
+
+    # --- the launcher must not depend on PATH -----------------------------------------
+    # 2026-09-24: the checkout moved one directory deeper. bin/activate hardcodes
+    # VIRTUAL_ENV as an absolute path, so `source`-ing it prepended a directory that no
+    # longer existed; `python3` fell through to a conda install; the app served happily on
+    # scikit-learn 1.7.2 against bundles pickled by 1.9.0; and every /api/process died with
+    # "'LogisticRegression' object has no attribute 'multi_class'". Nothing in the suite
+    # caught it because the suite talks to whatever server the Makefile started.
+    #
+    # Assert the property that makes it unconstructible rather than re-testing the symptom:
+    # ./run must name the interpreter, never inherit it.
+    _run = os.path.join(PROJECT_ROOT, "run")
+    _src = open(_run).read() if os.path.exists(_run) else ""
+    _bare = [ln.strip() for ln in _src.splitlines()
+             if re.match(r"^\s*(exec\s+)?python3\s", ln) and "-m venv" not in ln
+             and not ln.strip().startswith("#")]
+    check("./run never launches a bare `python3` (PATH must not pick the interpreter)",
+          bool(_src) and not _bare,
+          "; ".join(_bare) if _bare else "all calls go through \"$PY\"")
+    check("./run defines $PY as the venv's own interpreter",
+          'PY="$PWD/$VENV/bin/python3"' in _src)
+    check("./run does not source bin/activate (it hardcodes a path that a move invalidates)",
+          bool(_src) and not re.search(r'^\s*(source|\.)\s+"?\$VENV/bin/activate',
+                                       _src, re.M))
+
+    # The running server must agree with the bundles it loads. /api/pipeline_info already
+    # computes this; it was reporting the mismatch correctly the whole time and nothing read it.
+    try:
+        _pi = requests.get(f"{BASE}/api/pipeline_info", timeout=60).json()
+        _m = _pi.get("model", {})
+        check("server's scikit-learn matches the one the model was pickled with",
+              _m.get("sklearn_built") == _m.get("sklearn_running"),
+              _m.get("version_mismatch") or
+              f"built {_m.get('sklearn_built')}, running {_m.get('sklearn_running')}")
+    except Exception as _e:
+        check("server's scikit-learn matches the one the model was pickled with", False, repr(_e))
+
+    # Reconcile before reporting. If these disagree, a check ran after the tally was taken
+    # and the summary is understating the suite -- fail loudly rather than print a total
+    # that is quietly wrong.
+    if len(_printed) != len(results) + len(skipped):
+        print("\n" + "=" * 70)
+        print(f"REPORTER BUG: printed {len(_printed)} checks but the tally sees "
+              f"{len(results) + len(skipped)}. A check ran after the tally was computed; "
+              f"move it above `n_pass = ...` in main(). Refusing to report a count that "
+              f"does not reconcile.")
+        return 2
 
     n_pass = sum(1 for _, ok, _ in results if ok)
     n_fail = len(results) - n_pass

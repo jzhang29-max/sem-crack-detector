@@ -17,15 +17,46 @@ if [ "${1:-}" = "--setup-only" ]; then SETUP_ONLY=1; fi
 PORT="${PORT:-8767}"
 VENV="${VENV:-.venv}"
 
-# -f bin/activate, not -d "$VENV". If `python3 -m venv` fails partway -- the common Linux
-# case is Debian/Ubuntu splitting ensurepip into a separate python3-venv package, so venv
-# creation dies at the pip stage -- CPython leaves the directory behind with no bin/activate
-# and no cleanup. A -d test then treats that carcass as a working venv on every later run:
-# the `source` below fails with "No such file or directory", which names neither the real
-# cause nor the fix, and the whole block above -- including the Python version check -- is
-# skipped forever.
-if [ ! -f "$VENV/bin/activate" ]; then
-  echo "==> creating virtualenv in $VENV (first run only)"
+# Is there a WORKING venv here? Three ways there can fail to be one, and the check has to
+# catch all three, because each of them otherwise produces a confident-looking wrong run.
+#
+#   1. Nothing built yet.
+#   2. A half-built carcass. If `python3 -m venv` dies at the pip stage -- the common
+#      Debian/Ubuntu case, where ensurepip is packaged separately -- CPython leaves the
+#      directory behind with no bin/activate and no cleanup. A -d test treats that as a
+#      working venv forever after.
+#   3. A venv whose checkout has MOVED. This one is the reason the check is a function
+#      call and not a file test. A virtualenv is not relocatable: bin/activate hardcodes
+#      VIRTUAL_ENV as an absolute path, and every console script in bin/ hardcodes its
+#      shebang. Rename or move the checkout and bin/activate still exists, so a -f test
+#      says "fine" -- but sourcing it prepends a directory that no longer exists to PATH,
+#      `python3` falls through to whatever comes next (here: a conda/miniforge install),
+#      and the app runs against SYSTEM packages while appearing to run in the venv.
+#      Measured, on this machine, 2026-09-24: the checkout moved one level into a new
+#      parent folder, PATH fell through to miniforge's scikit-learn 1.7.2 against a venv
+#      holding 1.9.0, and every call to /api/process died with
+#      "'LogisticRegression' object has no attribute 'multi_class'" -- 1.7.2 reads an
+#      attribute that a bundle pickled by 1.9.0 no longer carries. The app started, served,
+#      listed images, and failed only inside the detector.
+#
+# So: ask the interpreter where it thinks it lives, and require that to be THIS directory.
+venv_is_usable() {
+  [ -x "$VENV/bin/python3" ] || return 1
+  "$VENV/bin/python3" - "$VENV" <<'PYCHECK' 2>/dev/null
+import os, sys
+want = os.path.realpath(sys.argv[1])
+sys.exit(0 if (sys.prefix != sys.base_prefix
+               and os.path.realpath(sys.prefix) == want) else 1)
+PYCHECK
+}
+
+if ! venv_is_usable; then
+  if [ -e "$VENV" ]; then
+    echo "==> $VENV does not work from this directory (moved checkout, or a half-built"
+    echo "    virtualenv). Rebuilding it -- this is safe; nothing but dependencies live there."
+    rm -rf "$VENV"
+  fi
+  echo "==> creating virtualenv in $VENV"
   # Check the interpreter BEFORE building a venv. Without this, an older python3 creates
   # the venv fine, pip churns for minutes, and then dies in resolver backtracking with an
   # error that names numpy rather than the actual cause -- while the README promises
@@ -72,15 +103,33 @@ if [ -d interior_active_learning/paint ] && \
   echo ""
 fi
 
-# shellcheck disable=SC1090
-source "$VENV/bin/activate"
+# The venv is deliberately NOT activated. Activation works by prepending $VIRTUAL_ENV/bin
+# to PATH, and bin/activate hardcodes $VIRTUAL_ENV as an absolute path written when the venv
+# was created. Move the checkout and that path stops existing: sourcing it prepends a
+# directory that is not there, `python3` falls through to the next PATH entry, and the app
+# runs on system packages while every message on screen says otherwise. Naming the
+# interpreter makes the whole failure mode unconstructible. $VENV/bin/python3 resolves its
+# own sys.prefix from its own location, so it is correct even when bin/activate is stale,
+# and the server uses sys.executable for every subprocess it spawns -- so nothing
+# downstream depends on PATH either.
+PY="$PWD/$VENV/bin/python3"
+
+# A stale bin/activate is still a trap for anyone who activates by hand, so say so once.
+# Match the full absolute path, not a suffix: the checkout that broke this moved from
+# ~/Desktop/<name> to ~/Desktop/APP/<name>, so the basename was unchanged and any
+# suffix match would have called the stale file current.
+if ! grep -qF "$PWD/$VENV" "$VENV/bin/activate" 2>/dev/null; then
+  echo "==> NOTE: $VENV/bin/activate was written for a different path (this checkout has"
+  echo "    moved). ./run does not use it, so the app is unaffected. If you activate the"
+  echo "    venv by hand, rebuild it first:  rm -rf $VENV && ./run --setup-only"
+fi
 
 # Only reinstall when requirements change -- a stamp file keeps startup fast.
 STAMP="$VENV/.req-stamp"
 if [ ! -f "$STAMP" ] || ! cmp -s requirements.txt "$STAMP"; then
   echo "==> installing dependencies (this takes a few minutes the first time)"
-  python3 -m pip install --quiet --upgrade pip
-  python3 -m pip install --quiet -r requirements.txt
+  "$PY" -m pip install --quiet --upgrade pip
+  "$PY" -m pip install --quiet -r requirements.txt
   cp requirements.txt "$STAMP"
 fi
 
@@ -94,7 +143,7 @@ fi
 
 # SAM 2 refinement is OPT-IN (--sam2 refine); the default detector needs no torch. This
 # check exists only so that opting in later does not fail confusingly.
-if ! python3 -c "import torch; from transformers import Sam2Model" 2>/dev/null; then
+if ! "$PY" -c "import torch; from transformers import Sam2Model" 2>/dev/null; then
   echo "==> NOTE: torch/transformers unavailable. That is fine -- the default detector does"
   echo "    not need them. Only --sam2 refine does, and it would fall back with a reason"
   echo "    recorded in every CSV sidecar."
@@ -130,4 +179,4 @@ if [ "${OPEN:-1}" = "1" ]; then
     fi ) >/dev/null 2>&1 &
 fi
 echo "    drop images onto the window; press Ctrl-C to stop"
-exec python3 interior_active_learning/code/paint_server.py
+exec "$PY" interior_active_learning/code/paint_server.py
