@@ -32,7 +32,15 @@ from common import contrast_kwargs_for, PAINT_DIR          # noqa: E402
 from detect_cracks import load_as_uint8, find_field_of_view  # noqa: E402
 from aggregate import specimen_key                          # noqa: E402
 
-MACH = os.path.join(DERIVED, "machine_masks")
+# WHICH MASK THE FOLDER SHOWS. Default is "gated": the detector's output plus the operator's
+# strokes, with the stroke's boundary drawn by the IMAGE rather than by the brush. That is the
+# combination the folder is for -- machine-only throws away the operator's gap-filling, and
+# pasting brings the disc geometry back with it. --masks machine gives the detector alone.
+_KIND = os.environ.get("SEMCRACK_MASKS", "gated")
+if _KIND not in ("gated", "machine"):
+    raise SystemExit(f"SEMCRACK_MASKS must be 'gated' or 'machine', not {_KIND!r}")
+_SUFFIX = {"gated": "_gated.png", "machine": "_machine.png"}[_KIND]
+MACH = os.path.join(DERIVED, f"{_KIND}_masks")
 OUT = os.path.expanduser("~/Desktop/SEM_sets_original_and_BW")
 LONG, PANEL_W, GUT, CAP = 3000, 1500, 28, 62
 
@@ -57,8 +65,8 @@ def reviewed_share(stem):
 
 
 def main():
-    stems = sorted(os.path.basename(p).replace("_machine.png", "")
-                   for p in glob.glob(f"{MACH}/*_machine.png"))
+    stems = sorted(os.path.basename(p).replace(_SUFFIX, "")
+                   for p in glob.glob(f"{MACH}/*{_SUFFIX}"))
     if not stems:
         sys.exit("no machine-only masks")
     print(f"  {len(stems)} frames", flush=True)
@@ -73,7 +81,7 @@ def main():
         key = specimen_key(stem) or "unparsed"
         d = os.path.join(OUT, key); os.makedirs(d, exist_ok=True)
         img8 = load_as_uint8(f"{REPO}/original/{stem}.tif", **contrast_kwargs_for(stem))
-        mask = np.array(Image.open(f"{MACH}/{stem}_machine.png").convert("L"))
+        mask = np.array(Image.open(f"{MACH}/{stem}{_SUFFIX}").convert("L"))
         if img8.shape != mask.shape:
             x0, y0, x1, y1 = find_field_of_view(img8)
             img8 = img8[y0:y1, x0:x1]
@@ -98,7 +106,8 @@ def main():
         dr = ImageDraw.Draw(sheet)
         dr.text((4, 8), stem, fill=(0, 0, 0), font=f_big)
         dr.text((4, 38), "original", fill=(90, 90, 90), font=f_sm)
-        note = f"MACHINE crack mask, no human paint  —  {pct:.1f}% of frame"
+        note = (f"{'GATED' if _KIND == 'gated' else 'MACHINE'} crack mask  —  {pct:.1f}% of frame"
+                + ("  (detector + your strokes, edges drawn by the image)" if _KIND == "gated" else ", no human paint"))
         note += (f"   ·  a human has adjudicated {100*rev:.1f}% of this frame" if rev > 0
                  else "   ·  no human has reviewed this frame")
         dr.text((PANEL_W + GUT + 4, 38), note, fill=(0, 90, 160), font=f_sm)
