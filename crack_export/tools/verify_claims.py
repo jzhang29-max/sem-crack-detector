@@ -188,14 +188,30 @@ def d_area_identity_err():
     return max(e)
 
 
+# These two read the DEPLOYED bundle, not models/crack_classifier_v3_metrics.json.
+#
+# That file is written by train_v3_weighted.py on every retrain and describes the CANDIDATE,
+# promoted or not. The README quotes the model that actually ships. So a refused retrain used
+# to break both claims: on 2026-09-26 the promotion gate correctly declined a candidate
+# (held-out LOIO up 0.8840 -> 0.8868, pooled grouped-CV down 0.7144 -> 0.7081) and these two
+# went red, reporting drift in documents that had not changed and describing a model that was
+# never deployed. The registry was reading the wrong object.
+#
+# The deployed bundle carries the same keys under cv_results, so reading it makes the claim
+# describe its subject. A candidate's metrics are still on disk for inspection; they are just
+# not what a statement about the shipped model is checked against.
+def _deployed_cv():
+    import joblib
+    b = joblib.load(f"{REPO}/models/crack_classifier.joblib")
+    return (b.get("cv_results") or {})["LogisticRegression"]
+
+
 def d_auc_pooled():
-    d = json.load(open(f"{REPO}/models/crack_classifier_v3_metrics.json"))
-    return round(d["cv_results"]["LogisticRegression"]["pooled_auc"], 4)
+    return round(_deployed_cv()["pooled_auc"], 4)
 
 
 def d_auc_loio():
-    d = json.load(open(f"{REPO}/models/crack_classifier_v3_metrics.json"))
-    return round(d["cv_results"]["LogisticRegression"]["loio_auc_exhaustive_image"], 4)
+    return round(_deployed_cv()["loio_auc_exhaustive_image"], 4)
 
 
 # ---- SAM 3 scoring claims WITHDRAWN 2026-09-18 ------------------------------------------
