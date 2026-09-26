@@ -1038,6 +1038,7 @@ sub-trees, each with its own index:
 | `…/tools/build_specimen_sets.py` | one browsable folder and PDF per specimen, original beside the machine mask, cropped to a common field of view so the pair does not shift when scrolled |
 | `…/tools/brush_vs_evidence.py` | what share of hand-painted crack is actually dark, against a label-free MAD threshold. Reports where its own robust statistics collapse (bimodal frames) instead of scoring them |
 | `…/tools/label_inventory.py` | the corpus in four numbers: unreviewed 91.05%, crack 8.90%, adjudicated not-crack 0.03% on 13/47 frames, erased 0.02% |
+| `…/tools/gated_masks.py` | the third option between a brushy mask and a machine-only one: inside a painted stroke the boundary is drawn by the image, not the brush. Ported from the TXM app's `corrections="gate"`. Over 47 reviewed frames the operator's strokes add 0.50 pp of crack against pasting's 1.52 pp, most of which is brush geometry |
 | `…/tools/pdf_outline.py` | adds the specimen/frame outline to a combined PDF. Separate because pypdf is deliberately not a dependency of the app's venv |
 
 **`archive/` — nothing in the app or pipeline imports it.** Superseded code, models
