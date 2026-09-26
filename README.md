@@ -1033,6 +1033,12 @@ sub-trees, each with its own index:
 | `…/tools/blind_trace_analyse.py` | unblinds and analyses it. Written before any tracing existed, so the endpoint is fixed while the outcome is unknown |
 | `…/tools/fei_metadata.py` | recovers the per-frame acquisition block (stage position, field width, dwell, clock) that Thermo SEMs append inside each TIFF. Present in the 2026-09-15 batch only; the older originals were re-exported without it |
 | `…/tools/certify_pairing.py` | certifies from that metadata that index-matched CBS/ETD frames are one scan on two detectors — 40/40 share stage and timestamp exactly, against 288 mismatched-index controls no closer than 393.9 um. The premise under every paired-detector statistic, previously inferred from mask agreement |
+| `…/tools/machine_only_masks.py` | re-runs the pipeline with every human correction suppressed, so the mask is the detector's own answer. The shipped export layers human paint over the model and the two are then indistinguishable — on one frame the human painted 49.2% of the image and the machine found 4.7% |
+| `…/tools/three_state_render.py` | four panels per frame: image, machine-only, human as three states (crack / adjudicated not-crack / GREY never reviewed), and the binary export beside it. The grey is the size of the claim the binary file makes on a reader's behalf |
+| `…/tools/build_specimen_sets.py` | one browsable folder and PDF per specimen, original beside the machine mask, cropped to a common field of view so the pair does not shift when scrolled |
+| `…/tools/brush_vs_evidence.py` | what share of hand-painted crack is actually dark, against a label-free MAD threshold. Reports where its own robust statistics collapse (bimodal frames) instead of scoring them |
+| `…/tools/label_inventory.py` | the corpus in four numbers: unreviewed 91.05%, crack 8.90%, adjudicated not-crack 0.03% on 13/47 frames, erased 0.02% |
+| `…/tools/pdf_outline.py` | adds the specimen/frame outline to a combined PDF. Separate because pypdf is deliberately not a dependency of the app's venv |
 
 **`archive/` — nothing in the app or pipeline imports it.** Superseded code, models
 kept as counterexamples, and one-off analyses that are the evidence behind the

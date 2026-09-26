@@ -99,3 +99,9 @@ original/MANIFEST_260915_hydrogen.json
 # names unreleased frames; the design is reproducible anyway -- the seed is in
 # crack_export/tools/blind_trace_setup.py, so the key regenerates deterministically.
 crack_export/analysis/blind_trace_key/
+
+# Derived artefacts from crack_export/tools: machine-only masks, per-frame JSON summaries.
+# Regenerable (machine_only_masks.py re-runs the pipeline with corrections suppressed, about
+# 40 minutes on 14 cores) and large, so not tracked -- but NOT /tmp either: that is swept, and
+# this session lost three Desktop folders to exactly that class of impermanence.
+crack_export/derived/
