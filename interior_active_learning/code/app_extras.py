@@ -33,7 +33,8 @@ import numpy as np
 from flask import jsonify, request, send_file
 from PIL import Image
 
-from common import ORIGINAL_DIR, PAINT_DIR, PROJECT_ROOT, PROD_MODEL_PATH, contrast_kwargs_for
+from common import (ORIGINAL_DIR, PAINT_DIR, PROJECT_ROOT, PROD_MODEL_PATH,
+                    contrast_kwargs_for, held_out_scope)
 from detect_cracks import load_as_uint8, find_field_of_view
 
 Image.MAX_IMAGE_PIXELS = None
@@ -169,6 +170,50 @@ def register(app, list_images, invalidate_stage):
                     rec["held_out_auc_note"] = (
                         "measured when this model was trained, on the corpus as it stood then; "
                         "not necessarily the same held-out rows as a newer candidate")
+                # BOTH BARS, OR THE BETTER ONE READS AS THE MODEL'S ACCURACY.
+                #
+                # held_out_auc above is loio_auc_exhaustive_image: train without one held-out
+                # image, score on that image. For the deployed bundle it is 0.8840 -- measured
+                # on ONE frame (AS_24hr_BSE_Side_008, 1295 regions). The pooled grouped-CV
+                # figure for the same model is 0.7144 +/- 0.0278, and this list was showing
+                # only the first. Someone picking a model off this dropdown read 0.884 as the
+                # model's accuracy, which it is not: the promotion gate treats it as the
+                # best-case bar and app_endpoints.py's metric_note already says pooled "is the
+                # number to quote". The sibling app that proxies this tool same-origin under
+                # /mark/ shows no unqualified statistic anywhere, and this was one.
+                #
+                # Nothing needed recomputing -- pooled_auc has been sitting in the same
+                # cv_results dict this block already opens. It was simply never read.
+                if cv.get("pooled_auc") is not None:
+                    rec["pooled_auc"] = round(float(cv["pooled_auc"]), 4)
+                    if cv.get("pooled_auc_std") is not None:
+                        rec["pooled_auc_std"] = round(float(cv["pooled_auc_std"]), 4)
+                elif "held_out_auc" in rec:
+                    # SAY SO rather than omit the row. The three pre-baseline bundles carry no
+                    # cv_results at all, so for them the single-frame figure is the only one
+                    # that exists. Dropping the field silently would let the one number left on
+                    # screen read as the unqualified accuracy again, for exactly the models
+                    # whose provenance is weakest.
+                    rec["pooled_auc_absent"] = (
+                        "this bundle records no cv_results[model_family].pooled_auc, so the "
+                        "single-held-out-image figure is the only score it has")
+                # PROVENANCE OF THE HELD-OUT FIGURE, READ FROM THE BUNDLE, NOT ASSUMED.
+                # The card's tooltip used to call this "held out by specimen" from a hardcoded
+                # default, because holdout_kind is None in every bundle the current trainer
+                # writes. The one bundle that does record it says
+                # "leave-one-SPECIMEN-out (AS_24hr, 1 image(s))" -- the specimen IS a single
+                # frame here, so the specimen wording claimed a breadth the holdout never had.
+                for _src, _dst in (("loio_out_of_sample_image", "held_out_image"),
+                                   ("loio_out_of_sample_holdout_kind", "held_out_kind"),
+                                   ("loio_out_of_sample_source", "held_out_source")):
+                    if b.get(_src):
+                        rec[_dst] = str(b[_src])
+                if isinstance(b.get("loio_out_of_sample_n_rows"), (int, float)):
+                    rec["held_out_n_rows"] = int(b["loio_out_of_sample_n_rows"])
+                if "held_out_auc" in rec:
+                    _hn, _hhow = held_out_scope(b)
+                    rec["held_out_n_images"] = _hn
+                    rec["held_out_scope"] = _hhow
                 # NOT surfacing prod_auc_on_loio_image here, deliberately. It is the model
                 # that was live at training time re-scored on the candidate's held-out image --
                 # an image that model was TRAINED on. train_v3_weighted.py prints it with the

@@ -335,6 +335,116 @@ def main():
           "crack_classifier_PREV.joblib" in src)
     check("retrain clears the stage cache", "invalidate_stage" in src)
 
+    # ---------- 8b. the model list must not present its best-case AUC as the accuracy ----
+    #
+    # /api/models used to report ONE score per model, held_out_auc, taken from
+    # cv_results[fam]["loio_auc_exhaustive_image"] -- train without one held-out frame, score
+    # on that frame. For the deployed bundle that is 0.884, while the pooled grouped-CV figure
+    # for the SAME bundle is 0.7144 +/- 0.0278. A user choosing a model off that dropdown read
+    # 0.884 as the model's accuracy.
+    #
+    # THESE CHECKS RECOMPUTE FROM THE BUNDLE rather than asserting the literals, so they
+    # keep their power after a retrain moves both numbers -- and they compare against the
+    # bundle, not against the endpoint's own arithmetic, so the endpoint cannot satisfy them
+    # by being self-consistent about the wrong field.
+    print("\n[8b] both AUC bars reach the model list")
+    _ml = requests.get(f"{BASE}/api/models", timeout=30).json()
+    _rows = {r["file"]: r for r in _ml.get("models", [])}
+    _live = _rows.get("crack_classifier.joblib") or {}
+    _lb = joblib.load(PROD_MODEL_PATH)
+    _lcv = (_lb.get("cv_results") or {}).get(_lb.get("model_family") or "", {}) or {}
+    _want_pool = _lcv.get("pooled_auc")
+    _want_loio = _lcv.get("loio_auc_exhaustive_image")
+    check("the deployed model's pooled grouped-CV figure reaches the list",
+          _want_pool is not None
+          and _live.get("pooled_auc") == round(float(_want_pool), 4),
+          f"bundle {_want_pool}, endpoint {_live.get('pooled_auc')}")
+    check("the single-held-out-frame figure is still there, not swapped out",
+          _want_loio is not None
+          and _live.get("held_out_auc") == round(float(_want_loio), 4),
+          f"bundle {_want_loio}, endpoint {_live.get('held_out_auc')}")
+    # The gap is the whole reason the label matters. If a future corpus closes it this check
+    # should be revisited, not deleted -- it is asserting that the two ARE different numbers.
+    check("the two figures differ, so one of them cannot stand for the other",
+          _live.get("pooled_auc") is not None and _live.get("held_out_auc") is not None
+          and _live["pooled_auc"] != _live["held_out_auc"],
+          f"pooled {_live.get('pooled_auc')} vs held-out {_live.get('held_out_auc')}")
+    # EVERY row, not just the live one. The failure this replaces was a model showing a score
+    # with nothing to compare it against.
+    _scored = [f for f, r in _rows.items() if r.get("held_out_auc") is not None]
+    _unlabelled = [f for f in _scored
+                   if _rows[f].get("pooled_auc") is None
+                   and not _rows[f].get("pooled_auc_absent")]
+    check("no row shows a held-out AUC with neither a pooled figure nor a reason",
+          not _unlabelled,
+          f"{len(_scored)} scored rows; unlabelled: {_unlabelled}")
+    # A bundle with no cv_results at all must say so rather than drop the field silently,
+    # because the row left behind would be a bare single-frame number again -- on exactly
+    # the models whose provenance is weakest.
+    _absent = [f for f, r in _rows.items() if r.get("pooled_auc_absent")]
+    check("a bundle with no pooled figure says so instead of omitting it",
+          all(_rows[f].get("held_out_auc") is not None for f in _absent),
+          f"{len(_absent)} such bundle(s): {_absent}")
+
+    # HOW NARROW IS THE HELD-OUT FIGURE? The card used to call it "held out by specimen" from
+    # a hardcoded frontend default. No bundle the current trainer writes claims that --
+    # loio_out_of_sample_holdout_kind is None in all of them. common.held_out_scope()
+    # reconstructs it by re-applying the trainer's specimen rule, and the one archived bundle
+    # that DOES record the string is an independent check on that reconstruction.
+    from common import held_out_scope
+    _n_img, _how = held_out_scope(_lb)
+    check("the held-out figure's width is reported, not assumed",
+          _live.get("held_out_n_images") == _n_img and _live.get("held_out_scope") == _how,
+          f"{_n_img} image(s): {_how}")
+    # THE FIRST VERSION OF THIS CHECK COULD NEVER FIRE, which is why it is spelled out at
+    # length. It looked for a bundle that both RECORDS holdout_kind and can be reconstructed,
+    # and compared the two -- but the only bundle carrying the recorded string
+    # (crack_classifier_replaced_20260825_142258.joblib, written by establish_baseline.py)
+    # is also the only one with no `images` list, so held_out_scope returns None for it and
+    # the comparison list came back empty. It passed nothing and reported PASS on an
+    # `and all([])`. So: the recorded string is evidence about a SPECIMEN, not about a
+    # bundle, and it is compared against a reconstruction for the same ANCHOR IMAGE, taken
+    # from whichever bundle can supply the image list.
+    _agree, _skipped_kinds = [], []
+    for _f in _rows:
+        if not _rows[_f].get("held_out_kind"):
+            continue
+        _bb = joblib.load(os.path.join(PROJECT_ROOT, "models", _f))
+        _claimed = _bb.get("loio_out_of_sample_holdout_kind") or ""
+        # "leave-one-SPECIMEN-out (AS_24hr, 1 image(s))" -> 1
+        _mm = re.search(r"(\d+)\s+image", _claimed)
+        _anchor = _bb.get("loio_out_of_sample_image") or _bb.get("loio_image")
+        if not _mm or not _anchor:
+            _skipped_kinds.append((_f, "no image count or no anchor in the recorded string"))
+            continue
+        # Reconstruct for THIS anchor. Prefer the bundle's own image list; fall back to the
+        # deployed bundle's, which is legitimate only because the anchor is the same image.
+        _rn, _ = held_out_scope(_bb)
+        if _rn is None:
+            _lanchor = _lb.get("loio_out_of_sample_image") or _lb.get("loio_image")
+            if _lanchor != _anchor:
+                _skipped_kinds.append((_f, f"anchor {_anchor} differs from the deployed "
+                                           f"bundle's {_lanchor}, so its image list cannot "
+                                           f"stand in"))
+                continue
+            _rn, _ = held_out_scope(_lb)
+        _agree.append((_f, _rn == int(_mm.group(1)), _claimed, _rn))
+    check("the reconstructed holdout width agrees with the bundle that recorded it",
+          bool(_agree) and all(ok for _, ok, _c, _n in _agree),
+          f"{len(_agree)} compared: {_agree}"
+          + (f"; skipped: {_skipped_kinds}" if _skipped_kinds else ""))
+
+    # And the numbers have to be LABELLED where they are printed, not only in a hover: a
+    # <select> has no reliable per-option tooltip, and the collapsed model card is the one
+    # row visible without a click.
+    _fe = open(os.path.join(CODE, "paint_frontend.py")).read()
+    check("the dropdown names which figure each number is",
+          "pooled grouped-CV" in _fe and "held out on 1 frame" in _fe,
+          "an unlabelled AUC in a <select> cannot be qualified by hovering")
+    check("the collapsed model line no longer shows a bare AUC",
+          "' pooled'" in _fe and "' 1-frame'" in _fe,
+          "the collapsed line is the only performance figure most users ever see")
+
     # ---------- 9. frontend wiring ----------
     print("\n[9] frontend")
     html = requests.get(BASE, timeout=30).text

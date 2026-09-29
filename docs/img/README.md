@@ -129,9 +129,28 @@ the crop, so it is unaffected by the zoom.
 
 ## model_card.png
 
-The sidebar model card, opened, showing the Performance rows the app now carries: held-out AUC,
-grouped-CV AUC with its spread, pixel f1, and a dash for the false-call rate that this corpus
-cannot support. Every row has a `title=` tooltip with the protocol behind it.
+The sidebar model card, opened, showing the Performance rows the app now carries:
+`held out, 1 frame`, `pooled CV, 45 img`, `grouped CV`, pixel f1, and a dash for the
+false-call rate that this corpus cannot support. Every row has a `title=` tooltip with the
+protocol behind it.
+
+The image count is on the pooled row and not on the benchmark row below it, which looks
+inconsistent and is deliberate. Labelling both `…, N img` is what a reader needs to see why
+two grouped-CV figures differ by 0.087, but the benchmark row's value
+(`AUC 0.801 ±0.044 · unverified`) already fills the 296 px sidebar: measured in the DOM, that
+row goes 19 px → 38 px for any label longer than `grouped CV`, and the first rebuild of this
+figure put `img` and `unverified` on lines of their own. The two are told apart by the pooled
+row's count, by the benchmark row's `· unverified` mark, and by its tooltip, which says the
+pooled row supersedes it and gives both corpus sizes.
+
+Each label names its own scope, and that is load-bearing rather than decorative. Before
+2026-09-28 the held-out row was labelled just `held out` with a tooltip reading "held out by
+specimen" — a hardcoded frontend default, since `loio_out_of_sample_holdout_kind` is `None` in
+every bundle `train_v3_weighted.py` writes. The one archived bundle that does record it says
+`leave-one-SPECIMEN-out (AS_24hr, 1 image(s))`: the specimen is a single frame, so the
+"by specimen" wording promised a breadth the holdout never had. The card also showed no pooled
+figure for the deployed model at all, so its 0.884 best case was the only live number on it
+while the 0.714 sat unread in the same bundle.
 
 The card is collapsed by default, so the URL fragment `#model` opens it on load purely so this
 screenshot is scriptable:

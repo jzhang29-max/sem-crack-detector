@@ -190,7 +190,7 @@ button:disabled{opacity:.4;cursor:default}
     <div class="sum" title="Show or hide the model details"><span id="modelSummary">model&hellip;</span><span class="caret">&#9656;</span></div>
     <div class="rows">
       <div class="k">Model</div>
-      <select id="mpick" title="Switch models. Roll back by picking an earlier one."></select>
+      <select id="mpick" title="Switch models. Roll back by picking an earlier one. Each row carries two out-of-sample AUCs for the same bundle: the pooled grouped-CV figure across the corpus, which is the one to quote, and the higher held-out figure, measured on a single left-out frame."></select>
       <div class="v" id="modelCard">loading&hellip;</div>
     </div>
   </div>
@@ -1421,13 +1421,84 @@ refreshModelInfo = async function () {
            ? ' This artifact predates model fingerprinting, so it cannot be confirmed to '
              + 'describe the deployed model. Re-run the experiment to stamp it.' : '');
       let perf = '';
-      if (m.held_out_auc != null)
-        perf += perfRow('held out', 'AUC ' + m.held_out_auc.toFixed(3),
-          (m.held_out_kind || 'held out by specimen') +
-          (m.held_out_image ? ', holding out ' + m.held_out_image : '') +
-          (m.in_sample_auc != null ? '. In-sample for reference ' +
-             m.in_sample_auc.toFixed(3) + '.' : '') +
-          ' This is the bar a retrain has to clear before it is deployed.');
+      // TWO OUT-OF-SAMPLE FIGURES, AND THE NARROW ONE MUST NOT READ AS THE ACCURACY.
+      // held_out_auc is 0.884 on the deployed model and pooled_auc is 0.714 -- the same
+      // model, measured two ways. The card showed only the first, the collapsed line showed
+      // it with no label at all, and the model dropdown showed it as "held-out AUC 0.884".
+      // So the number a user took for the model's accuracy was its best case.
+      //
+      // The scope now travels WITH the value rather than living only in a tooltip, because
+      // the sibling app proxies this page same-origin under /mark/ and shows no unqualified
+      // statistic; a figure whose caveat needs a hover is unqualified on screen.
+      if (m.held_out_auc != null) {
+        // Say what the holdout WAS, from the bundle's own words. This used to default to
+        // "held out by specimen", which no bundle the current trainer writes actually
+        // claims: holdout_kind is None in all of them. The one bundle that does record it
+        // says "leave-one-SPECIMEN-out (AS_24hr, 1 image(s))" -- so the specimen here is a
+        // single frame, and the specimen wording promised a breadth the holdout never had.
+        const hk = m.held_out_kind || m.held_out_scope || m.held_out_source || 'held out';
+        const hrows = m.held_out_n_rows != null
+          ? m.held_out_n_rows.toLocaleString() + ' regions' : null;
+        // The frame count is RECONSTRUCTED server-side by re-applying the trainer's own
+        // specimen rule, and comes back null when it cannot be. Null prints no count
+        // rather than assuming one -- a confident "1 frame" on a holdout nobody can size
+        // is the same defect as the unqualified 0.884 it replaced.
+        const hscope = m.held_out_n_images == null ? 'held out'
+          : (m.held_out_n_images === 1 ? 'held out, 1 frame'
+                                       : 'held out, ' + m.held_out_n_images + ' frames');
+        // The held-out frame is also the frame carrying almost all the not-crack labels,
+        // which is what makes this figure the best case rather than merely a narrow one.
+        // Read live from label_balance, and only when it is the SAME image.
+        const lb = i.label_balance || {};
+        const sameImg = m.held_out_image && lb.top_image === m.held_out_image
+                        && lb.top_image_share != null;
+        perf += perfRow(hscope,
+          'AUC ' + m.held_out_auc.toFixed(3),
+          hk + (m.held_out_image ? ', holding out ' + m.held_out_image : '') +
+          (hrows ? ' and scoring its ' + hrows : '') + '. ' +
+          (sameImg && m.held_out_n_images === 1
+             ? 'That one frame carries ' + Math.round(lb.top_image_share * 100) +
+             '% of the corpus’s not-crack labels, so this figure describes it more ' +
+             'than the corpus. ' : '') +
+          'It is the BEST CASE and only the first of the two bars a retrain must clear' +
+          (m.pooled_auc != null ? '; the pooled CV row below is the figure to quote'
+                                : '') + '.' +
+          (m.in_sample_auc != null ? ' In-sample for reference ' +
+             m.in_sample_auc.toFixed(3) + '.' : ''));
+      }
+      // The same bundle that holds the coefficients holds this, so unlike the two artifact
+      // rows it needs no fingerprint caveat: it describes the deployed model by construction.
+      // NAME THE CORPUS IN BOTH LABELS. This row and the artifact row below it are the same
+      // KIND of statistic -- StratifiedGroupKFold grouped by source image -- measured on two
+      // different corpora, and they differ by 0.087. Labelling both of them "grouped CV" put
+      // two unexplained AUCs side by side and made the reader hover to find out which was
+      // which. Each count is read from its own figure's source: m.n_images from the bundle,
+      // g.n_groups from the artifact.
+      //
+      // ONLY THE POOLED ROW CARRIES ITS COUNT, and that asymmetry is measured, not sloppy.
+      // Putting "24 img" on the artifact row too pushed it from 19 px to 38 px, because its
+      // value side ("AUC 0.801 +/-0.044 - unverified") already fills the row: at the 296 px
+      // sidebar width "grouped CV, 24 img", "grouped CV (24)" and "grouped CV, 24" all wrap
+      // identically, so no shorter spelling avoids it. The wrap broke "img" and "unverified"
+      // onto lines of their own, which read worse than the ambiguity it was fixing -- visible
+      // in the first rebuild of docs/img/model_card.png. The two rows are told apart instead
+      // by "pooled CV, 45 img" against a bare "grouped CV", by the artifact row's own
+      // "- unverified" mark, and by its tooltip, which now says the pooled row supersedes it
+      // and gives both corpus sizes.
+      if (m.pooled_auc != null)
+        perf += perfRow('pooled CV' + (m.n_images ? ', ' + m.n_images + ' img' : ''),
+          'AUC ' + m.pooled_auc.toFixed(3) +
+          (m.pooled_auc_std != null ? ' ±' + m.pooled_auc_std.toFixed(3) : ''),
+          '5 x StratifiedGroupKFold(5) grouped by source image over the ' +
+          (m.n_train ? m.n_train.toLocaleString() : 'all') + ' rows from ' +
+          (m.n_images || '?') + ' images this model was fitted on, read out of the deployed ' +
+          'bundle’s own cv_results. This answers "how will it do on a frame it has not ' +
+          'seen" across the whole corpus rather than on one held-out frame, it is the second ' +
+          'bar the retrain gate checks, and it is the number to quote.');
+      else if (m.pooled_auc_absent)
+        perf += perfRow('pooled CV', '—',
+          m.pooled_auc_absent + '. Read the held-out row above as one frame, not as this ' +
+          'model\u2019s accuracy.');
       if (g)
         perf += perfRow('grouped CV',
           'AUC ' + g.auc.toFixed(3) + ' \u00b1' + g.auc_sd.toFixed(3) +
@@ -1439,7 +1510,10 @@ refreshModelInfo = async function () {
           ', worst repeat ' + g.balacc_worst.toFixed(3) + '. Recall ' + g.recall.toFixed(3) +
           ', specificity ' + g.specificity.toFixed(3) + ', precision ' +
           g.precision.toFixed(3) + '. This answers "how will it do on an image it has not ' +
-          'seen"; it scores the region LABEL, not the boundary.' +
+          'seen"; it scores the region LABEL, not the boundary. The pooled CV row above is ' +
+          'the same protocol on the deployed model’s own training corpus and supersedes ' +
+          'this one: that run predates the relabelling pass and covers 243 regions from 24 ' +
+          'images against the deployed bundle’s 7,505 rows from 45.' +
           markTip(g.describes_this_model));
       if (pxm && pxm.f1 != null)
         perf += perfRow('pixel f1', pxm.f1.toFixed(3) + mark(pxm.describes_this_model),
@@ -1461,18 +1535,41 @@ refreshModelInfo = async function () {
       // number nobody sees.
       const _sum = document.getElementById('modelSummary');
       if (_sum) {
-        // "held-out AUC 0.885" spelled out wrapped this line to two in a 296 px sidebar,
-        // which is most of what collapsing the card was meant to save. The number stays; the
-        // word moves to the tooltip.
+        // A NOTE HERE USED TO SAY the spelled-out "held-out AUC 0.885" wrapped this line to
+        // two in a 296 px sidebar, so the word had to move to the tooltip and only the bare
+        // number could stay. Measured again in the DOM at that same width, where the flex
+        // row leaves the text 254 px: the SHORT form
+        // "LogisticRegression - thr 0.554 - AUC 0.884 - no SAM" is 274 px and was already
+        // wrapping to two lines (34 px against a 17 px line box). So the budget that
+        // justified dropping the label never existed, and dropping it bought nothing. The
+        // labelled form below is 311 px and renders at the same 34 px.
+        //
+        // WHICH number stays is the point. This line showed a bare "AUC 0.884" -- the
+        // single-held-out-frame figure, with nothing saying so, on the one row of the card
+        // that is visible without a click. That is the model's best case reading as its
+        // accuracy. It now shows the pooled grouped-CV figure, which is what this project's
+        // own retrain gate calls "the number to quote", and it carries the word "pooled" so
+        // the bare number cannot be read as something broader than it is. Both figures are
+        // still in the expanded card, each on its own labelled row.
+        const _headline = m.pooled_auc != null
+          ? ' \u00b7 AUC ' + m.pooled_auc.toFixed(3) + ' pooled'
+          : (m.held_out_auc != null
+             ? ' \u00b7 AUC ' + m.held_out_auc.toFixed(3) + ' 1-frame' : '');
         _sum.textContent = m.family + ' \u00b7 thr ' + Number(m.threshold).toFixed(3)
-                           + (m.held_out_auc != null
-                              ? ' \u00b7 AUC ' + m.held_out_auc.toFixed(3) : '')
-                           + ' \u00b7 no SAM';
-        _sum.title = (m.held_out_auc != null
-          ? 'AUC ' + m.held_out_auc.toFixed(3) + ' is held out by specimen'
-            + (m.held_out_image ? ' (' + m.held_out_image + ' left out)' : '')
-            + ' -- the bar a retrain must clear. Click for the full breakdown.'
-          : 'Click for the full model breakdown.');
+                           + _headline + ' \u00b7 no SAM';
+        const _tipParts = [];
+        if (m.pooled_auc != null)
+          _tipParts.push('AUC ' + m.pooled_auc.toFixed(3) +
+            (m.pooled_auc_std != null ? ' \u00b1' + m.pooled_auc_std.toFixed(3) : '') +
+            ' is pooled grouped-CV, grouped by source image across the whole corpus -- the ' +
+            'figure to quote.');
+        if (m.held_out_auc != null)
+          _tipParts.push('The held-out figure is higher at ' + m.held_out_auc.toFixed(3) +
+            ', but it is ' + (m.held_out_kind || m.held_out_scope || 'a single held-out ' +
+            'frame') + (m.held_out_image ? ' (' + m.held_out_image + ' left out)' : '') +
+            ' -- the best case, and the first of the two bars a retrain must clear.');
+        _tipParts.push('Click for the full breakdown.');
+        _sum.title = _tipParts.join(' ');
       }
   } catch (e) { }
 };
@@ -1557,12 +1654,36 @@ async function refreshModelPicker() {
     const r = await (await fetch('/api/models')).json();
     const sel = document.getElementById('mpick');
     sel.innerHTML = '';
+    // WHAT EACH ROW'S SCORE IS, IN THE ROW. This list is where a user chooses between
+    // models, so its label is read as each model's accuracy -- and it used to carry only
+    // "held-out AUC 0.884", the single-held-out-frame figure. The pooled grouped-CV figure
+    // for the SAME bundle, sitting in the same cv_results dict, is 0.714. Showing the
+    // higher one alone invited exactly the reading the retrain gate exists to prevent, and
+    // the sibling app that proxies this page same-origin under /mark/ shows no unqualified
+    // statistic anywhere -- this was one.
+    //
+    // A <select> gives no reliable per-option tooltip and the closed control truncates, so
+    // the pooled figure goes FIRST (it is the one to quote) and every number is named where
+    // it is printed rather than in a hover that may never happen.
+    const scoreLabel = (m) => {
+      const bits = [];
+      if (m.pooled_auc != null)
+        bits.push('AUC ' + m.pooled_auc.toFixed(3) + ' pooled grouped-CV');
+      if (m.held_out_auc != null)
+        bits.push(m.held_out_auc.toFixed(3) +
+          (m.held_out_n_images === 1 ? ' held out on 1 frame' : ' held out'));
+      // Say when there is no pooled figure, rather than letting the single-frame number
+      // stand alone and unqualified again -- which is what the pre-baseline bundles, the
+      // ones with the weakest provenance, would otherwise do.
+      if (m.pooled_auc == null && m.held_out_auc != null) bits.push('no pooled figure');
+      return bits.length ? '  · ' + bits.join(' / ') : '';
+    };
     for (const m of (r.models || [])) {
       const o = document.createElement('option');
       o.value = m.file;
-      const auc = m.held_out_auc != null ? '  held-out AUC ' + m.held_out_auc : '';
       o.textContent = (m.is_current ? '● ' : '   ') + m.file.replace('crack_classifier', 'model')
-                      + '  · thr ' + (m.threshold != null ? m.threshold.toFixed(3) : '?') + auc;
+                      + '  · thr ' + (m.threshold != null ? m.threshold.toFixed(3) : '?')
+                      + scoreLabel(m);
       if (m.is_current) o.selected = true;
       sel.appendChild(o);
     }

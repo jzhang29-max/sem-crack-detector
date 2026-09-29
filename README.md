@@ -264,9 +264,18 @@ multiply by the microscope's own value.
 ## Managing models
 
 The sidebar's model card, expanded, shows what is live — type, threshold, how many reviewed
-regions it was trained on, and its held-out AUC. The dropdown switches models,
-which is how you **roll back** a retrain you did not want; the model being
-replaced is backed up first. **Advanced → Re-apply model** re-renders every image
+regions it was trained on, and **two** out-of-sample AUCs: the pooled grouped-CV figure and
+the higher single-held-out-frame figure, each labelled with what it is. The dropdown switches
+models, which is how you **roll back** a retrain you did not want; the model being
+replaced is backed up first. Every row in that dropdown carries both figures too, for the
+same reason the gate checks both — see below.
+
+> **The dropdown used to show one number, and it was the flattering one.** Each row read
+> `held-out AUC 0.884`, the single-held-out-frame figure, with no pooled figure beside it, so
+> the number a user compared models on was each model's best case. Both figures had been
+> sitting in the same `cv_results` dict in each bundle the whole time; the list simply read
+> one of them. The gap is not cosmetic: `model_PREV-20260825-145338` scores **0.842 held out
+> on one frame and 0.391 pooled** — below chance — and the old label showed only the 0.842. **Advanced → Re-apply model** re-renders every image
 with whichever model is selected.
 
 **What Retrain costs.** Timed end to end on a 36 GB machine against the shipped 62-image
@@ -350,12 +359,21 @@ kind of README misleads.
 > `sam2_hybrid.py`, then the two `build_figures.py` commands in `docs/img/README.md`.
 
 **These numbers are in the app, not just here.** The sidebar model card carries a Performance
-block — held-out AUC, grouped-CV AUC with its spread, pixel f1, and a dash where the false-call
+block — the single-held-out-frame AUC, the deployed bundle's own pooled grouped-CV AUC with its
+spread, the older benchmark run's grouped-CV AUC, pixel f1, and a dash where the false-call
 rate would go — each row with a tooltip giving the protocol behind it. The collapsed line shows
-the held-out AUC on its own, because a performance number only visible after a click is one
-nobody sees.
+the **pooled** figure, labelled `pooled`, because a performance number only visible after a
+click is one nobody sees — and the one that used to sit there was a bare `AUC 0.884`, the
+best case, with nothing saying so.
 
-![The app sidebar model card, opened, listing held-out AUC 0.885, grouped CV AUC 0.801, pixel f1 0.638 and a dash for false calls](docs/img/model_card.png)
+Each row names its own scope: `held out, 1 frame` · `pooled CV, 45 img` · `grouped CV`. The
+last two are the same protocol on different corpora and differ by 0.087, which is why only the
+middle one carries its image count and no `· unverified` mark — it is read out of the deployed
+bundle, the same file as the coefficients, while the 24-image benchmark run predates the
+relabelling pass. (The count is on one row and not the other for a measured reason: adding it
+to both wrapped the benchmark row onto two lines. See `docs/img/README.md`.)
+
+![The app sidebar model card, opened, listing held out on 1 frame AUC 0.884, pooled CV over 45 images AUC 0.714, the older 24-image grouped CV AUC 0.801, pixel f1 0.638 and a dash for false calls](docs/img/model_card.png)
 
 ![Six model families under 5x StratifiedGroupKFold grouped by source image, accuracy and AUC with error bars](docs/img/benchmark/model_comparison_bars.png)
 
@@ -1057,11 +1075,16 @@ PORT=8799 ./run &
 BASE=http://127.0.0.1:8799 ./.venv/bin/python3 interior_active_learning/code/test_app.py
 ```
 
-396 checks covering upload, detection, exports, correction precedence, region
-isolation, threshold plumbing, the retrain gate, autosave, undo, first-render
-routing, physical-unit calibration, calibration *uncertainty*, instrument metadata,
-right-censoring, the specimen as statistical unit, the batch CLI and its refusals,
-cross-image aggregation, and train/serve parity.
+405 checks covering upload, detection, exports, correction precedence, region
+isolation, threshold plumbing, the retrain gate, *both* AUC bars reaching the model list,
+autosave, undo, first-render routing, physical-unit calibration, calibration *uncertainty*,
+instrument metadata, right-censoring, the specimen as statistical unit, the batch CLI and its
+refusals, cross-image aggregation, and train/serve parity.
+
+Measured, not counted by hand: a full local run on 2026-09-28 against this working tree
+reported **405 passed, 0 failed, 0 skipped, 405 total**, and the hand-labelled masks under
+`interior_active_learning/paint/` were md5-identical afterwards (51 files, 0 differences; the
+154 `original/*.tif` likewise).
 
 On a **fresh clone** you will see fewer, with **three** reported as SKIP: overlays,
 per-image measurement CSVs and the retrain candidate bundle are derived artifacts and are not
