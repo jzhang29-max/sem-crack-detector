@@ -7,7 +7,7 @@ recomputed, so it can be stale relative to the current model, and a folder that 
 142 through the same suppressed-correction path makes every file in the folder the same kind
 of object, which is the only way the comparison means anything.
 """
-import os, sys, json, glob
+import io, os, sys, json, glob
 import numpy as np
 from multiprocessing import Pool
 from PIL import Image
@@ -49,8 +49,17 @@ def one(name):
 
 
 if __name__ == "__main__":
-    E = os.path.expanduser("~/Desktop/_Outputs/MAR_crack_identifications/masks_bw")
-    names = sorted(os.path.splitext(os.path.basename(p))[0] for p in glob.glob(f"{E}/*.png"))
+    # The frame list used to be globbed from ~/Desktop/_Outputs/.../masks_bw. All 142 of
+    # those names are present as original/*.tif, so the list is taken from the repository
+    # instead: an external directory that has been deleted globs to [], and this script
+    # would then print "0 frames, 0 to run" and exit 0 rather than fail.
+    # Globbing original/*.tif is NOT the same population: it returns 154 names including
+    # the app's test fixtures, and running on those writes masks that were never part of
+    # this arm. The 142 names are therefore snapshotted beside this script.
+    LIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "machine_only_frames.txt")
+    names = [n for n in io.open(LIST, encoding="utf-8").read().split() if n]
+    if len(names) != 142:
+        raise SystemExit(f"{LIST}: expected 142 frames, found {len(names)}")
     # seed from the run already done
     for p in glob.glob(os.path.join(DERIVED, "machine_masks_partial", "*_machine.png")):
         d = os.path.join(OUT, os.path.basename(p))

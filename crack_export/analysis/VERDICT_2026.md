@@ -153,7 +153,7 @@ immediately outside the crack is detector-dependent:
 | brighter in ETD than CBS: **51/51 pairs, 7/7 cells, p = 0.0156** |
 
 Averaged crack-normal profiles show it directly (figure:
-`~/Desktop/_Outputs/MAR_crack_identifications/figures/detector_mechanism_crack_profile.png`,
+`crack_export/analysis/figures/detector_mechanism_crack_profile.png`,
 median over 51 field pairs, narrow cracks only, IQR shaded, matrix at zero): BSE reaches a
 trough of **-7.54** noise units with a flat surround peaking at only +0.29, while SE reaches
 **-5.32** and rises into a lip peaking at **+0.95** on the flanks. Shallower trough, brighter
