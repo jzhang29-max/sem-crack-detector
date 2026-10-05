@@ -1,5 +1,18 @@
 # SEM Crack Detector
 
+> ## Archived — read-only
+>
+> This repository is no longer developed. The maintained project is
+> **[crack-fractography](https://github.com/jzhang29-max/crack-fractography)**, which is
+> standalone: it needs no checkout of this repository to install, run or measure.
+>
+> This repository stays public as the **source of record**. It holds the SEM detection and labelling pipeline, the raw frames and the
+> hand-painted correction masks, the fitted model bundles, and the analysis artifacts
+> the paper cites — including the n = 44 expanded benchmark under
+> `crack_export/analysis/sam3/`.
+> Every path cited into it from the paper still resolves, and the contents are unchanged by
+> archiving — only new commits, issues and pull requests are closed off.
+
 > **Before relying on this:** read [docs/COMPETITIVE_POSITION.md](docs/COMPETITIVE_POSITION.md). It states plainly what
 > this tool does better than ilastik, Fiji, micro-sam, CVAT and the commercial suites
 > (calibration that refuses, unreviewed-aware metrics, a gated retrain, per-CSV
