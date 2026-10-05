@@ -430,3 +430,40 @@ def save_correction_mask(image_name, mask):
 
 def list_original_images():
     return list_original_names()
+
+
+def held_out_scope(bundle):
+    """How narrow is a bundle's held-out AUC? Returns (n_images, how) or (None, why).
+
+    EXISTS BECAUSE THE UI WAS GUESSING. The model card described `loio_out_of_sample`
+    as "held out by specimen" from a hardcoded default, since
+    `loio_out_of_sample_holdout_kind` is None in every bundle train_v3_weighted.py
+    writes -- only code/establish_baseline.py records it. The one bundle that does
+    carry it reads "leave-one-SPECIMEN-out (AS_24hr, 1 image(s))": the specimen for
+    this corpus's held-out frame contains exactly ONE image, so the specimen wording
+    promised a breadth the holdout never had, and 0.884 read as the model's accuracy.
+
+    The count is RECONSTRUCTED, not recorded. The bundle stores a single anchor name in
+    `loio_out_of_sample_image` plus a row count, never the list of images held out, so
+    this re-applies the trainer's own rule (aggregate.specimen_key over the bundle's own
+    `images` list) to recover it. Reconstruction can disagree with what the trainer did
+    if specimen_key's parsing has changed since, which is why the failure modes return
+    None and a reason instead of defaulting to 1: a confident "1 frame" on a holdout
+    nobody can size is the same defect in the other direction.
+    """
+    anchor = bundle.get("loio_out_of_sample_image") or bundle.get("loio_image")
+    if not anchor:
+        return None, "the bundle records no held-out image"
+    imgs = bundle.get("images") or []
+    if not imgs:
+        return None, "the bundle records no image list to size the holdout against"
+    try:
+        from aggregate import specimen_key
+    except Exception:
+        return None, "specimen_key is unavailable, so the holdout cannot be sized"
+    sk = specimen_key(anchor)
+    if sk is None:
+        # Matches held_out_images(): an unparsable anchor falls back to the single frame.
+        return 1, f"leave-one-image-out ({anchor}; specimen unidentifiable from the filename)"
+    sibs = sorted(set(n for n in imgs if specimen_key(n) == sk) | {anchor})
+    return len(sibs), f"leave-one-specimen-out ({sk}, {len(sibs)} image(s))"

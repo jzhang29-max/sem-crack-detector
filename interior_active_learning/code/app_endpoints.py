@@ -33,7 +33,8 @@ import numpy as np
 from PIL import Image
 from flask import jsonify, request
 
-from common import ORIGINAL_DIR, PAINT_DIR, PROJECT_ROOT, PROD_MODEL_PATH, VERSION
+from common import (ORIGINAL_DIR, PAINT_DIR, PROJECT_ROOT, PROD_MODEL_PATH, VERSION,
+                    held_out_scope)
 
 # Serialises upload name reservation; see _ingest_upload.
 _UPLOAD_LOCK = threading.Lock()
@@ -634,9 +635,37 @@ def register(app, get_stage, invalidate_stage=None):
                 if isinstance(_v, (int, float)):
                     info["model"][_dst] = round(float(_v), 4)
             for _src, _dst in (("loio_out_of_sample_image", "held_out_image"),
-                               ("loio_out_of_sample_holdout_kind", "held_out_kind")):
+                               ("loio_out_of_sample_holdout_kind", "held_out_kind"),
+                               ("loio_out_of_sample_source", "held_out_source")):
                 if b.get(_src):
                     info["model"][_dst] = str(b[_src])
+            if isinstance(b.get("loio_out_of_sample_n_rows"), (int, float)):
+                info["model"]["held_out_n_rows"] = int(b["loio_out_of_sample_n_rows"])
+            if info["model"].get("held_out_auc") is not None:
+                _hn, _hhow = held_out_scope(b)
+                info["model"]["held_out_n_images"] = _hn
+                info["model"]["held_out_scope"] = _hhow
+            # THE SECOND BAR, FROM THE DEPLOYED BUNDLE ITSELF.
+            #
+            # held_out_auc above is 0.8840 on this model, measured on one held-out frame.
+            # The card's existing "grouped CV" row is 0.801 from benchmark_results.json --
+            # a superseded 243-region / 24-image run that the fingerprint check already
+            # flags "unverified", and that the README records as overstating this model by
+            # 0.087. So the card showed the model's best-case figure as its only live
+            # number, beside a grouped-CV figure measured on a different model.
+            #
+            # The deployed bundle carries its own pooled grouped-CV over the 7,505 rows it
+            # was actually fitted on. It needs no fingerprint caveat: it came out of the
+            # same file as the coefficients, so it describes this model by construction.
+            _cv = (b.get("cv_results") or {}).get(b.get("model_family") or "", {}) or {}
+            if _cv.get("pooled_auc") is not None:
+                info["model"]["pooled_auc"] = round(float(_cv["pooled_auc"]), 4)
+                if _cv.get("pooled_auc_std") is not None:
+                    info["model"]["pooled_auc_std"] = round(float(_cv["pooled_auc_std"]), 4)
+            elif info["model"].get("held_out_auc") is not None:
+                info["model"]["pooled_auc_absent"] = (
+                    "this bundle records no cv_results[model_family].pooled_auc, so the "
+                    "single-held-out-image figure is the only score it has")
             info["performance"] = _perf_summary()
             
             import sklearn
